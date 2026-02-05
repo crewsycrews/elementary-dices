@@ -6,21 +6,23 @@
   "scripts": {
     "dev": "bun run --watch index.ts",
     "build": "tsc",
-    "db:migrate": "knex migrate:latest --knexfile ./knexfile.ts",
-    "db:migrate:make": "knex migrate:make --knexfile ./knexfile.ts",
-    "db:migrate:rollback": "knex migrate:rollback --knexfile ./knexfile.ts",
-    "db:seed": "knex seed:run --knexfile ./knexfile.ts",
-    "db:seed:make": "knex seed:make --knexfile ./knexfile.ts"
+    "db:migrate": "tsx node_modules/.bin/knex migrate:latest --knexfile ./knexfile.ts",
+    "db:migrate:make": "tsx node_modules/.bin/knex migrate:make --knexfile ./knexfile.ts",
+    "db:migrate:rollback": "tsx node_modules/.bin/knex migrate:rollback --knexfile ./knexfile.ts",
+    "db:seed": "tsx node_modules/.bin/knex seed:run --knexfile ./knexfile.ts",
+    "db:seed:make": "tsx node_modules/.bin/knex seed:make --knexfile ./knexfile.ts"
   },
   "dependencies": {
     "@elementary-dices/shared": "workspace:*",
     "elysia": "latest",
     "knex": "^3.1.0",
     "pg": "^8.18.0",
-    "@elysiajs/cors": "latest"
+    "@elysiajs/cors": "latest",
+    "dotenv": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
+    "tsx": "^4.21.0",
     "typescript": "latest"
   }
 }

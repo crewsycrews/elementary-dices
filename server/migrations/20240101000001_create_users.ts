@@ -1,8 +1,9 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  // Enable UUID extension for UUID generation
+  // Enable required extensions
   await knex.raw('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"');
+  await knex.raw('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
 
   // Create custom UUIDv7 function for PostgreSQL < 17
   // This generates time-ordered UUIDs compatible with UUIDv7 spec
