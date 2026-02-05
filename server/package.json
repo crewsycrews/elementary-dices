@@ -1,0 +1,26 @@
+{
+  "name": "@elementary-dices/server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.ts",
+  "scripts": {
+    "dev": "bun run --watch index.ts",
+    "build": "tsc",
+    "db:migrate": "knex migrate:latest --knexfile ./knexfile.ts",
+    "db:migrate:make": "knex migrate:make --knexfile ./knexfile.ts",
+    "db:migrate:rollback": "knex migrate:rollback --knexfile ./knexfile.ts",
+    "db:seed": "knex seed:run --knexfile ./knexfile.ts",
+    "db:seed:make": "knex seed:make --knexfile ./knexfile.ts"
+  },
+  "dependencies": {
+    "@elementary-dices/shared": "workspace:*",
+    "elysia": "latest",
+    "knex": "^3.1.0",
+    "pg": "^8.18.0",
+    "@elysiajs/cors": "latest"
+  },
+  "devDependencies": {
+    "bun-types": "latest",
+    "typescript": "latest"
+  }
+}

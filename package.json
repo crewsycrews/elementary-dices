@@ -1,15 +1,17 @@
 {
-  "name": "backend",
-  "version": "1.0.50",
+  "name": "elementary-dices",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server",
+    "shared"
+  ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "bun run --watch src/index.ts"
-  },
-  "dependencies": {
-    "elysia": "latest"
-  },
-  "devDependencies": {
-    "bun-types": "latest"
-  },
-  "module": "src/index.js"
+    "dev": "bun dev:server & bun dev:client",
+    "dev:server": "bun --filter @elementary-dices/server dev",
+    "dev:client": "bun --filter @elementary-dices/client dev",
+    "build": "bun --filter ./... run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
 }
