@@ -8,6 +8,36 @@
 - **Database**: PostgreSQL with Knex migrations
 - **Architecture**: Monorepo workspace structure (client, server, shared)
 
+## Game Design Document
+
+This section contains the original game design concepts and mechanics for Elementary Dices:
+
+1. There is a set of creatures you can obtain. The set is finite, the quantity is not large, due to point 3. ✅
+2. At the start, you roll a 1d5 die to get your first mob. ✅
+3. By combining creatures - they evolve (maximum 3 levels) ✅
+4. ~~Besides evolutions, add tribes (and elements?) like in any autobattler~~ - too complex. Phase 2.
+5. Maximum active creatures: 5. ✅
+6. Need a backpack for those not in the active pack. Maximum slots: 10? 20? ✅
+7. The main work is to prepare a bunch of data with all the little monsters
+8. Shop and money
+9. Lots of dice rolls. The main visual-dynamic feature of the game. Rolls can be built into battles, for mob drops, for upcoming events
+10. 5 different types of dice from which the player chooses when rolling: d4, d6, d10, d12, d20. Dice are dropped/purchasable items. To balance the chances, all dice effectively lead to 4 different outcomes: Critical success, success, failure, critical failure. Dice can have different properties that allow for better success chances under certain conditions (rolls for a specific element as an example).
+11. Dice uniqueness by rarity: green, blue, purple, gold. Each tier gives more stats than the previous.
+12. Events:
+    - Battle with wild mob - 50%
+    - Battle with another player - 30%
+    - Merchant - 20%
+13. Battles - purely probability calculation based on your mobs' stats. Visualization is not as important. Can even be text output.
+14. Wild mobs - mobs that can be caught with a lucky dice roll + using an item.
+15. Other players - arena where the player earns money.
+16. Penalty for failures - dice roll, if fail - your elemental downgrades one "level", but cannot fall below base elemental level.
+17. At merchants:
+    - Dice of different types giving random bonuses to certain elements
+    - Consumable items for catching elementals
+18. Economy - cheap consumable items and expensive dice.
+19. Combining elementals: separate UI for combination, similar to a ritual. Need to place elementals on circles. There are always 3 circles. The player should not know which combinations exist until they discover them, but small hints are possible.
+20. Meta win-condition - collect them all?
+
 ## Tech Stack
 
 - **Runtime**: Bun
