@@ -105,7 +105,7 @@ export class UserRepository {
 
     const [diceStats] = await db('player_dice')
       .where({ player_id: userId })
-      .sum('quantity as total_dice');
+      .count('* as total_dice');
 
     const [itemStats] = await db('player_inventory')
       .where({ player_id: userId })

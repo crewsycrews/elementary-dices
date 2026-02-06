@@ -1,0 +1,207 @@
+<template>
+  <div class="dice-roller flex flex-col items-center gap-4">
+    <!-- Dice Display -->
+    <div class="relative">
+      <div
+        class="dice w-24 h-24 rounded-lg flex items-center justify-center text-4xl font-bold shadow-lg cursor-pointer"
+        :class="[
+          diceColorClass,
+          { 'rolling': isRolling }
+        ]"
+        @click="roll"
+      >
+        {{ displayValue }}
+      </div>
+
+      <!-- Rolling Animation Overlay -->
+      <div v-if="isRolling" class="absolute inset-0 flex items-center justify-center">
+        <div class="animate-spin text-2xl">🎲</div>
+      </div>
+    </div>
+
+    <!-- Dice Info -->
+    <div class="text-center space-y-1">
+      <div class="font-bold text-lg">{{ diceName }}</div>
+      <div class="text-sm text-muted-foreground">{{ diceNotation }}</div>
+      <div v-if="rarity" class="text-xs px-2 py-1 rounded inline-block" :class="rarityBadgeClass">
+        {{ rarity }}
+      </div>
+    </div>
+
+    <!-- Outcome Display -->
+    <div v-if="lastOutcome" class="text-center">
+      <div
+        class="outcome-badge px-4 py-2 rounded-lg font-bold animate-pulse"
+        :class="outcomeBadgeClass"
+      >
+        {{ outcomeText }}
+      </div>
+    </div>
+
+    <!-- Modifiers Display -->
+    <div v-if="modifiers && Object.keys(modifiers).length > 0" class="text-xs space-y-1">
+      <div v-if="modifiers.element_bonus" class="text-green-600">
+        Element Bonus: +{{ modifiers.element_bonus }}
+      </div>
+      <div v-if="modifiers.item_bonus" class="text-blue-600">
+        Item Bonus: +{{ modifiers.item_bonus }}
+      </div>
+      <div v-if="modifiers.total_bonus" class="font-bold">
+        Total Bonus: +{{ modifiers.total_bonus }}
+      </div>
+    </div>
+
+    <!-- Roll Button -->
+    <button
+      v-if="!autoRoll"
+      @click="roll"
+      :disabled="isRolling || disabled"
+      class="px-6 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+    >
+      {{ isRolling ? 'Rolling...' : 'Roll Dice' }}
+    </button>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import type { DiceTypeSchema, DiceRollOutcome } from '@elementary-dices/shared/schemas';
+import { useDiceRoll } from '@/composables/useDiceRoll';
+
+interface Props {
+  diceType: typeof DiceTypeSchema.static;
+  autoRoll?: boolean; // Automatically roll on mount
+  disabled?: boolean;
+  elementTypes?: string[]; // For element affinity bonus calculation
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  autoRoll: false,
+  disabled: false,
+});
+
+const emit = defineEmits<{
+  roll: [result: { value: number; outcome: typeof DiceRollOutcome.static; modifiers?: any }];
+}>();
+
+const { rollDice, isRolling } = useDiceRoll();
+
+const displayValue = ref<string>('?');
+const lastRollValue = ref<number | null>(null);
+const lastOutcome = ref<typeof DiceRollOutcome.static | null>(null);
+const modifiers = ref<any>(null);
+
+const diceName = computed(() => props.diceType.name);
+const diceNotation = computed(() => props.diceType.dice_notation);
+const rarity = computed(() => props.diceType.rarity);
+
+// Dice color based on rarity
+const diceColorClass = computed(() => {
+  const colors: Record<string, string> = {
+    green: 'bg-green-500 text-white',
+    blue: 'bg-blue-500 text-white',
+    purple: 'bg-purple-500 text-white',
+    gold: 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white',
+  };
+  return colors[props.diceType.rarity] || 'bg-gray-500 text-white';
+});
+
+// Rarity badge styling
+const rarityBadgeClass = computed(() => {
+  const colors: Record<string, string> = {
+    green: 'bg-green-500/20 text-green-700',
+    blue: 'bg-blue-500/20 text-blue-700',
+    purple: 'bg-purple-500/20 text-purple-700',
+    gold: 'bg-yellow-500/20 text-yellow-700',
+  };
+  return colors[props.diceType.rarity] || 'bg-gray-500/20 text-gray-700';
+});
+
+// Outcome badge styling
+const outcomeBadgeClass = computed(() => {
+  const colors: Record<string, string> = {
+    crit_success: 'bg-green-600 text-white',
+    success: 'bg-blue-600 text-white',
+    fail: 'bg-orange-600 text-white',
+    crit_fail: 'bg-red-600 text-white',
+  };
+  return lastOutcome.value ? colors[lastOutcome.value] : '';
+});
+
+// Outcome text
+const outcomeText = computed(() => {
+  const text: Record<string, string> = {
+    crit_success: '🌟 Critical Success!',
+    success: '✓ Success',
+    fail: '✗ Failure',
+    crit_fail: '💀 Critical Failure!',
+  };
+  return lastOutcome.value ? text[lastOutcome.value] : '';
+});
+
+// Roll the dice
+const roll = async () => {
+  if (isRolling.value || props.disabled) return;
+
+  const result = await rollDice(props.diceType, props.elementTypes);
+
+  lastRollValue.value = result.value;
+  lastOutcome.value = result.outcome;
+  modifiers.value = result.modifiers;
+  displayValue.value = result.value.toString();
+
+  emit('roll', result);
+};
+
+// Auto-roll on mount if enabled
+if (props.autoRoll) {
+  roll();
+}
+</script>
+
+<style scoped>
+.dice {
+  transition: transform 0.1s ease;
+}
+
+.dice:hover:not(.rolling) {
+  transform: scale(1.05);
+}
+
+.dice.rolling {
+  animation: roll 0.5s ease-in-out;
+}
+
+@keyframes roll {
+  0%, 100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(90deg) scale(1.1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.2);
+  }
+  75% {
+    transform: rotate(270deg) scale(1.1);
+  }
+}
+
+.outcome-badge {
+  animation: bounce-in 0.5s ease-out;
+}
+
+@keyframes bounce-in {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+</style>

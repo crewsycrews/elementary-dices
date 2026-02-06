@@ -76,6 +76,7 @@ export const PlayerDiceResponseDTO = t.Object({
   id: t.String(),
   player_id: t.String(),
   dice_type_id: t.String(),
+  dice_notation: t.String(),
   is_equipped: t.Boolean(),
   dice_type: t.Optional(DiceTypeResponseDTO),
 });
@@ -83,10 +84,12 @@ export const PlayerDiceResponseDTO = t.Object({
 export const AddPlayerDiceDTO = t.Object({
   dice_type_id: t.String(),
   is_equipped: t.Optional(t.Boolean()),
+  dice_notation: t.Optional(t.String()),
 });
 
 export const UpdatePlayerDiceDTO = t.Object({
-  is_equipped: t.Boolean(),
+  is_equipped: t.Optional(t.Boolean()),
+  dice_notation: t.Optional(t.String()),
 });
 
 // Query filters

@@ -66,16 +66,24 @@ export class DiceService {
     return this.repository.findEquippedDice(playerId);
   }
 
-  async addPlayerDice(playerId: string, data: AddPlayerDiceData): Promise<PlayerDice> {
-    // Verify dice type exists
-    await this.findDiceTypeById(data.dice_type_id);
+  async findAllEquippedDice(playerId: string): Promise<PlayerDice[]> {
+    return this.repository.findAllEquippedDice(playerId);
+  }
 
-    // If equipping this dice, unequip all others first
+  async addPlayerDice(playerId: string, data: AddPlayerDiceData): Promise<PlayerDice> {
+    // Verify dice type exists and get notation
+    const diceType = await this.findDiceTypeById(data.dice_type_id);
+
+    // If equipping this dice, unequip the old one of same notation
     if (data.is_equipped) {
-      await this.repository.unequipAllPlayerDice(playerId);
+      await this.repository.unequipDiceByNotation(playerId, diceType.dice_notation);
     }
 
-    return this.repository.addPlayerDice(playerId, data);
+    // Add with dice_notation populated
+    return this.repository.addPlayerDice(playerId, {
+      ...data,
+      dice_notation: diceType.dice_notation,
+    });
   }
 
   async equipDice(id: string, playerId: string): Promise<PlayerDice> {
@@ -85,11 +93,18 @@ export class DiceService {
       throw new BadRequestError('This dice does not belong to the player');
     }
 
-    // Unequip all other dice
-    await this.repository.unequipAllPlayerDice(playerId);
+    // Get dice type to find notation
+    const diceType = await this.findDiceTypeById(playerDice.dice_type_id);
+    const notation = diceType.dice_notation;
 
-    // Equip this dice
-    const updated = await this.repository.updatePlayerDice(id, { is_equipped: true });
+    // Unequip only dice of the SAME notation
+    await this.repository.unequipDiceByNotation(playerId, notation);
+
+    // Equip the new dice with notation field
+    const updated = await this.repository.updatePlayerDice(id, {
+      is_equipped: true,
+      dice_notation: notation,
+    });
     if (!updated) {
       throw new NotFoundError('Player dice');
     }

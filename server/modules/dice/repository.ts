@@ -157,13 +157,81 @@ export class DiceRepository {
     return playerDice || null;
   }
 
-  async addPlayerDice(playerId: string, data: AddPlayerDiceData): Promise<PlayerDice> {
+  async findAllEquippedDice(playerId: string): Promise<PlayerDice[]> {
+    return db(this.playerDiceTable)
+      .where({ player_id: playerId, is_equipped: true })
+      .leftJoin(
+        this.diceTypesTable,
+        `${this.playerDiceTable}.dice_type_id`,
+        `${this.diceTypesTable}.id`
+      )
+      .select(
+        `${this.playerDiceTable}.*`,
+        db.raw(`
+          json_build_object(
+            'id', ${this.diceTypesTable}.id,
+            'dice_notation', ${this.diceTypesTable}.dice_notation,
+            'rarity', ${this.diceTypesTable}.rarity,
+            'name', ${this.diceTypesTable}.name,
+            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
+            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'price', ${this.diceTypesTable}.price,
+            'description', ${this.diceTypesTable}.description
+          ) as dice_type
+        `)
+      )
+      .orderBy(`${this.playerDiceTable}.dice_notation`, 'asc');
+  }
+
+  async findEquippedDiceByNotation(
+    playerId: string,
+    notation: string
+  ): Promise<PlayerDice | null> {
     const [playerDice] = await db(this.playerDiceTable)
-      .insert({
+      .where({
         player_id: playerId,
-        dice_type_id: data.dice_type_id,
-        is_equipped: data.is_equipped || false,
+        dice_notation: notation,
+        is_equipped: true,
       })
+      .leftJoin(
+        this.diceTypesTable,
+        `${this.playerDiceTable}.dice_type_id`,
+        `${this.diceTypesTable}.id`
+      )
+      .select(
+        `${this.playerDiceTable}.*`,
+        db.raw(`
+          json_build_object(
+            'id', ${this.diceTypesTable}.id,
+            'dice_notation', ${this.diceTypesTable}.dice_notation,
+            'rarity', ${this.diceTypesTable}.rarity,
+            'name', ${this.diceTypesTable}.name,
+            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
+            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'price', ${this.diceTypesTable}.price,
+            'description', ${this.diceTypesTable}.description
+          ) as dice_type
+        `)
+      )
+      .limit(1);
+
+    return playerDice || null;
+  }
+
+  async addPlayerDice(playerId: string, data: AddPlayerDiceData): Promise<PlayerDice> {
+    const insertData: any = {
+      player_id: playerId,
+      dice_type_id: data.dice_type_id,
+      is_equipped: data.is_equipped || false,
+    };
+
+    // Add dice_notation if provided
+    if (data.dice_notation) {
+      insertData.dice_notation = data.dice_notation;
+    }
+
+    const [playerDice] = await db(this.playerDiceTable)
+      .insert(insertData)
       .returning('*');
 
     return this.findPlayerDiceById(playerDice.id) as Promise<PlayerDice>;
@@ -186,6 +254,16 @@ export class DiceRepository {
       .update({ is_equipped: false });
   }
 
+  async unequipDiceByNotation(playerId: string, notation: string): Promise<void> {
+    await db(this.playerDiceTable)
+      .where({
+        player_id: playerId,
+        dice_notation: notation,
+        is_equipped: true,
+      })
+      .update({ is_equipped: false });
+  }
+
   async deletePlayerDice(id: string): Promise<boolean> {
     const deleted = await db(this.playerDiceTable).where({ id }).delete();
     return deleted > 0;
@@ -196,5 +274,27 @@ export class DiceRepository {
       .where({ player_id: playerId })
       .count('* as count');
     return Number(count);
+  }
+
+  async addMultiplePlayerDice(
+    playerId: string,
+    diceData: Array<{ dice_type_id: string; is_equipped?: boolean; dice_notation?: string }>
+  ): Promise<void> {
+    const records = diceData.map((data) => {
+      const record: any = {
+        player_id: playerId,
+        dice_type_id: data.dice_type_id,
+        is_equipped: data.is_equipped || false,
+      };
+
+      // Add dice_notation if provided
+      if (data.dice_notation) {
+        record.dice_notation = data.dice_notation;
+      }
+
+      return record;
+    });
+
+    await db(this.playerDiceTable).insert(records);
   }
 }

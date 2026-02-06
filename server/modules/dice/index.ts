@@ -99,11 +99,24 @@ export const diceModule = new Elysia({ prefix: '/api/dice' })
       }),
     }
   )
-  // Get equipped dice for a player
+  // Get equipped dice for a player (returns first equipped dice)
   .get(
     '/players/:playerId/equipped',
     async ({ params, diceService }) => {
       const dice = await diceService.findEquippedDice(params.playerId);
+      return { dice };
+    },
+    {
+      params: t.Object({
+        playerId: t.String(),
+      }),
+    }
+  )
+  // Get all equipped dice for a player (returns array of 5 dice)
+  .get(
+    '/players/:playerId/equipped/all',
+    async ({ params, diceService }) => {
+      const dice = await diceService.findAllEquippedDice(params.playerId);
       return { dice };
     },
     {

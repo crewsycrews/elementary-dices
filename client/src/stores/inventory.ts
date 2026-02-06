@@ -56,6 +56,7 @@ type PlayerDice = {
   id: string
   player_id: string
   dice_type_id: string
+  dice_notation: string
   is_equipped: boolean
   dice_type?: DiceType
 }
@@ -69,8 +70,14 @@ export const useInventoryStore = defineStore('inventory', () => {
 
   // Computed
   const equippedDice = computed(() =>
-    playerDice.value.find(d => d.is_equipped)
+    playerDice.value.filter(d => d.is_equipped)
   )
+
+  const getEquippedDiceByNotation = (notation: string) => {
+    return playerDice.value.find(
+      d => d.is_equipped && d.dice_type?.dice_notation === notation
+    )
+  }
 
   const captureItems = computed(() =>
     playerItems.value.filter(i => i.item?.item_type === 'capture')
@@ -228,10 +235,23 @@ export const useInventoryStore = defineStore('inventory', () => {
     const { api, apiCall } = useApi()
 
     try {
-      // Unequip current dice first
-      if (equippedDice.value && equippedDice.value.id !== playerDiceId) {
+      // Find the dice to equip
+      const diceToEquip = playerDice.value.find(d => d.id === playerDiceId)
+      if (!diceToEquip || !diceToEquip.dice_type) {
+        throw new Error('Dice not found')
+      }
+
+      const notation = diceToEquip.dice_type.dice_notation
+
+      // Find currently equipped dice of the same notation
+      const currentEquipped = playerDice.value.find(
+        d => d.is_equipped && d.dice_type?.dice_notation === notation && d.id !== playerDiceId
+      )
+
+      // Unequip the old dice of same notation (if exists)
+      if (currentEquipped) {
         await apiCall(
-          api.api.dice.players[playerId][equippedDice.value.id].unequip.patch(),
+          api.api.dice.players[playerId][currentEquipped.id].unequip.patch(),
           { silent: true }
         )
       }
@@ -261,6 +281,8 @@ export const useInventoryStore = defineStore('inventory', () => {
     captureItems,
     consumableItems,
     buffItems,
+    // Helpers
+    getEquippedDiceByNotation,
     // Actions
     fetchPlayerItems,
     fetchShopItems,

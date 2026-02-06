@@ -1,9 +1,13 @@
 import { UserRepository } from './repository';
+import { DiceRepository } from '../dice/repository';
 import { NotFoundError, ConflictError, BadRequestError } from '../../shared/errors';
 import type { CreateUserData, UpdateUserData, User, UserProfile, UpdateCurrencyData } from './models';
 
 export class UserService {
-  constructor(private repository = new UserRepository()) {}
+  constructor(
+    private repository = new UserRepository(),
+    private diceRepository = new DiceRepository()
+  ) {}
 
   async findAll(): Promise<User[]> {
     return this.repository.findAll();
@@ -52,10 +56,15 @@ export class UserService {
     // For now, we'll use a simple hash placeholder
     const password_hash = await this.hashPassword(data.password);
 
-    return this.repository.create({
+    const user = await this.repository.create({
       ...data,
       password_hash,
     });
+
+    // Populate player's inventory with 5 dice of each type (green rarity)
+    await this.giveStarterDice(user.id);
+
+    return user;
   }
 
   async update(id: string, data: UpdateUserData): Promise<User> {
@@ -134,5 +143,29 @@ export class UserService {
     // This is a placeholder - use proper hashing in production
     // For now, just prefix with 'hashed_' for demonstration
     return `hashed_${password}`;
+  }
+
+  // Give new players 5 dice (one per notation - d4, d6, d10, d12, d20)
+  private async giveStarterDice(playerId: string): Promise<void> {
+    // Get all green (starter) dice types
+    const starterDiceTypes = await this.diceRepository.findDiceTypesByRarity('green');
+
+    // Get ONE dice per notation (5 total)
+    const diceByNotation = new Map<string, typeof starterDiceTypes[0]>();
+    for (const diceType of starterDiceTypes) {
+      if (!diceByNotation.has(diceType.dice_notation)) {
+        diceByNotation.set(diceType.dice_notation, diceType);
+      }
+    }
+
+    // Create 5 dice, all equipped
+    const diceToAdd = Array.from(diceByNotation.values()).map((diceType) => ({
+      dice_type_id: diceType.id,
+      dice_notation: diceType.dice_notation,
+      is_equipped: true,
+    }));
+
+    // Batch insert all starter dice at once
+    await this.diceRepository.addMultiplePlayerDice(playerId, diceToAdd);
   }
 }
