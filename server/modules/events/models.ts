@@ -53,9 +53,75 @@ export const PvPDataDTO = t.Object({
   potential_reward: t.Number(),
 });
 
+// Event Resolution DTOs
+
+// Wild Encounter Resolution
+export const ResolveWildEncounterDTO = t.Object({
+  player_id: t.String(),
+  dice_roll_id: t.String(), // ID of the dice roll performed
+  item_id: t.Optional(t.String()), // Optional consumable item for capture bonus
+});
+
+export const WildEncounterResultDTO = t.Object({
+  success: t.Boolean(),
+  message: t.String(),
+  elemental_caught: t.Optional(t.Object({
+    id: t.String(),
+    name: t.String(),
+    level: t.Number(),
+  })),
+  can_continue: t.Boolean(), // Whether player can roll for next event
+});
+
+// PvP Battle Resolution
+export const ResolvePvPBattleDTO = t.Object({
+  player_id: t.String(),
+  dice_roll_id: t.String(), // ID of the dice roll performed
+});
+
+export const PvPBattleResultDTO = t.Object({
+  victory: t.Boolean(),
+  message: t.String(),
+  player_power: t.Number(),
+  opponent_power: t.Number(),
+  reward: t.Optional(t.Number()),
+  penalty: t.Optional(t.Object({
+    downgraded_elemental: t.Optional(t.String()),
+  })),
+  can_continue: t.Boolean(),
+});
+
+// Wild Encounter Skip
+export const SkipWildEncounterDTO = t.Object({
+  player_id: t.String(),
+});
+
+export const SkipWildEncounterResultDTO = t.Object({
+  message: t.String(),
+  can_continue: t.Boolean(),
+});
+
+// Merchant Leave
+export const LeaveMerchantDTO = t.Object({
+  player_id: t.String(),
+});
+
+export const LeaveMerchantResultDTO = t.Object({
+  message: t.String(),
+  can_continue: t.Boolean(),
+});
+
 // Extract TypeScript types
 export type EventResponse = typeof EventResponseDTO.static;
 export type TriggerEventData = typeof TriggerEventDTO.static;
 export type WildEncounterData = typeof WildEncounterDataDTO.static;
 export type MerchantData = typeof MerchantDataDTO.static;
 export type PvPData = typeof PvPDataDTO.static;
+export type ResolveWildEncounterData = typeof ResolveWildEncounterDTO.static;
+export type WildEncounterResult = typeof WildEncounterResultDTO.static;
+export type ResolvePvPBattleData = typeof ResolvePvPBattleDTO.static;
+export type PvPBattleResult = typeof PvPBattleResultDTO.static;
+export type SkipWildEncounterData = typeof SkipWildEncounterDTO.static;
+export type SkipWildEncounterResult = typeof SkipWildEncounterResultDTO.static;
+export type LeaveMerchantData = typeof LeaveMerchantDTO.static;
+export type LeaveMerchantResult = typeof LeaveMerchantResultDTO.static;
