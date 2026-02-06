@@ -1,36 +1,13 @@
-// ES style import from Excalibur
-import { Actor, Color, Engine, Scene } from "excalibur";
-import { api } from "@elementary-dices/shared/api";
+import { createApp } from 'vue'
+import App from './App.vue'
+import router from './router'
+import pinia from './stores'
 
-const game = new Engine({
-  width: 800,
-  height: 600,
-});
-api.api
-  .get()
-  .then((response) => {
-    console.log("API Response:", response);
-  })
-  .catch((error) => {
-    console.error("API Error:", error);
-    throw error;
-  });
-// Create a simple scene
-const scene = new Scene();
+const app = createApp(App)
 
-// Add a simple rectangle actor as a test
-const actor = new Actor({
-  x: 400,
-  y: 300,
-  width: 50,
-  height: 50,
-  color: Color.Blue,
-});
+app.use(pinia)
+app.use(router)
 
-scene.add(actor);
-game.addScene("main", scene);
-game.goToScene("main");
+app.mount('#app')
 
-game.start();
-
-console.log("🎮 Elementary Dices game started!");
+console.log('🎮 Elementary Dices - Vue 3 app started!')
