@@ -4,6 +4,7 @@ import {
   CreateUserDTO,
   UpdateUserDTO,
   UpdateCurrencyDTO,
+  LoginDTO,
 } from './models';
 
 export const usersModule = new Elysia({ prefix: '/api/users' })
@@ -37,6 +38,17 @@ export const usersModule = new Elysia({ prefix: '/api/users' })
       params: t.Object({
         username: t.String(),
       }),
+    }
+  )
+  // Login endpoint
+  .post(
+    '/login',
+    async ({ body, userService }) => {
+      const user = await userService.login(body);
+      return { user };
+    },
+    {
+      body: LoginDTO,
     }
   )
   // Create new user

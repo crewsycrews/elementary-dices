@@ -1,7 +1,11 @@
 import { t } from 'elysia';
+import {
+  EncounterType,
+  type EncounterTypeValue,
+} from '@elementary-dices/shared';
 
-// Event types
-export type EventType = 'wild_encounter' | 'pvp_battle' | 'merchant';
+// Event types (alias for EncounterType)
+export type EventType = EncounterTypeValue;
 
 // Event probabilities (as per game design)
 export const EVENT_PROBABILITIES = {

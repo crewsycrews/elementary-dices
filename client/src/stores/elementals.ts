@@ -1,40 +1,22 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
+import { playerApi } from '@/composables/useApiHelpers'
 
-// Types based on backend schemas
-type BaseStats = {
-  health: number
-  attack: number
-  defense: number
-  speed: number
-}
-
-type Elemental = {
-  id: string
-  name: string
-  level: number
-  element_types: string[]
-  base_stats: BaseStats
-  description: string
-  image_url?: string
-  is_base_elemental: boolean
-}
-
-type PlayerElemental = {
-  id: string
-  player_id: string
-  elemental_id: string
-  elemental: Elemental
-  current_stats: BaseStats
-  is_in_active_party: boolean
-  party_position: number | null
-}
+// Import types from shared package (no duplication!)
+import type {
+  Elemental,
+  PlayerElementalWithDetails,
+  BaseStats,
+  ApiElementalsResponse,
+  ApiPlayerElementalsResponse,
+  ApiElementalResponse,
+} from '@elementary-dices/shared'
 
 export const useElementalsStore = defineStore('elementals', () => {
   // State
   const allElementals = ref<Elemental[]>([])
-  const playerElementals = ref<PlayerElemental[]>([])
+  const playerElementals = ref<PlayerElementalWithDetails[]>([])
 
   // Computed
   const activeParty = computed(() =>
@@ -57,12 +39,12 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        api.api.elementals.get({ $query: filters! }),
+        api.api.elementals.get({ $query: filters }),
         { silent: true }
       )
 
       if (response.data) {
-        allElementals.value = response.data.elementals as Elemental[]
+        allElementals.value = response.data.elementals
       }
     } catch (error) {
       console.error('Failed to fetch elementals:', error)
@@ -80,7 +62,7 @@ export const useElementalsStore = defineStore('elementals', () => {
       )
 
       if (response.data) {
-        allElementals.value = response.data.elementals as Elemental[]
+        allElementals.value = response.data.elementals
       }
     } catch (error) {
       console.error('Failed to fetch base elementals:', error)
@@ -88,36 +70,47 @@ export const useElementalsStore = defineStore('elementals', () => {
     }
   }
 
-  // TODO: Backend endpoint needs to be implemented
-  // Expected: GET /api/users/:playerId/elementals or similar
   async function fetchPlayerElementals(playerId: string) {
-    // Placeholder - backend endpoint not yet implemented
-    console.warn('fetchPlayerElementals: Backend endpoint not yet implemented')
+    const { apiCall } = useApi()
 
-    // When implemented, should be something like:
-    // const { api, apiCall } = useApi()
-    // const response = await apiCall(
-    //   api.api.users[playerId].elementals.get()
-    // )
-    // playerElementals.value = response.data.elementals
+    try {
+      const response = await apiCall(
+        playerApi.getElementals(playerId),
+        { silent: true }
+      )
+
+      if (response.data) {
+        playerElementals.value = response.data.elementals
+      }
+    } catch (error) {
+      console.error('Failed to fetch player elementals:', error)
+      throw error
+    }
   }
 
-  // TODO: Backend endpoint needs to be implemented
-  // Expected: PATCH /api/users/:playerId/elementals/:elementalId
   async function updatePlayerElemental(
+    playerId: string,
     elementalId: string,
-    updates: { is_in_active_party?: boolean; party_position?: number }
+    updates: { is_in_active_party?: boolean; party_position?: number | null; current_stats?: BaseStats }
   ) {
-    // Placeholder - backend endpoint not yet implemented
-    console.warn('updatePlayerElemental: Backend endpoint not yet implemented')
+    const { apiCall } = useApi()
 
-    // Optimistic update for now
-    const index = playerElementals.value.findIndex(e => e.id === elementalId)
-    if (index !== -1) {
-      playerElementals.value[index] = {
-        ...playerElementals.value[index],
-        ...updates,
+    try {
+      const response = await apiCall(
+        playerApi.updateElemental(playerId, elementalId, updates),
+        { silent: true }
+      )
+
+      if (response.data) {
+        // Update local state
+        const index = playerElementals.value.findIndex(e => e.id === elementalId)
+        if (index !== -1) {
+          playerElementals.value[index] = response.data.elemental
+        }
       }
+    } catch (error) {
+      console.error('Failed to update player elemental:', error)
+      throw error
     }
   }
 
@@ -131,7 +124,7 @@ export const useElementalsStore = defineStore('elementals', () => {
       )
 
       if (response.data) {
-        return response.data.elemental as Elemental
+        return response.data.elemental
       }
       return null
     } catch (error) {

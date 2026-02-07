@@ -34,6 +34,16 @@ export class UserRepository {
     return user || null;
   }
 
+  async findByUsernameWithPassword(
+    username: string
+  ): Promise<(User & { password_hash: string }) | null> {
+    const [user] = await db(this.table)
+      .select('id', 'username', 'email', 'currency', 'updated_at', 'password_hash')
+      .where({ username })
+      .limit(1);
+    return user || null;
+  }
+
   async create(data: CreateUserData & { password_hash: string }): Promise<User> {
     const [user] = await db(this.table)
       .insert({

@@ -11,6 +11,7 @@ import { itemsModule } from "./modules/items";
 import { diceRollsModule } from "./modules/dice-rolls";
 import { eventsModule } from "./modules/events";
 import { evolutionModule } from "./modules/evolution";
+import { playerElementalsModule } from "./modules/player-elementals";
 
 export const app = new Elysia()
   .use(cors())
@@ -110,6 +111,7 @@ export const app = new Elysia()
   // Register all feature modules
   .use(elementalsModule)
   .use(usersModule)
+  .use(playerElementalsModule)
   .use(diceModule)
   .use(itemsModule)
   .use(diceRollsModule)
@@ -130,6 +132,7 @@ console.log(
 console.log("\n📦 Registered modules:");
 console.log("  - Elementals (CRUD)");
 console.log("  - Users (CRUD + profiles)");
+console.log("  - Player Elementals (Collection management + Onboarding)");
 console.log("  - Dice (Types + Player inventory)");
 console.log("  - Items (CRUD + Player inventory)");
 console.log("  - Dice Rolls (Core game mechanics)");

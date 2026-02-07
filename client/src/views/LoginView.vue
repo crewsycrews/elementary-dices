@@ -183,21 +183,11 @@ const handleSubmit = async () => {
 
       uiStore.showToast('Account created successfully! Welcome! 🎉', 'success');
     } else {
-      // Login - for now, just create/fetch user by username
-      // In production, this would validate against backend
-      try {
-        // Try to find existing user by username (simplified auth)
-        // In production, you'd have a proper login endpoint
-        await userStore.createUser({
-          username: form.value.username,
-          email: `${form.value.username}@demo.com`, // Temporary for demo
-          password: form.value.password,
-        });
-      } catch (error) {
-        // If user creation fails, might already exist
-        // This is simplified - production would have proper login endpoint
-        throw error;
-      }
+      // Login - call proper login endpoint
+      await userStore.loginUser({
+        username: form.value.username,
+        password: form.value.password,
+      });
 
       uiStore.showToast('Welcome back! 🎮', 'success');
     }

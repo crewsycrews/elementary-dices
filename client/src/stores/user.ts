@@ -2,15 +2,10 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 
-// Import types from shared (they'll be exported via Eden Treaty)
-type User = {
-  id: string;
-  username: string;
-  email: string;
-  currency: number;
-  updated_at: string;
-};
+// Import types from shared package
+import type { User, ApiUserResponse } from '@elementary-dices/shared'
 
+// Extended user profile type with stats (client-side)
 type UserProfile = User & {
   stats: {
     total_elementals: number;
@@ -44,7 +39,7 @@ export const useUserStore = defineStore(
         });
 
         if (response.data) {
-          const user = response.data.user as UserProfile;
+          const user = response.data.user as UserProfile; // Keep cast for stats field
           userId.value = user.id;
           username.value = user.username;
           email.value = user.email;
@@ -70,7 +65,7 @@ export const useUserStore = defineStore(
         });
 
         if (response.data) {
-          const user = response.data.user as User;
+          const user = response.data.user;
           userId.value = user.id;
           username.value = user.username;
           email.value = user.email;
@@ -79,6 +74,28 @@ export const useUserStore = defineStore(
         }
       } catch (error) {
         console.error("Failed to create user:", error);
+        throw error;
+      }
+    }
+
+    async function loginUser(data: { username: string; password: string }) {
+      const { api, apiCall } = useApi();
+
+      try {
+        const response = await apiCall(api.api.users.login.post(data), {
+          successMessage: "Login successful!",
+        });
+
+        if (response.data) {
+          const user = response.data.user;
+          userId.value = user.id;
+          username.value = user.username;
+          email.value = user.email;
+          currency.value = user.currency;
+          return response.data.user;
+        }
+      } catch (error) {
+        console.error("Failed to login:", error);
         throw error;
       }
     }
@@ -98,7 +115,7 @@ export const useUserStore = defineStore(
         );
 
         if (response.data) {
-          const user = response.data.user as User;
+          const user = response.data.user;
           currency.value = user.currency;
         }
       } catch (error) {
@@ -127,6 +144,7 @@ export const useUserStore = defineStore(
       // Actions
       fetchUser,
       createUser,
+      loginUser,
       updateCurrency,
       logout,
     };

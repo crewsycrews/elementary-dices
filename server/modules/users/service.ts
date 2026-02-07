@@ -1,7 +1,7 @@
 import { UserRepository } from './repository';
 import { DiceRepository } from '../dice/repository';
-import { NotFoundError, ConflictError, BadRequestError } from '../../shared/errors';
-import type { CreateUserData, UpdateUserData, User, UserProfile, UpdateCurrencyData } from './models';
+import { NotFoundError, ConflictError, BadRequestError, UnauthorizedError } from '../../shared/errors';
+import type { CreateUserData, UpdateUserData, User, UserProfile, UpdateCurrencyData, LoginData } from './models';
 
 export class UserService {
   constructor(
@@ -26,6 +26,28 @@ export class UserService {
     if (!user) {
       throw new NotFoundError('User');
     }
+    return user;
+  }
+
+  async login(data: LoginData): Promise<User> {
+    // Find user with password hash
+    const userWithPassword = await this.repository.findByUsernameWithPassword(
+      data.username
+    );
+
+    if (!userWithPassword) {
+      throw new UnauthorizedError('Invalid username or password');
+    }
+
+    // Validate password using same hashing method
+    const expectedHash = await this.hashPassword(data.password);
+
+    if (userWithPassword.password_hash !== expectedHash) {
+      throw new UnauthorizedError('Invalid username or password');
+    }
+
+    // Return user without password_hash
+    const { password_hash, ...user } = userWithPassword;
     return user;
   }
 

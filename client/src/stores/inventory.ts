@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
+import type { DiceRollResult } from '@elementary-dices/shared'
 
 // Types based on backend schemas
 type ItemEffect = {
@@ -56,7 +57,6 @@ type PlayerDice = {
   id: string
   player_id: string
   dice_type_id: string
-  dice_notation: string
   is_equipped: boolean
   dice_type?: DiceType
 }
@@ -67,6 +67,13 @@ export const useInventoryStore = defineStore('inventory', () => {
   const playerDice = ref<PlayerDice[]>([])
   const shopItems = ref<Item[]>([])
   const shopDice = ref<DiceType[]>([])
+  const lastRollsByDiceType = ref<Record<string, DiceRollResult | null>>({
+    d4: null,
+    d6: null,
+    d10: null,
+    d12: null,
+    d20: null,
+  })
 
   // Computed
   const equippedDice = computed(() =>
@@ -90,6 +97,15 @@ export const useInventoryStore = defineStore('inventory', () => {
   const buffItems = computed(() =>
     playerItems.value.filter(i => i.item?.item_type === 'buff')
   )
+
+  // Last roll tracking
+  const getLastRollForType = (diceType: string) => {
+    return lastRollsByDiceType.value[diceType] || null
+  }
+
+  const updateLastRoll = (diceType: string, result: DiceRollResult) => {
+    lastRollsByDiceType.value[diceType] = result
+  }
 
   // Actions - Items
   async function fetchPlayerItems(playerId: string) {
@@ -115,7 +131,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     try {
       const response = await apiCall(
-        api.api.items.get({ query: filters }),
+        api.api.items.get({ $query: filters }),
         { silent: true }
       )
 
@@ -201,7 +217,7 @@ export const useInventoryStore = defineStore('inventory', () => {
 
     try {
       const response = await apiCall(
-        api.api.dice.types.get({ query: filters }),
+        api.api.dice.types.get({ $query: filters }),
         { silent: true }
       )
 
@@ -276,6 +292,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     playerDice,
     shopItems,
     shopDice,
+    lastRollsByDiceType,
     // Computed
     equippedDice,
     captureItems,
@@ -283,6 +300,7 @@ export const useInventoryStore = defineStore('inventory', () => {
     buffItems,
     // Helpers
     getEquippedDiceByNotation,
+    getLastRollForType,
     // Actions
     fetchPlayerItems,
     fetchShopItems,
@@ -292,5 +310,6 @@ export const useInventoryStore = defineStore('inventory', () => {
     fetchShopDice,
     purchaseDice,
     equipDice,
+    updateLastRoll,
   }
 })

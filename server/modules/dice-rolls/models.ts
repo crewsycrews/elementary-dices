@@ -1,64 +1,65 @@
 import { t } from 'elysia';
+import {
+  DiceRollSchema,
+  CreateDiceRollSchema,
+  DiceRollOutcome,
+  DiceRollContext,
+  type DiceRoll,
+  type DiceRollOutcomeValue,
+  type DiceRollContextValue,
+} from '@elementary-dices/shared';
 
-// Outcome types
-export type DiceRollOutcome = 'crit_success' | 'success' | 'fail' | 'crit_fail';
-export type DiceRollContext = 'capture_attempt' | 'combat' | 'penalty_roll' | 'event_trigger' | 'initial_roll';
+// Re-export shared schemas for use in routes
+export const DiceRollResponseDTO = DiceRollSchema;
 
-// Modifiers interface
-export interface RollModifiers {
-  element_bonus?: number;
-  item_bonus?: number;
-  total_bonus?: number;
-}
-
-// Dice Roll DTOs
-export const DiceRollResponseDTO = t.Object({
-  id: t.String(),
-  battle_id: t.Optional(t.String()),
-  player_id: t.String(),
-  dice_type_id: t.String(),
-  roll_value: t.Number(),
-  outcome: t.String(),
-  context: t.String(),
-  modifiers: t.Optional(t.Any()),
-});
-
+// Module-specific DTOs for performing rolls
 export const PerformRollDTO = t.Object({
-  player_id: t.String(),
-  dice_type_id: t.Optional(t.String()), // If not provided, use equipped dice
-  context: t.Union([
-    t.Literal('capture_attempt'),
-    t.Literal('combat'),
-    t.Literal('penalty_roll'),
-    t.Literal('event_trigger'),
-    t.Literal('initial_roll'),
-  ]),
-  battle_id: t.Optional(t.String()),
+  player_id: t.String({ format: 'uuid' }),
+  dice_type_id: t.Optional(t.String({ format: 'uuid' })), // If not provided, use equipped dice
+  context: DiceRollContext,
+  battle_id: t.Optional(t.String({ format: 'uuid' })),
   element_affinity: t.Optional(t.String()), // For element bonus calculation
-  item_bonus: t.Optional(t.Number()),
+  item_bonus: t.Optional(t.Integer()),
 });
 
 // Roll Result (includes both the roll record and computed outcome details)
 export const RollResultDTO = t.Object({
-  roll: DiceRollResponseDTO,
+  roll: DiceRollSchema,
   details: t.Object({
     dice_notation: t.String(),
     dice_name: t.String(),
-    max_value: t.Number(),
-    raw_roll: t.Number(),
-    modifiers: t.Any(),
-    final_value: t.Number(),
-    outcome: t.String(),
+    max_value: t.Integer(),
+    raw_roll: t.Integer(),
+    modifiers: t.Optional(
+      t.Object({
+        element_bonus: t.Optional(t.Integer()),
+        item_bonus: t.Optional(t.Integer()),
+        total_bonus: t.Optional(t.Integer()),
+      })
+    ),
+    final_value: t.Integer(),
+    outcome: DiceRollOutcome,
     threshold_used: t.Object({
-      crit_success_range: t.Tuple([t.Number(), t.Number()]),
-      success_range: t.Tuple([t.Number(), t.Number()]),
-      fail_range: t.Tuple([t.Number(), t.Number()]),
-      crit_fail_range: t.Tuple([t.Number(), t.Number()]),
+      crit_success_range: t.Tuple([t.Integer(), t.Integer()]),
+      success_range: t.Tuple([t.Integer(), t.Integer()]),
+      fail_range: t.Tuple([t.Integer(), t.Integer()]),
+      crit_fail_range: t.Tuple([t.Integer(), t.Integer()]),
     }),
   }),
 });
 
 // Extract TypeScript types
-export type DiceRoll = typeof DiceRollResponseDTO.static;
+export type { DiceRoll, DiceRollOutcomeValue, DiceRollContextValue };
 export type PerformRollData = typeof PerformRollDTO.static;
 export type RollResult = typeof RollResultDTO.static;
+
+// Modifiers type extracted from DiceRoll schema
+export type RollModifiers = {
+  element_bonus?: number;
+  item_bonus?: number;
+  total_bonus?: number;
+};
+
+// Type aliases for backward compatibility
+export type DiceRollOutcome = DiceRollOutcomeValue;
+export type DiceRollContext = DiceRollContextValue;
