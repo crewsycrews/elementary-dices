@@ -1,4 +1,4 @@
-import { Elysia, t } from 'elysia';
+import { Elysia } from 'elysia';
 import { EventService } from './service';
 import {
   TriggerEventDTO,
@@ -10,6 +10,14 @@ import {
 
 export const eventsModule = new Elysia({ prefix: '/api/events' })
   .decorate('eventService', new EventService())
+  // Get current active event for a player
+  .get(
+    '/current/:playerId',
+    async ({ params, eventService }) => {
+      const event = await eventService.getCurrentEvent(params.playerId);
+      return { event };
+    }
+  )
   // Trigger a random event for a player
   .post(
     '/trigger',

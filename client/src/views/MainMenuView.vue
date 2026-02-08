@@ -73,11 +73,6 @@
         <MainMenuButton
           title="Dices"
           icon="🎲"
-          :subtitle="
-            inventoryStore.equippedDice
-              ? `${inventoryStore.equippedDice.dice_type} equipped`
-              : 'No dice equipped'
-          "
           :badge="inventoryStore.playerDice.length"
           icon-color="text-purple-500"
           @click="navigateTo('dices')"
@@ -102,7 +97,7 @@ import { useEventStore } from '@/stores/event'
 import MainMenuButton from '@/components/game/MainMenuButton.vue'
 import CentralDiceDisplay from '@/components/game/CentralDiceDisplay.vue'
 import StartGameModal from '@/components/onboarding/StartGameModal.vue'
-import type { DiceRollResult } from '@elementary-dices/shared'
+import type { DiceRoll } from '@elementary-dices/shared'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -117,7 +112,7 @@ const isRolling = ref(false)
 // Last roll state - get from inventory store or show most recent roll
 const lastRoll = computed(() => {
   // Find the most recent roll from all dice types
-  const rolls = Object.values(inventoryStore.lastRollsByDiceType).filter(Boolean) as DiceRollResult[]
+  const rolls = Object.values(inventoryStore.lastRollsByDiceType).filter(Boolean)
   return rolls.length > 0 ? rolls[rolls.length - 1] : null
 })
 
@@ -141,11 +136,19 @@ const getEventTypeLabel = (type: string) => {
   return labels[type] || type
 }
 
+// Get route for event type
+const getEventRoute = () => {
+  if (eventStore.isWildEncounter) return '/wild-encounter'
+  if (eventStore.isPvPBattle) return '/battle'
+  if (eventStore.isMerchant) return '/merchant'
+  return '/event' // fallback
+}
+
 // Handle event click
 const handleEventClick = async () => {
   if (eventStore.isEventActive) {
-    // Continue existing event
-    router.push('/event')
+    // Continue existing event - route to specific event view
+    router.push(getEventRoute())
   } else {
     // Check if player has active party
     if (elementalsStore.activeParty.length === 0) {
@@ -162,7 +165,7 @@ const handleEventClick = async () => {
       // Simulate dice roll for visual effect
       setTimeout(() => {
         isRolling.value = false
-        router.push('/event')
+        router.push(getEventRoute())
       }, 1000)
     } catch (error) {
       console.error('Failed to trigger event:', error)

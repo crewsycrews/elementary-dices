@@ -1,9 +1,10 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
+import { useEventStore } from "./event";
 
 // Import types from shared package
-import type { User, ApiUserResponse } from '@elementary-dices/shared'
+import type { User } from '@elementary-dices/shared'
 
 // Extended user profile type with stats (client-side)
 type UserProfile = User & {
@@ -45,6 +46,10 @@ export const useUserStore = defineStore(
           email.value = user.email;
           currency.value = user.currency;
           stats.value = user.stats;
+
+          // Initialize event state from server when fetching user
+          const eventStore = useEventStore();
+          await eventStore.initializeEventState(user.id);
         }
       } catch (error) {
         console.error("Failed to fetch user:", error);
@@ -92,6 +97,11 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency;
+
+          // Initialize event state from server after login
+          const eventStore = useEventStore();
+          await eventStore.initializeEventState(user.id);
+
           return response.data.user;
         }
       } catch (error) {
@@ -130,6 +140,10 @@ export const useUserStore = defineStore(
       email.value = "";
       currency.value = 0;
       stats.value = null;
+
+      // Clear event state on logout
+      const eventStore = useEventStore();
+      eventStore.clearEvent();
     }
 
     return {

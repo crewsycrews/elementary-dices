@@ -1,288 +1,298 @@
-import { defineStore } from 'pinia'
-import { ref, computed } from 'vue'
-import { useApi } from '@/composables/useApi'
-import type { DiceRollResult } from '@elementary-dices/shared'
+import { defineStore } from "pinia";
+import { ref, computed } from "vue";
+import { useApi } from "@/composables/useApi";
+import type { DiceRoll } from "@elementary-dices/shared";
 
 // Types based on backend schemas
 type ItemEffect = {
-  capture_bonus?: number
+  capture_bonus?: number;
   stat_modifier?: {
-    health?: number
-    attack?: number
-    defense?: number
-    speed?: number
-  }
-  duration?: number
-}
+    health?: number;
+    attack?: number;
+    defense?: number;
+    speed?: number;
+  };
+  duration?: number;
+};
 
 type Item = {
-  id: string
-  name: string
-  item_type: 'capture' | 'consumable' | 'buff'
-  effect: ItemEffect
-  price: number
-  rarity: 'common' | 'rare' | 'epic' | 'legendary'
-  description: string
-  is_consumable: boolean
-}
+  id: string;
+  name: string;
+  item_type: "capture" | "consumable" | "buff";
+  effect: ItemEffect;
+  price: number;
+  rarity: "common" | "rare" | "epic" | "legendary";
+  description: string;
+  is_consumable: boolean;
+};
 
 type PlayerInventoryItem = {
-  id: string
-  player_id: string
-  item_id: string
-  quantity: number
-  item?: Item
-}
+  id: string;
+  player_id: string;
+  item_id: string;
+  quantity: number;
+  item?: Item;
+};
 
 type DiceType = {
-  id: string
-  dice_notation: 'd4' | 'd6' | 'd10' | 'd12' | 'd20'
-  rarity: 'green' | 'blue' | 'purple' | 'gold'
-  name: string
+  id: string;
+  dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
+  rarity: "green" | "blue" | "purple" | "gold";
+  name: string;
   stat_bonuses: {
-    bonus_multiplier: number
-    element_affinity?: string
-  }
+    bonus_multiplier: number;
+    element_affinity?: string;
+  };
   outcome_thresholds: {
-    crit_success_range: [number, number]
-    success_range: [number, number]
-    fail_range: [number, number]
-    crit_fail_range: [number, number]
-  }
-  price: number
-  description: string
-}
+    crit_success_range: [number, number];
+    success_range: [number, number];
+    fail_range: [number, number];
+    crit_fail_range: [number, number];
+  };
+  price: number;
+  description: string;
+};
 
 type PlayerDice = {
-  id: string
-  player_id: string
-  dice_type_id: string
-  is_equipped: boolean
-  dice_type?: DiceType
-}
+  id: string;
+  player_id: string;
+  dice_type_id: string;
+  is_equipped: boolean;
+  dice_type?: DiceType;
+};
 
-export const useInventoryStore = defineStore('inventory', () => {
+export const useInventoryStore = defineStore("inventory", () => {
   // State
-  const playerItems = ref<PlayerInventoryItem[]>([])
-  const playerDice = ref<PlayerDice[]>([])
-  const shopItems = ref<Item[]>([])
-  const shopDice = ref<DiceType[]>([])
-  const lastRollsByDiceType = ref<Record<string, DiceRollResult | null>>({
+  const playerItems = ref<PlayerInventoryItem[]>([]);
+  const playerDice = ref<PlayerDice[]>([]);
+  const shopItems = ref<Item[]>([]);
+  const shopDice = ref<DiceType[]>([]);
+  const lastRollsByDiceType = ref<Record<string, DiceRoll | null>>({
     d4: null,
     d6: null,
     d10: null,
     d12: null,
     d20: null,
-  })
+  });
 
   // Computed
   const equippedDice = computed(() =>
-    playerDice.value.filter(d => d.is_equipped)
-  )
+    playerDice.value.filter((d) => d.is_equipped),
+  );
 
   const getEquippedDiceByNotation = (notation: string) => {
     return playerDice.value.find(
-      d => d.is_equipped && d.dice_type?.dice_notation === notation
-    )
-  }
+      (d) => d.is_equipped && d.dice_type?.dice_notation === notation,
+    );
+  };
 
   const captureItems = computed(() =>
-    playerItems.value.filter(i => i.item?.item_type === 'capture')
-  )
+    playerItems.value.filter((i) => i.item?.item_type === "capture"),
+  );
 
   const consumableItems = computed(() =>
-    playerItems.value.filter(i => i.item?.item_type === 'consumable')
-  )
+    playerItems.value.filter((i) => i.item?.item_type === "consumable"),
+  );
 
   const buffItems = computed(() =>
-    playerItems.value.filter(i => i.item?.item_type === 'buff')
-  )
+    playerItems.value.filter((i) => i.item?.item_type === "buff"),
+  );
 
   // Last roll tracking
   const getLastRollForType = (diceType: string) => {
-    return lastRollsByDiceType.value[diceType] || null
-  }
+    return lastRollsByDiceType.value[diceType] || null;
+  };
 
-  const updateLastRoll = (diceType: string, result: DiceRollResult) => {
-    lastRollsByDiceType.value[diceType] = result
-  }
+  const updateLastRoll = (diceType: string, result: DiceRoll) => {
+    lastRollsByDiceType.value[diceType] = result;
+  };
 
   // Actions - Items
   async function fetchPlayerItems(playerId: string) {
-    const { api, apiCall } = useApi()
+    const { api, apiCall } = useApi();
 
     try {
       const response = await apiCall(
         api.api.items.players[playerId].inventory.get(),
-        { silent: true }
-      )
+        { silent: true },
+      );
 
       if (response.data) {
-        playerItems.value = response.data.inventory as PlayerInventoryItem[]
+        playerItems.value = response.data.inventory as PlayerInventoryItem[];
       }
     } catch (error) {
-      console.error('Failed to fetch player items:', error)
-      throw error
+      console.error("Failed to fetch player items:", error);
+      throw error;
     }
   }
 
-  async function fetchShopItems(filters?: { item_type?: string; rarity?: string }) {
-    const { api, apiCall } = useApi()
+  async function fetchShopItems(filters: { item_type?: any; rarity?: any }) {
+    const { api, apiCall } = useApi();
 
     try {
-      const response = await apiCall(
-        api.api.items.get({ $query: filters }),
-        { silent: true }
-      )
+      const response = await apiCall(api.api.items.get({ $query: filters }), {
+        silent: true,
+      });
 
       if (response.data) {
-        shopItems.value = response.data.items as Item[]
+        shopItems.value = response.data.items as Item[];
       }
     } catch (error) {
-      console.error('Failed to fetch shop items:', error)
-      throw error
+      console.error("Failed to fetch shop items:", error);
+      throw error;
     }
   }
 
   async function purchaseItem(playerId: string, itemId: string, quantity = 1) {
-    const { api, apiCall } = useApi()
+    const { api, apiCall } = useApi();
 
     try {
       await apiCall(
-        api.api.items.players[playerId].inventory.post({ item_id: itemId, quantity }),
-        { successMessage: 'Item purchased!' }
-      )
+        api.api.items.players[playerId].inventory.post({
+          item_id: itemId,
+          quantity,
+        }),
+        { successMessage: "Item purchased!" },
+      );
 
       // Refresh inventory
-      await fetchPlayerItems(playerId)
+      await fetchPlayerItems(playerId);
     } catch (error) {
-      console.error('Failed to purchase item:', error)
-      throw error
+      console.error("Failed to purchase item:", error);
+      throw error;
     }
   }
 
-  async function useItem(playerId: string, inventoryItemId: string, quantityToUse = 1) {
-    const { api, apiCall } = useApi()
+  async function useItem(
+    playerId: string,
+    inventoryItemId: string,
+    quantityToUse = 1,
+  ) {
+    const { api, apiCall } = useApi();
 
-    const item = playerItems.value.find(i => i.id === inventoryItemId)
-    if (!item) return
+    const item = playerItems.value.find((i) => i.id === inventoryItemId);
+    if (!item) return;
 
-    const newQuantity = Math.max(0, item.quantity - quantityToUse)
+    const newQuantity = Math.max(0, item.quantity - quantityToUse);
 
     try {
       await apiCall(
         api.api.items.players[playerId].inventory[inventoryItemId].patch({
           quantity: newQuantity,
         }),
-        { silent: true }
-      )
+        { silent: true },
+      );
 
       // Update local state
-      item.quantity = newQuantity
+      item.quantity = newQuantity;
 
       // Remove item if quantity is 0
       if (newQuantity === 0) {
-        const index = playerItems.value.findIndex(i => i.id === inventoryItemId)
+        const index = playerItems.value.findIndex(
+          (i) => i.id === inventoryItemId,
+        );
         if (index !== -1) {
-          playerItems.value.splice(index, 1)
+          playerItems.value.splice(index, 1);
         }
       }
     } catch (error) {
-      console.error('Failed to use item:', error)
-      throw error
+      console.error("Failed to use item:", error);
+      throw error;
     }
   }
 
   // Actions - Dice
   async function fetchPlayerDice(playerId: string) {
-    const { api, apiCall } = useApi()
+    const { api, apiCall } = useApi();
 
     try {
-      const response = await apiCall(
-        api.api.dice.players[playerId].get(),
-        { silent: true }
-      )
+      const response = await apiCall(api.api.dice.players[playerId].get(), {
+        silent: true,
+      });
 
       if (response.data) {
-        playerDice.value = response.data.dice as PlayerDice[]
+        playerDice.value = response.data.dice as PlayerDice[];
       }
     } catch (error) {
-      console.error('Failed to fetch player dice:', error)
-      throw error
+      console.error("Failed to fetch player dice:", error);
+      throw error;
     }
   }
 
-  async function fetchShopDice(filters?: { rarity?: string; dice_notation?: string }) {
-    const { api, apiCall } = useApi()
+  async function fetchShopDice(filters: { rarity?: any; dice_notation?: any }) {
+    const { api, apiCall } = useApi();
 
     try {
       const response = await apiCall(
         api.api.dice.types.get({ $query: filters }),
-        { silent: true }
-      )
+        { silent: true },
+      );
 
       if (response.data) {
-        shopDice.value = response.data.diceTypes as DiceType[]
+        shopDice.value = response.data.diceTypes as DiceType[];
       }
     } catch (error) {
-      console.error('Failed to fetch shop dice:', error)
-      throw error
+      console.error("Failed to fetch shop dice:", error);
+      throw error;
     }
   }
 
   async function purchaseDice(playerId: string, diceTypeId: string) {
-    const { api, apiCall } = useApi()
+    const { api, apiCall } = useApi();
 
     try {
       await apiCall(
         api.api.dice.players[playerId].post({ dice_type_id: diceTypeId }),
-        { successMessage: 'Dice purchased!' }
-      )
+        { successMessage: "Dice purchased!" },
+      );
 
       // Refresh dice collection
-      await fetchPlayerDice(playerId)
+      await fetchPlayerDice(playerId);
     } catch (error) {
-      console.error('Failed to purchase dice:', error)
-      throw error
+      console.error("Failed to purchase dice:", error);
+      throw error;
     }
   }
 
   async function equipDice(playerId: string, playerDiceId: string) {
-    const { api, apiCall } = useApi()
+    const { api, apiCall } = useApi();
 
     try {
       // Find the dice to equip
-      const diceToEquip = playerDice.value.find(d => d.id === playerDiceId)
+      const diceToEquip = playerDice.value.find((d) => d.id === playerDiceId);
       if (!diceToEquip || !diceToEquip.dice_type) {
-        throw new Error('Dice not found')
+        throw new Error("Dice not found");
       }
 
-      const notation = diceToEquip.dice_type.dice_notation
+      const notation = diceToEquip.dice_type.dice_notation;
 
       // Find currently equipped dice of the same notation
       const currentEquipped = playerDice.value.find(
-        d => d.is_equipped && d.dice_type?.dice_notation === notation && d.id !== playerDiceId
-      )
+        (d) =>
+          d.is_equipped &&
+          d.dice_type?.dice_notation === notation &&
+          d.id !== playerDiceId,
+      );
 
       // Unequip the old dice of same notation (if exists)
       if (currentEquipped) {
         await apiCall(
           api.api.dice.players[playerId][currentEquipped.id].unequip.patch(),
-          { silent: true }
-        )
+          { silent: true },
+        );
       }
 
       // Equip new dice
       await apiCall(
         api.api.dice.players[playerId][playerDiceId].equip.patch(),
-        { silent: true }
-      )
+        { silent: true },
+      );
 
       // Refresh dice collection
-      await fetchPlayerDice(playerId)
+      await fetchPlayerDice(playerId);
     } catch (error) {
-      console.error('Failed to equip dice:', error)
-      throw error
+      console.error("Failed to equip dice:", error);
+      throw error;
     }
   }
 
@@ -311,5 +321,11 @@ export const useInventoryStore = defineStore('inventory', () => {
     purchaseDice,
     equipDice,
     updateLastRoll,
-  }
-})
+  };
+}, {
+  persist: {
+    key: 'elementary-dices-inventory',
+    storage: localStorage,
+    paths: ['playerItems', 'playerDice', 'lastRollsByDiceType'], // Persist inventory data to resume on refresh
+  },
+});

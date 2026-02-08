@@ -21,6 +21,24 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: '/battle',
+    name: 'Battle',
+    component: () => import('@/views/BattleView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/wild-encounter',
+    name: 'WildEncounter',
+    component: () => import('@/views/WildEncounterView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
+    path: '/merchant',
+    name: 'Merchant',
+    component: () => import('@/views/MerchantView.vue'),
+    meta: { requiresAuth: true },
+  },
+  {
     path: '/party',
     name: 'Party',
     component: () => import('@/views/PartyView.vue'),

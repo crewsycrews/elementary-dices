@@ -258,6 +258,45 @@ export class EventService {
   }
 
   /**
+   * Get the current active event for a player
+   * Returns null if no active event exists
+   */
+  async getCurrentEvent(playerId: string): Promise<EventResponse | null> {
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+
+    if (!currentEvent) {
+      return null;
+    }
+
+    // Transform database event into EventResponse format
+    return {
+      event_type: currentEvent.event_type,
+      description: this.getEventDescription(currentEvent),
+      data: currentEvent.event_data,
+    };
+  }
+
+  /**
+   * Generate description for an existing event
+   */
+  private getEventDescription(event: { event_type: EventType; event_data: any }): string {
+    switch (event.event_type) {
+      case 'wild_encounter': {
+        const data = event.event_data as WildEncounterData;
+        return `A wild ${data.elemental_name} appeared! You can attempt to capture it using a dice roll and a capture item.`;
+      }
+      case 'pvp_battle': {
+        const data = event.event_data as PvPData;
+        return `You've been challenged by ${data.opponent_name} to a battle! Win to earn ${data.potential_reward} currency.`;
+      }
+      case 'merchant':
+        return 'A traveling merchant has appeared! Browse their wares and make a purchase.';
+      default:
+        return 'An event is in progress.';
+    }
+  }
+
+  /**
    * Resolve a wild encounter event
    * Attempts to capture the wild elemental based on dice roll and optional item
    */

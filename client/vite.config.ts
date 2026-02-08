@@ -17,4 +17,8 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
   },
+  // Optimize source maps for debugging
+  css: {
+    devSourcemap: true,
+  },
 });

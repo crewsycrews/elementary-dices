@@ -280,7 +280,6 @@ const handleFight = async () => {
   }
 
   isBattling.value = false;
-  emit('battleComplete', result);
 };
 
 const handleFlee = () => {

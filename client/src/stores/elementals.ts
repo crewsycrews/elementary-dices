@@ -6,17 +6,15 @@ import { playerApi } from '@/composables/useApiHelpers'
 // Import types from shared package (no duplication!)
 import type {
   Elemental,
-  PlayerElementalWithDetails,
   BaseStats,
-  ApiElementalsResponse,
-  ApiPlayerElementalsResponse,
-  ApiElementalResponse,
+  PlayerElemental,
 } from '@elementary-dices/shared'
+import { ElementType } from '@elementary-dices/server/modules/elementals/models'
 
 export const useElementalsStore = defineStore('elementals', () => {
   // State
   const allElementals = ref<Elemental[]>([])
-  const playerElementals = ref<PlayerElementalWithDetails[]>([])
+  const playerElementals = ref<PlayerElemental[]>([])
 
   // Computed
   const activeParty = computed(() =>
@@ -137,7 +135,7 @@ export const useElementalsStore = defineStore('elementals', () => {
     return allElementals.value.filter(e => e.level === level)
   }
 
-  function getElementalsByElement(elementType: string): Elemental[] {
+  function getElementalsByElement(elementType: ElementType): Elemental[] {
     return allElementals.value.filter(e =>
       e.element_types.includes(elementType)
     )

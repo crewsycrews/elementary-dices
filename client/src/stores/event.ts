@@ -209,6 +209,32 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
+  async function initializeEventState(playerId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        api.api.events.current[playerId].get(),
+        { silent: true }
+      )
+
+      // If there's an active event on the server, restore it
+      if (response.data?.event) {
+        currentEvent.value = response.data.event as EventResponse
+        isEventActive.value = true
+        console.log('Restored active event from server:', currentEvent.value?.event_type)
+      } else {
+        // No active event, ensure local state is cleared
+        clearEvent()
+      }
+    } catch (error) {
+      console.error('Failed to initialize event state:', error)
+      // Don't throw - initialization failure shouldn't block the app
+      // Just clear local state to be safe
+      clearEvent()
+    }
+  }
+
   function clearEvent() {
     currentEvent.value = null
     isEventActive.value = false
@@ -234,6 +260,7 @@ export const useEventStore = defineStore('event', () => {
     skipWildEncounter,
     leaveMerchant,
     getEventProbabilities,
+    initializeEventState,
     clearEvent,
   }
 }, {

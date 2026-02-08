@@ -36,8 +36,8 @@ export const ItemRarity = t.Union([
 // Encounter types
 export const EncounterType = t.Union([
   t.Literal('wild_encounter'),
-  t.Literal('pvp'),
-  t.Literal('merchant_event'),
+  t.Literal('pvp_battle'),
+  t.Literal('merchant'),
 ]);
 
 // Encounter status
@@ -344,6 +344,7 @@ export const DiceRollSchema = t.Object({
   battle_id: t.Optional(t.String({ format: 'uuid' })),
   player_id: t.String({ format: 'uuid' }),
   dice_type_id: t.String({ format: 'uuid' }),
+  dice_notation: t.Optional(t.String()), // Added from dice_types join
   roll_value: t.Integer(),
   outcome: DiceRollOutcome,
   context: DiceRollContext,

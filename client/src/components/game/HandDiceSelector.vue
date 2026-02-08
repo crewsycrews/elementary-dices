@@ -8,68 +8,10 @@
     <!-- Hand with Dice Container -->
     <div class="relative w-full" style="aspect-ratio: 16/9;">
       <!-- Hand SVG Illustration -->
-      <svg
-        viewBox="0 0 800 500"
-        class="absolute inset-0 w-full h-full"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        <!-- Palm -->
-        <ellipse
-          cx="400"
-          cy="350"
-          rx="150"
-          ry="120"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-
-        <!-- Thumb (left) -->
-        <path
-          d="M 280 320 Q 220 300 200 250 Q 190 220 200 200 Q 210 180 230 185 Q 250 190 260 220 Q 270 250 280 280 Z"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-
-        <!-- Index finger -->
-        <path
-          d="M 320 280 Q 310 200 315 150 Q 318 110 325 90 Q 332 70 345 75 Q 358 80 360 100 Q 362 130 358 170 Q 354 220 345 270 Z"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-
-        <!-- Middle finger (tallest) -->
-        <path
-          d="M 380 270 Q 375 190 378 130 Q 380 80 385 50 Q 390 20 405 25 Q 420 30 422 60 Q 424 100 420 150 Q 416 210 410 265 Z"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-
-        <!-- Ring finger -->
-        <path
-          d="M 440 270 Q 445 200 450 140 Q 453 100 458 80 Q 463 60 478 65 Q 493 70 495 90 Q 497 120 493 160 Q 489 210 480 265 Z"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-
-        <!-- Pinky (right) -->
-        <path
-          d="M 500 290 Q 515 230 530 180 Q 540 150 550 130 Q 560 110 575 115 Q 590 120 590 140 Q 590 165 580 195 Q 570 235 555 275 Z"
-          fill="hsl(var(--muted))"
-          stroke="hsl(var(--border))"
-          stroke-width="3"
-          opacity="0.3"
-        />
-      </svg>
+      <img
+        src="https://ink-empire.s3.cloud.ru/hand.png"
+        alt="Hand Illustration"
+        class="w-full h-full object-contain">
 
       <!-- Dice positioned on fingertips -->
       <div
@@ -117,7 +59,7 @@
               class="text-2xl md:text-3xl font-black mt-1"
               :class="getResultColor(lastRolls[diceType.type])"
             >
-              {{ lastRolls[diceType.type]?.result }}
+              {{ lastRolls[diceType.type]?.roll_value }}
             </div>
             <div v-else class="text-xs text-muted-foreground mt-1">No roll</div>
 
@@ -147,77 +89,76 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import type { DiceType, DiceRollResult, PlayerDice } from '@elementary-dices/shared'
+import type { DiceRoll, PlayerDice } from '@elementary-dices/shared'
 
 interface Props {
-  availableDice?: Record<DiceType, PlayerDice[]>
-  lastRolls?: Record<DiceType, DiceRollResult | null>
-  selectedDiceType?: DiceType | null
+  availableDice?: Record<string, PlayerDice[]>
+  lastRolls?: Record<string, DiceRoll | null>
+  selectedDiceType?: string | null
   disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  availableDice: () => ({} as Record<DiceType, PlayerDice[]>),
-  lastRolls: () => ({} as Record<DiceType, DiceRollResult | null>),
+  availableDice: () => ({} as Record<string, PlayerDice[]>),
+  lastRolls: () => ({} as Record<string, DiceRoll | null>),
   selectedDiceType: null,
   disabled: false,
 })
 
 const emit = defineEmits<{
-  select: [diceType: DiceType]
+  select: [diceType: string]
 }>()
 
 // Dice types with positions (left to right: thumb, index, middle, ring, pinky)
 const diceTypes = [
   {
-    type: 'd4' as DiceType,
+    type: 'd4',
     notation: 'd4',
-    position: { top: '45%', left: '8%' }, // Thumb
+    position: { top: '10%', left: '65%' }, // Pinky
   },
   {
-    type: 'd6' as DiceType,
+    type: 'd6',
     notation: 'd6',
-    position: { top: '12%', left: '25%' }, // Index
+    position: { top: '1%', left: '55%' }, // Ring
   },
   {
-    type: 'd10' as DiceType,
+    type: 'd10',
     notation: 'd10',
-    position: { top: '3%', left: '43%' }, // Middle (tallest)
+    position: { top: '-3%', left: '45%' }, // Middle (tallest)
   },
   {
-    type: 'd12' as DiceType,
+    type: 'd12',
     notation: 'd12',
-    position: { top: '10%', left: '60%' }, // Ring
+    position: { top: '5%', left: '35%' }, // Index
   },
   {
-    type: 'd20' as DiceType,
+    type: 'd20',
     notation: 'd20',
-    position: { top: '25%', left: '78%' }, // Pinky
+    position: { top: '30%', left: '15%' }, // Thumb
   },
 ]
 
-const isDiceAvailable = (diceType: DiceType): boolean => {
+const isDiceAvailable = (diceType: string): boolean => {
   return (props.availableDice[diceType]?.length || 0) > 0
 }
 
-const getOwnedCount = (diceType: DiceType): number => {
+const getOwnedCount = (diceType: string): number => {
   return props.availableDice[diceType]?.length || 0
 }
 
-const handleDiceSelect = (diceType: DiceType) => {
+const handleDiceSelect = (diceType: string) => {
   if (!props.disabled && isDiceAvailable(diceType)) {
     emit('select', diceType)
   }
 }
 
-const getDicePositionClass = (diceType: DiceType): string => {
+const getDicePositionClass = (diceType: string): string => {
   // Add specific classes for positioning adjustments if needed
   return ''
 }
 
-const getDiceBorderColor = (diceType: DiceType): string => {
-  const colors: Record<DiceType, string> = {
+const getDiceBorderColor = (diceType: string): string => {
+  const colors: Record<string, string> = {
     d4: 'border-red-500/50',
     d6: 'border-green-500/50',
     d10: 'border-blue-500/50',
@@ -227,7 +168,7 @@ const getDiceBorderColor = (diceType: DiceType): string => {
   return colors[diceType] || 'border-border'
 }
 
-const getResultColor = (roll: DiceRollResult | null): string => {
+const getResultColor = (roll: DiceRoll | null): string => {
   if (!roll) return 'text-muted-foreground'
 
   const outcome = roll.outcome

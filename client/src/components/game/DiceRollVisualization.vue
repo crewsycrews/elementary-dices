@@ -1,16 +1,13 @@
 <template>
   <div class="dice-roll-visualization">
-    <!-- Dice container -->
-    <div
-      class="dice-container"
-      :class="{ 'rolling': isRolling, 'result': showResult }"
-    >
-      <div class="dice" :data-dice-type="diceType">
-        <div class="dice-face">
-          <span class="dice-value">{{ displayValue }}</span>
-        </div>
-      </div>
-    </div>
+    <!-- 3D Dice -->
+    <Dice3D
+      ref="dice3DRef"
+      :dice-type="diceType"
+      :value="result?.roll_value"
+      :is-rolling="isRolling"
+      @roll-complete="handleRollComplete"
+    />
 
     <!-- Dice type label -->
     <div class="dice-type-label">
@@ -18,13 +15,21 @@
     </div>
 
     <!-- Result -->
-    <div v-if="showResult && result" class="result-display" :class="`result-${result.outcome}`">
+    <div
+      v-if="showResult && result"
+      class="result-display"
+      :class="`result-${result.outcome}`"
+    >
       <div class="outcome-badge">
         {{ getOutcomeLabel(result.outcome) }}
       </div>
       <div v-if="result.modifiers" class="modifiers">
-        <span v-for="(mod, index) in result.modifiers" :key="index" class="modifier">
-          {{ mod.source }}: {{ mod.value > 0 ? '+' : '' }}{{ mod.value }}
+        <span
+          v-for="(mod, index) in result.modifiers"
+          :key="index"
+          class="modifier"
+        >
+          {{ mod.source }}: {{ mod.value > 0 ? "+" : "" }}{{ mod.value }}
         </span>
       </div>
     </div>
@@ -32,11 +37,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue';
+import { ref, onMounted } from "vue";
+import Dice3D from "./Dice3D.vue";
 
 export interface DiceRollResult {
   roll_value: number;
-  outcome: 'crit_success' | 'success' | 'fail' | 'crit_fail';
+  outcome: "crit_success" | "success" | "fail" | "crit_fail";
   modifiers?: Array<{
     source: string;
     value: number;
@@ -44,82 +50,65 @@ export interface DiceRollResult {
 }
 
 const props = defineProps<{
-  diceType: 'd4' | 'd5' | 'd6' | 'd10' | 'd12' | 'd20';
+  diceType: "d4" | "d6" | "d10" | "d12" | "d20";
   autoRoll?: boolean;
   result?: DiceRollResult;
 }>();
 
 const emit = defineEmits<{
-  rollComplete: [result: DiceRollResult];
+  rollComplete: [];
 }>();
 
+const dice3DRef = ref<InstanceType<typeof Dice3D> | null>(null);
 const isRolling = ref(false);
-const displayValue = ref('?');
 const showResult = ref(false);
 
-// Get max value for dice type
-const maxValue = computed(() => {
-  return parseInt(props.diceType.substring(1));
-});
-
-// Start roll animation
+// Start roll animation with 3D dice
 const roll = async () => {
   if (isRolling.value) return;
 
   isRolling.value = true;
   showResult.value = false;
-  displayValue.value = '?';
 
-  // Animate rolling (random numbers)
-  const rollDuration = 1500;
-  const interval = 100;
-  const iterations = rollDuration / interval;
-
-  for (let i = 0; i < iterations; i++) {
-    await new Promise(resolve => setTimeout(resolve, interval));
-    displayValue.value = String(Math.floor(Math.random() * maxValue.value) + 1);
+  // Trigger 3D dice animation
+  if (props.result && dice3DRef.value) {
+    await dice3DRef.value.roll(props.result.roll_value);
   }
 
-  // Show final result
-  if (props.result) {
-    displayValue.value = String(props.result.roll_value);
-    showResult.value = true;
-  }
-
+  // Show result after animation completes
+  showResult.value = true;
   isRolling.value = false;
+};
 
+// Handle roll complete from Dice3D
+const handleRollComplete = () => {
   // Emit completion
   if (props.result) {
-    emit('rollComplete', props.result);
+    emit("rollComplete");
   }
 };
 
 // Get outcome label with emoji
 const getOutcomeLabel = (outcome: string): string => {
   switch (outcome) {
-    case 'crit_success':
-      return '🌟 Critical Success!';
-    case 'success':
-      return '✅ Success';
-    case 'fail':
-      return '❌ Fail';
-    case 'crit_fail':
-      return '💀 Critical Fail!';
+    case "crit_success":
+      return "🌟 Critical Success!";
+    case "success":
+      return "✅ Success";
+    case "fail":
+      return "❌ Fail";
+    case "crit_fail":
+      return "💀 Critical Fail!";
     default:
       return outcome;
   }
 };
 
-// Auto-roll on mount if enabled
-watch(
-  () => props.autoRoll,
-  (newVal) => {
-    if (newVal && props.result) {
-      roll();
-    }
-  },
-  { immediate: true }
-);
+onMounted(() => {
+  if (props.autoRoll) {
+    roll();
+  }
+});
 
 // Expose roll function
 defineExpose({
@@ -134,81 +123,6 @@ defineExpose({
   align-items: center;
   gap: 1rem;
   padding: 2rem;
-}
-
-.dice-container {
-  perspective: 1000px;
-  width: 120px;
-  height: 120px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.dice {
-  width: 100px;
-  height: 100px;
-  position: relative;
-  transform-style: preserve-3d;
-  transition: transform 0.1s ease;
-}
-
-.dice-container.rolling .dice {
-  animation: roll 0.1s linear infinite;
-}
-
-.dice-container.result .dice {
-  animation: result-bounce 0.6s ease-out;
-}
-
-@keyframes roll {
-  0% {
-    transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg);
-  }
-  25% {
-    transform: rotateX(90deg) rotateY(90deg) rotateZ(0deg);
-  }
-  50% {
-    transform: rotateX(180deg) rotateY(180deg) rotateZ(90deg);
-  }
-  75% {
-    transform: rotateX(270deg) rotateY(270deg) rotateZ(180deg);
-  }
-  100% {
-    transform: rotateX(360deg) rotateY(360deg) rotateZ(270deg);
-  }
-}
-
-@keyframes result-bounce {
-  0% {
-    transform: scale(0.8) rotateZ(0deg);
-  }
-  50% {
-    transform: scale(1.2) rotateZ(360deg);
-  }
-  100% {
-    transform: scale(1) rotateZ(360deg);
-  }
-}
-
-.dice-face {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.7) 100%);
-  border-radius: 12px;
-  border: 3px solid hsl(var(--primary) / 0.3);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2),
-              inset 0 0 20px rgba(255, 255, 255, 0.1);
-}
-
-.dice-value {
-  font-size: 3rem;
-  font-weight: bold;
-  color: white;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .dice-type-label {
@@ -285,26 +199,5 @@ defineExpose({
   border-radius: 0.375rem;
   font-size: 0.75rem;
   font-weight: 500;
-}
-
-/* Dice type specific colors */
-.dice[data-dice-type="d4"] .dice-face {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-}
-
-.dice[data-dice-type="d6"] .dice-face {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.dice[data-dice-type="d10"] .dice-face {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.dice[data-dice-type="d12"] .dice-face {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
-}
-
-.dice[data-dice-type="d20"] .dice-face {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
 }
 </style>
