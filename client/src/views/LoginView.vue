@@ -1,11 +1,17 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4">
+  <div
+    class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4"
+  >
     <div class="w-full max-w-md space-y-6">
       <!-- Header -->
       <div class="text-center space-y-2">
         <h1 class="text-4xl font-bold">🎲 Elementary Dices</h1>
         <p class="text-muted-foreground">
-          {{ isRegistering ? 'Create an account to start your adventure' : 'Welcome back, adventurer!' }}
+          {{
+            isRegistering
+              ? "Create an account to start your adventure"
+              : "Welcome back, adventurer!"
+          }}
         </p>
       </div>
 
@@ -16,14 +22,22 @@
           <button
             @click="isRegistering = false"
             class="flex-1 py-2 px-4 rounded font-semibold transition-all"
-            :class="!isRegistering ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+            :class="
+              !isRegistering
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
           >
             Login
           </button>
           <button
             @click="isRegistering = true"
             class="flex-1 py-2 px-4 rounded font-semibold transition-all"
-            :class="isRegistering ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'"
+            :class="
+              isRegistering
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:text-foreground'
+            "
           >
             Register
           </button>
@@ -100,7 +114,13 @@
             :disabled="isLoading"
             class="w-full py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
           >
-            {{ isLoading ? 'Processing...' : isRegistering ? '🎮 Start Adventure' : '🔓 Login' }}
+            {{
+              isLoading
+                ? "Processing..."
+                : isRegistering
+                  ? "🎮 Start Adventure"
+                  : "🔓 Login"
+            }}
           </button>
         </form>
 
@@ -142,10 +162,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { useRouter, useRoute } from 'vue-router';
-import { useUserStore } from '@/stores/user';
-import { useUIStore } from '@/stores/ui';
+import { ref } from "vue";
+import { useRouter, useRoute } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { useUIStore } from "@/stores/ui";
 
 const router = useRouter();
 const route = useRoute();
@@ -157,9 +177,9 @@ const isLoading = ref(false);
 const errorMessage = ref<string | null>(null);
 
 const form = ref({
-  username: '',
-  email: '',
-  password: '',
+  username: "",
+  email: "",
+  password: "",
 });
 
 // Handle form submission
@@ -171,7 +191,7 @@ const handleSubmit = async () => {
     if (isRegistering.value) {
       // Registration
       if (!form.value.email) {
-        errorMessage.value = 'Email is required for registration';
+        errorMessage.value = "Email is required for registration";
         return;
       }
 
@@ -181,7 +201,7 @@ const handleSubmit = async () => {
         password: form.value.password,
       });
 
-      uiStore.showToast('Account created successfully! Welcome! 🎉', 'success');
+      uiStore.showToast("Account created successfully! Welcome! 🎉", "success");
     } else {
       // Login - call proper login endpoint
       await userStore.loginUser({
@@ -189,17 +209,18 @@ const handleSubmit = async () => {
         password: form.value.password,
       });
 
-      uiStore.showToast('Welcome back! 🎮', 'success');
+      uiStore.showToast("Welcome back! 🎮", "success");
     }
 
     // Redirect to intended page or dashboard
-    const redirect = (route.query.redirect as string) || '/';
+    const redirect = (route.query.redirect as string) || "/";
     router.push(redirect);
   } catch (error) {
-    console.error('Authentication error:', error);
-    errorMessage.value = error instanceof Error
-      ? error.message
-      : 'Authentication failed. Please try again.';
+    console.error("Authentication error:", error);
+    errorMessage.value =
+      error instanceof Error
+        ? error.message
+        : "Authentication failed. Please try again.";
   } finally {
     isLoading.value = false;
   }
@@ -211,7 +232,7 @@ const handleQuickStart = async () => {
 
   form.value.username = demoUsername;
   form.value.email = `${demoUsername}@demo.com`;
-  form.value.password = 'demo1234';
+  form.value.password = "demo1234";
 
   isRegistering.value = true;
   await handleSubmit();

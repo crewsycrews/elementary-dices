@@ -221,7 +221,6 @@ const handleRollComplete = async () => {
 
   isRolling.value = false;
 
-  isRolling.value = false;
   loading.value = false;
 };
 

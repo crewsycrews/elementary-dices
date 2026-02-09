@@ -135,11 +135,10 @@
       </div>
 
       <!-- Dice Roll Visualization -->
-      <div v-if="showDiceRoll" class="mt-6">
+      <div v-if="selectedDice && showDiceRoll" class="mt-6">
         <DiceRollVisualization
           ref="diceVisualizationRef"
           :dice-type="getDiceType(selectedDice)"
-          :auto-roll="true"
           :result="rollResult"
           @roll-complete="handleRollComplete"
         />
@@ -216,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useEventStore } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
@@ -316,12 +315,14 @@ const handleCaptureAttempt = async () => {
       throw new Error("No roll data returned");
     }
     const diceRoll = rollResponse.data?.roll;
-
     // Set roll result for visualization
     rollResult.value = {
       roll_value: diceRoll.roll_value,
       outcome: diceRoll.outcome,
     };
+    nextTick(() => {
+      diceVisualizationRef.value?.roll();
+    });
 
     // Save last roll to inventory store
     const diceType = getDiceType(selectedDice.value);
@@ -358,7 +359,7 @@ const handleSkipEncounter = async () => {
 const handleRollComplete = async () => {
   if (!userStore.userId) return;
   // Resolve encounter
-  
+
   const diceType = getDiceType(selectedDice.value);
   const resolveResponse = await apiCall(
     api.api.events["wild-encounter"].resolve.post({

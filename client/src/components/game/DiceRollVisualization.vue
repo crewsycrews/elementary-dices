@@ -4,9 +4,8 @@
     <Dice3D
       ref="dice3DRef"
       :dice-type="diceType"
-      :value="result?.roll_value"
       :is-rolling="isRolling"
-      @roll-complete="handleRollComplete"
+      @roll-completed="handleRollComplete"
     />
 
     <!-- Dice type label -->
@@ -72,6 +71,7 @@ const roll = async () => {
 
   // Trigger 3D dice animation
   if (props.result && dice3DRef.value) {
+    console.log(`Rolling dice to ${props.result.roll_value}`);
     await dice3DRef.value.roll(props.result.roll_value);
   }
 
@@ -82,10 +82,7 @@ const roll = async () => {
 
 // Handle roll complete from Dice3D
 const handleRollComplete = () => {
-  // Emit completion
-  if (props.result) {
-    emit("rollComplete");
-  }
+  emit("rollComplete");
 };
 
 // Get outcome label with emoji
@@ -104,11 +101,11 @@ const getOutcomeLabel = (outcome: string): string => {
   }
 };
 
-onMounted(() => {
-  if (props.autoRoll) {
-    roll();
-  }
-});
+// onMounted(() => {
+//   if (props.autoRoll) {
+//     roll();
+//   }
+// });
 
 // Expose roll function
 defineExpose({

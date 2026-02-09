@@ -33,7 +33,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, computed, watch, onMounted, nextTick } from "vue";
 import {
   getGeometry,
   type DiceType,
@@ -66,12 +66,12 @@ const props = withDefaults(defineProps<Props>(), {
   size: 100,
   isRolling: false,
   showShadow: true,
-  animationSpeed: 1,
+  animationSpeed: 0.4,
 });
 
 const emit = defineEmits<{
   rollStart: [];
-  rollComplete: [value: number];
+  rollCompleted: [value: number];
   click: [];
 }>();
 
@@ -105,7 +105,7 @@ const diceStyle = computed(() => {
   return {
     width: `${geometry.value.width}px`,
     height: `${geometry.value.height}px`,
-    transform: `scale(${scale.value})`,
+    // transform: `scale(${scale.value})`,
   };
 });
 
@@ -153,14 +153,14 @@ async function roll(targetValue: number): Promise<void> {
   emit("rollStart");
 
   const dice = diceRef.value;
-  const spinDuration = 1200 / props.animationSpeed;
-  const settleDuration = 400 / props.animationSpeed;
+  const spinDuration = (800 + Math.random() * 250) / props.animationSpeed;
+  const settleDuration = (800 + Math.random() * 250) / props.animationSpeed;
 
   // Phase 1: Dramatic spin
   // Add 2-4 complete rotations (720-1440 degrees) plus random offset
-  const randomX = 720 + Math.random() * 720; // 2-4 full rotations
-  const randomY = 720 + Math.random() * 720;
-  const randomZ = 360 + Math.random() * 720;
+  const randomX = 180 + Math.random() * 180; // 2-4 full rotations
+  const randomY = 180 + Math.random() * 180;
+  const randomZ = 180 + Math.random() * 180;
 
   dice.style.transform = `rotateX(${randomX}deg) rotateY(${randomY}deg) rotateZ(${randomZ}deg)`;
   dice.style.transition = `transform ${spinDuration}ms cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
@@ -190,7 +190,8 @@ async function roll(targetValue: number): Promise<void> {
   }
 
   isAnimating.value = false;
-  emit("rollComplete", targetValue);
+  emit("rollCompleted", targetValue);
+  console.log(`Dice rolled to ${targetValue}`);
 }
 
 /**
@@ -214,21 +215,21 @@ function setValue(value: number): void {
 }
 
 // Watch for value changes
-watch(
-  () => props.value,
-  (newValue) => {
-    if (newValue !== undefined && !isAnimating.value) {
-      setValue(newValue);
-    }
-  },
-);
+// watch(
+//   () => props.value,
+//   (newValue) => {
+//     if (newValue !== undefined && !isAnimating.value) {
+//       setValue(newValue);
+//     }
+//   },
+// );
 
-// Set initial value on mount
-onMounted(() => {
-  if (props.value !== undefined) {
-    setValue(props.value);
-  }
-});
+// // Set initial value on mount
+// onMounted(() => {
+//   if (props.value !== undefined) {
+//     setValue(props.value);
+//   }
+// });
 
 // Expose methods for parent components
 defineExpose({

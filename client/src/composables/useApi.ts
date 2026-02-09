@@ -1,6 +1,6 @@
-import { api } from '@elementary-dices/shared/api'
-import { useUIStore } from '@/stores/ui'
-import type { EdenResponse } from '@elementary-dices/shared'
+import { api } from "@elementary-dices/shared/api";
+import { useUIStore } from "@/stores/ui";
+import type { EdenResponse } from "@elementary-dices/shared";
 
 /**
  * Wrapper function for API calls that handles loading states and errors
@@ -17,41 +17,43 @@ import type { EdenResponse } from '@elementary-dices/shared'
 async function apiCall<T extends Promise<any>>(
   call: T,
   options?: {
-    silent?: boolean // Don't show loading indicator
-    errorMessage?: string // Custom error message
-    successMessage?: string // Show success toast
-  }
+    silent?: boolean; // Don't show loading indicator
+    errorMessage?: string; // Custom error message
+    successMessage?: string; // Show success toast
+  },
 ): Promise<Awaited<T>> {
-  const uiStore = useUIStore()
+  const uiStore = useUIStore();
 
   try {
     if (!options?.silent) {
-      uiStore.setLoading(true)
+      uiStore.setLoading(true);
     }
 
-    const result = await call
+    const result = await call;
 
     // Handle Eden Treaty error responses
     if (result.error) {
-      throw new Error(result.error.value || 'API request failed')
+      console.error("API error response:", result.error);
+      throw new Error(result.error.value.error || "API request failed");
     }
 
     if (options?.successMessage) {
-      uiStore.showToast(options.successMessage, 'success')
+      uiStore.showToast(options.successMessage, "success");
     }
 
-    return result
+    return result;
   } catch (error) {
-    const errorMessage = options?.errorMessage ||
-      (error instanceof Error ? error.message : 'An error occurred')
+    const errorMessage =
+      options?.errorMessage ||
+      (error instanceof Error ? error.message : "An error occurred");
 
-    uiStore.showError(errorMessage)
-    uiStore.showToast(errorMessage, 'error')
+    uiStore.showError(errorMessage);
+    uiStore.showToast(errorMessage, "error");
 
-    throw error
+    throw error;
   } finally {
     if (!options?.silent) {
-      uiStore.setLoading(false)
+      uiStore.setLoading(false);
     }
   }
 }
@@ -61,11 +63,11 @@ async function apiCall<T extends Promise<any>>(
  * Wraps Eden Treaty API client
  */
 export function useApi(): {
-  api: typeof api
-  apiCall: typeof apiCall
+  api: typeof api;
+  apiCall: typeof apiCall;
 } {
   return {
     api,
     apiCall,
-  }
+  };
 }

@@ -4,7 +4,7 @@ import { useApi } from "@/composables/useApi";
 import { useEventStore } from "./event";
 
 // Import types from shared package
-import type { User } from '@elementary-dices/shared'
+import type { User } from "@elementary-dices/shared";
 
 // Extended user profile type with stats (client-side)
 type UserProfile = User & {
