@@ -57,7 +57,7 @@
             <div
               v-if="lastRolls[diceType.type]"
               class="text-2xl md:text-3xl font-black mt-1"
-              :class="getResultColor(lastRolls[diceType.type])"
+              :class="getResultColor(lastRolls[diceType.type]!)"
             >
               {{ lastRolls[diceType.type]?.roll_value }}
             </div>
@@ -89,18 +89,16 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useInventoryStore } from '@/stores/inventory'
 import type { DiceRoll, PlayerDice } from '@elementary-dices/shared'
 
 interface Props {
-  availableDice?: Record<string, PlayerDice[]>
-  lastRolls?: Record<string, DiceRoll | null>
   selectedDiceType?: string | null
   disabled?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  availableDice: () => ({} as Record<string, PlayerDice[]>),
-  lastRolls: () => ({} as Record<string, DiceRoll | null>),
   selectedDiceType: null,
   disabled: false,
 })
@@ -108,6 +106,32 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   select: [diceType: string]
 }>()
+
+// Get data from inventory store
+const inventoryStore = useInventoryStore()
+
+// Group equipped dice by type
+const groupedDice = computed(() => {
+  const grouped: Record<string, PlayerDice[]> = {
+    d4: [],
+    d6: [],
+    d10: [],
+    d12: [],
+    d20: [],
+  }
+
+  inventoryStore.equippedDice.forEach((dice) => {
+    const diceType = dice.dice_type?.dice_notation
+    if (diceType && grouped[diceType]) {
+      grouped[diceType].push(dice)
+    }
+  })
+
+  return grouped
+})
+
+// Get last rolls from store
+const lastRolls = computed(() => inventoryStore.lastRollsByDiceType)
 
 // Dice types with positions (left to right: thumb, index, middle, ring, pinky)
 const diceTypes = [
@@ -139,11 +163,11 @@ const diceTypes = [
 ]
 
 const isDiceAvailable = (diceType: string): boolean => {
-  return (props.availableDice[diceType]?.length || 0) > 0
+  return (groupedDice.value[diceType]?.length || 0) > 0
 }
 
 const getOwnedCount = (diceType: string): number => {
-  return props.availableDice[diceType]?.length || 0
+  return groupedDice.value[diceType]?.length || 0
 }
 
 const handleDiceSelect = (diceType: string) => {

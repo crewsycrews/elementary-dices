@@ -31,108 +31,95 @@
     </div>
 
     <!-- Wild Encounter Event -->
-    <div v-else class="space-y-6">
-      <div class="text-center">
+    <div v-else class="space-y-6 flex flex-row items-center justify-center gap-2">
+      <div class="flex flex-col items-center space-y-2">
         <h1 class="text-3xl font-bold mb-2">🌲 Wild Encounter!</h1>
-        <p class="text-muted-foreground">
-          {{ eventStore.currentEvent?.description }}
-        </p>
-      </div>
-
+        
       <!-- Wild Elemental Card -->
-      <div class="max-w-2xl mx-auto">
-        <ElementalCard
-          v-if="wildElemental"
-          :elemental="wildElemental"
-          :show-stats="true"
-          :show-description="true"
-        />
+        <div class="max-w-md mx-auto">
+          <ElementalCard
+            v-if="wildElemental"
+            :elemental="wildElemental"
+            :show-stats="true"
+            :show-description="true"
+          />
+        </div>
       </div>
 
+
+      <div class="flex flex-col items-center space-y-2">
+        <div class="text-center">
+          <div
+            class="inline-block px-4 py-2 rounded-lg font-semibold"
+            :class="
+              getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)
+            "
+          >
+            Capture Difficulty:
+            {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+          </div>
+        </div>
+  
+        <!-- Actions -->
+        <div v-if="!captureResult" class="max-w-md mx-auto space-y-4">
+          <div class="text-center mb-4">
+            <p class="text-sm text-muted-foreground">
+              Roll the dice to attempt capture!
+            </p>
+            <p class="text-xs text-muted-foreground mt-1">
+              Items increase your chances of success
+            </p>
+          </div>
+
+          <!-- Dice Selection -->
+          <HandDiceSelector
+            :selected-dice-type="selectedDiceType"
+            :disabled="isRolling"
+            @select="handleDiceTypeSelect"
+          />
+  
+          <!-- Item Selection (Optional) -->
+          <div class="space-y-2">
+            <label class="text-sm font-semibold">Use Item (Optional):</label>
+            <select
+              v-model="selectedItem"
+              class="w-full p-3 border rounded-lg bg-background"
+              :disabled="isRolling"
+            >
+              <option value="">No item (lower success chance)</option>
+              <option
+                v-for="item in captureItems"
+                :key="item.item_id"
+                :value="item.item_id"
+              >
+                {{ item.item?.name }} (x{{ item.quantity }}) - +{{
+                  getCaptureBonus(item)
+                }}
+                bonus
+              </option>
+            </select>
+          </div>
+  
+          <!-- Roll Button -->
+          <button
+            @click="handleCaptureAttempt"
+            :disabled="!selectedDice || isRolling"
+            class="w-full px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
+          </button>
+  
+          <!-- Skip Button -->
+          <button
+            @click="handleSkipEncounter"
+            :disabled="isRolling"
+            class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
+          >
+            Skip Encounter
+          </button>
+        </div>
+      </div>
       <!-- Capture Difficulty -->
-      <div class="text-center">
-        <div
-          class="inline-block px-4 py-2 rounded-lg font-semibold"
-          :class="
-            getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)
-          "
-        >
-          Capture Difficulty:
-          {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
-        </div>
-      </div>
-
-      <!-- Actions -->
-      <div v-if="!captureResult" class="max-w-md mx-auto space-y-4">
-        <div class="text-center mb-4">
-          <p class="text-sm text-muted-foreground">
-            Roll the dice to attempt capture!
-          </p>
-          <p class="text-xs text-muted-foreground mt-1">
-            Items increase your chances of success
-          </p>
-        </div>
-
-        <!-- Dice Selection -->
-        <div class="space-y-2">
-          <label class="text-sm font-semibold">Select Dice:</label>
-          <select
-            v-model="selectedDice"
-            class="w-full p-3 border rounded-lg bg-background"
-            :disabled="isRolling"
-          >
-            <option value="">Choose a dice type...</option>
-            <option
-              v-for="dice in availableDice"
-              :key="dice.id"
-              :value="dice.id"
-            >
-              {{ dice.dice_type?.dice_notation?.toUpperCase() }} -
-              {{ dice.dice_type?.name }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Item Selection (Optional) -->
-        <div class="space-y-2">
-          <label class="text-sm font-semibold">Use Item (Optional):</label>
-          <select
-            v-model="selectedItem"
-            class="w-full p-3 border rounded-lg bg-background"
-            :disabled="isRolling"
-          >
-            <option value="">No item (lower success chance)</option>
-            <option
-              v-for="item in captureItems"
-              :key="item.item_id"
-              :value="item.item_id"
-            >
-              {{ item.item?.name }} (x{{ item.quantity }}) - +{{
-                getCaptureBonus(item)
-              }}
-              bonus
-            </option>
-          </select>
-        </div>
-
-        <!-- Roll Button -->
-        <button
-          @click="handleCaptureAttempt"
-          :disabled="!selectedDice || isRolling"
-          class="w-full px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
-        </button>
-
-        <!-- Skip Button -->
-        <button
-          @click="handleSkipEncounter"
-          :disabled="isRolling"
-          class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
-        >
-          Skip Encounter
-        </button>
-      </div>
 
       <!-- Dice Roll Visualization -->
       <div v-if="selectedDice && showDiceRoll" class="mt-6">
@@ -224,6 +211,7 @@ import { useInventoryStore } from "@/stores/inventory";
 import { useApi } from "@/composables/useApi";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
+import HandDiceSelector from "@/components/game/HandDiceSelector.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -235,6 +223,7 @@ const { api, apiCall } = useApi();
 const loading = ref(false);
 const isRolling = ref(false);
 const selectedDice = ref("");
+const selectedDiceType = ref<string | null>(null);
 const selectedItem = ref("");
 const showDiceRoll = ref(false);
 const rollResult = ref<any>(null);
@@ -265,6 +254,18 @@ const getDiceType = (diceId: string): "d4" | "d6" | "d10" | "d12" | "d20" => {
     | "d10"
     | "d12"
     | "d20";
+};
+
+// Handle dice type selection from HandDiceSelector
+const handleDiceTypeSelect = (diceType: string) => {
+  selectedDiceType.value = diceType;
+  // Auto-select the first dice of that type
+  const diceOfType = availableDice.value.find(
+    (d) => d.dice_type?.dice_notation === diceType
+  );
+  if (diceOfType) {
+    selectedDice.value = diceOfType.id;
+  }
 };
 
 // Get capture bonus from item

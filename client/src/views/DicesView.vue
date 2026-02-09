@@ -20,8 +20,6 @@
     <!-- Hand Dice Selector -->
     <div class="flex justify-center py-8">
       <HandDiceSelector
-        :available-dice="groupedDice"
-        :last-rolls="lastRollsByType"
         :selected-dice-type="selectedDiceType"
         @select="handleDiceTypeSelect"
       />
@@ -139,43 +137,19 @@ import { useUserStore } from '@/stores/user';
 import { useInventoryStore } from '@/stores/inventory';
 import { useUIStore } from '@/stores/ui';
 import HandDiceSelector from '@/components/game/HandDiceSelector.vue';
-import type { DiceType, PlayerDice } from '@elementary-dices/shared';
 
 const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
 const uiStore = useUIStore();
 
-const selectedDiceType = ref<DiceType | null>(null);
-
-// Group dice by type for HandDiceSelector
-const groupedDice = computed(() => {
-  const grouped: Record<DiceType, PlayerDice[]> = {
-    d4: [],
-    d6: [],
-    d10: [],
-    d12: [],
-    d20: [],
-  };
-
-  inventoryStore.playerDice.forEach((dice: any) => {
-    const diceType = dice.dice_type?.dice_notation as DiceType;
-    if (diceType && grouped[diceType]) {
-      grouped[diceType].push(dice);
-    }
-  });
-
-  return grouped;
-});
-
-// Last rolls by type
-const lastRollsByType = computed(() => {
-  return inventoryStore.lastRollsByDiceType;
-});
+const selectedDiceType = ref<string | null>(null);
 
 // Get dice of selected type
 const diceOfSelectedType = computed(() => {
   if (!selectedDiceType.value) return [];
-  return groupedDice.value[selectedDiceType.value] || [];
+  return inventoryStore.playerDice.filter(
+    (dice) => dice.dice_type?.dice_notation === selectedDiceType.value
+  );
 });
 
 // Selected dice details
@@ -185,7 +159,7 @@ const selectedDiceDetails = computed(() => {
 });
 
 // Handle dice type selection
-const handleDiceTypeSelect = (diceType: DiceType) => {
+const handleDiceTypeSelect = (diceType: string) => {
   selectedDiceType.value = diceType;
 };
 
@@ -195,16 +169,13 @@ const handleEquipDice = async (dice: any) => {
 
   try {
     await inventoryStore.equipDice(userStore.userId, dice.id);
-    uiStore.showNotification({
-      message: `${dice.dice_type?.dice_notation?.toUpperCase()} equipped!`,
-      type: 'success',
-    });
+    uiStore.showToast(
+      `${dice.dice_type?.dice_notation?.toUpperCase()} equipped!`,
+      'success'
+    );
   } catch (error) {
     console.error('Failed to equip dice:', error);
-    uiStore.showNotification({
-      message: 'Failed to equip dice',
-      type: 'error',
-    });
+    uiStore.showToast('Failed to equip dice', 'error');
   }
 };
 
@@ -215,10 +186,10 @@ const handleUnequipDice = async (dice: any) => {
   try {
     // Note: You may need to add an unequip endpoint
     // For now, just show a message
-    uiStore.showNotification({
-      message: 'Dice is currently equipped. Equip another dice to replace it.',
-      type: 'info',
-    });
+    uiStore.showToast(
+      'Dice is currently equipped. Equip another dice to replace it.',
+      'info'
+    );
   } catch (error) {
     console.error('Failed to unequip dice:', error);
   }
@@ -247,7 +218,10 @@ onMounted(async () => {
   try {
     await inventoryStore.fetchPlayerDice(userStore.userId);
     // Auto-select d6 if available
-    if (groupedDice.value.d6.length > 0) {
+    const hasD6 = inventoryStore.playerDice.some(
+      (dice) => dice.dice_type?.dice_notation === 'd6'
+    );
+    if (hasD6) {
       selectedDiceType.value = 'd6';
     }
   } catch (error) {

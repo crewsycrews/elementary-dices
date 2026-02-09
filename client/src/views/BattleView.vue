@@ -89,8 +89,8 @@
           <div class="flex flex-col items-center w-full space-y-3">
             <HandDiceSelector
               v-if="!isRolling && !showDiceRoll"
-              :available-dice="groupedDice"
               :selected-dice-type="selectedDiceType"
+              :disabled="isRolling"
               @select="handleDiceTypeSelect"
             />
 
@@ -214,11 +214,7 @@ import { useApi } from "@/composables/useApi";
 import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
 import CompactPartyGrid from "@/components/game/CompactPartyGrid.vue";
 import HandDiceSelector from "@/components/game/HandDiceSelector.vue";
-import type {
-  DiceType,
-  PlayerDice,
-  PlayerElemental,
-} from "@elementary-dices/shared";
+import type { PlayerElemental } from "@elementary-dices/shared";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -242,26 +238,6 @@ const diceVisualizationRef = ref<InstanceType<
 // Available dice from inventory
 const availableDice = computed(() => {
   return inventoryStore.playerDice;
-});
-
-// Group dice by type for HandDiceSelector
-const groupedDice = computed(() => {
-  const grouped: Record<string, PlayerDice[]> = {
-    d4: [],
-    d6: [],
-    d10: [],
-    d12: [],
-    d20: [],
-  };
-
-  availableDice.value.forEach((dice: any) => {
-    const diceType = dice.dice_type?.dice_notation;
-    if (diceType && grouped[diceType]) {
-      grouped[diceType].push(dice);
-    }
-  });
-
-  return grouped;
 });
 
 // Convert active party to array with nulls for empty slots
@@ -307,9 +283,11 @@ const getDiceType = (diceId: string): "d4" | "d6" | "d10" | "d12" | "d20" => {
 const handleDiceTypeSelect = (diceType: string) => {
   selectedDiceType.value = diceType;
   // Auto-select the first dice of that type
-  const diceOfType = groupedDice.value[diceType];
-  if (diceOfType && diceOfType.length > 0) {
-    selectedDice.value = diceOfType[0].id;
+  const diceOfType = availableDice.value.find(
+    (d) => d.dice_type?.dice_notation === diceType
+  );
+  if (diceOfType) {
+    selectedDice.value = diceOfType.id;
   }
 };
 
