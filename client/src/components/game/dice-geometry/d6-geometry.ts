@@ -23,23 +23,23 @@ const HALF_SIZE = CUBE_SIZE / 2;
  */
 const faces: DiceFace[] = [
   {
-    value: 1,
+    value: 4,
     transform: `translateZ(${HALF_SIZE}px)`, // Front face
   },
   {
-    value: 2,
+    value: 3,
     transform: `translateZ(-${HALF_SIZE}px) rotateY(180deg)`, // Back face
   },
   {
-    value: 3,
+    value: 5,
     transform: `translateY(-${HALF_SIZE}px) rotateX(90deg)`, // Top face
   },
   {
-    value: 4,
+    value: 2,
     transform: `translateY(${HALF_SIZE}px) rotateX(-90deg)`, // Bottom face
   },
   {
-    value: 5,
+    value: 1,
     transform: `translateX(-${HALF_SIZE}px) rotateY(-90deg)`, // Left face
   },
   {
@@ -63,6 +63,12 @@ const resultRotations = {
   6: { rotateX: 0, rotateY: 0, rotateZ: 0 },
 };
 
+const wrapperRotation = {
+  rotateX: 30,
+  rotateY: 0,
+  rotateZ: -45,
+};
+
 /**
  * Complete D6 geometry definition
  */
@@ -71,5 +77,6 @@ export const d6Geometry: DiceGeometry = {
   height: CUBE_SIZE,
   faces,
   resultRotations,
+  wrapperRotation
   // No wrapper rotation needed for cube - it's symmetrical
 };

@@ -1,5 +1,5 @@
 <template>
-  <div class="hand-dice-selector relative flex flex-col items-center gap-4 w-full max-w-2xl mx-auto">
+  <div class="hand-dice-selector relative flex flex-col items-center gap-4 w-[450px] mx-auto">
     <!-- Label -->
     <p class="text-sm md:text-base text-muted-foreground text-center font-semibold">
       Select your dice
@@ -29,54 +29,40 @@
         :style="diceType.position"
         @click="handleDiceSelect(diceType.type)"
       >
-        <!-- Dice Card -->
-        <div
-          class="relative p-3 md:p-4 rounded-xl border-2 bg-card shadow-lg transition-all"
-          :class="[
-            selectedDiceType === diceType.type
-              ? 'border-primary bg-primary/10 shadow-xl'
-              : 'border-border hover:border-primary',
-            getDiceBorderColor(diceType.type),
-          ]"
-        >
+        <!-- Dice 3D Component -->
+        <div class="relative flex flex-col items-center gap-2">
           <!-- Lock icon if not available -->
           <div
             v-if="!isDiceAvailable(diceType.type)"
-            class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl"
+            class="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl z-20"
           >
             <span class="text-2xl">🔒</span>
           </div>
 
-          <!-- Dice Type -->
-          <div class="text-center">
-            <div class="text-xl md:text-2xl font-bold text-foreground">
-              {{ diceType.notation }}
-            </div>
+          <!-- 3D Dice -->
+          <div class="relative">
+            <Dice3D
+              :dice-type="diceType.type"
+              :value="lastRolls[diceType.type]?.roll_value"
+              :size="30"
+              :show-shadow="true"
+            />
 
-            <!-- Last Roll Result -->
+            <!-- Selection Glow -->
             <div
-              v-if="lastRolls[diceType.type]"
-              class="text-2xl md:text-3xl font-black mt-1"
-              :class="getResultColor(lastRolls[diceType.type]!)"
-            >
-              {{ lastRolls[diceType.type]?.roll_value }}
-            </div>
-            <div v-else class="text-xs text-muted-foreground mt-1">No roll</div>
-
-            <!-- Owned Count -->
-            <div
-              v-if="isDiceAvailable(diceType.type)"
-              class="text-xs text-muted-foreground mt-1"
-            >
-              {{ getOwnedCount(diceType.type) }} owned
-            </div>
+              v-if="selectedDiceType === diceType.type"
+              class="absolute inset-0 rounded-full border-4 border-primary animate-pulse opacity-50 pointer-events-none"
+              style="filter: blur(8px)"
+            ></div>
           </div>
 
-          <!-- Selection Glow -->
+          <!-- Owned Count -->
           <div
-            v-if="selectedDiceType === diceType.type"
-            class="absolute inset-0 rounded-xl border-2 border-primary animate-pulse opacity-50"
-          ></div>
+            v-if="isDiceAvailable(diceType.type)"
+            class="text-xs text-muted-foreground font-semibold bg-black/50 px-2 py-1 rounded"
+          >
+            {{ getOwnedCount(diceType.type) }} owned
+          </div>
         </div>
       </div>
     </div>
@@ -91,7 +77,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useInventoryStore } from '@/stores/inventory'
-import type { DiceRoll, PlayerDice } from '@elementary-dices/shared'
+import type { PlayerDice } from '@elementary-dices/shared'
+import Dice3D from './Dice3D.vue'
+import type { DiceType } from './dice-geometry/types'
 
 interface Props {
   selectedDiceType?: string | null
@@ -133,32 +121,39 @@ const groupedDice = computed(() => {
 // Get last rolls from store
 const lastRolls = computed(() => inventoryStore.lastRollsByDiceType)
 
+// Dice configuration interface
+interface DiceConfig {
+  type: DiceType
+  notation: string
+  position: { top: string; left: string }
+}
+
 // Dice types with positions (left to right: thumb, index, middle, ring, pinky)
-const diceTypes = [
+const diceTypes: DiceConfig[] = [
   {
     type: 'd4',
     notation: 'd4',
-    position: { top: '10%', left: '65%' }, // Pinky
+    position: { top: '8%', left: '53%' }, // Pinky
   },
   {
     type: 'd6',
     notation: 'd6',
-    position: { top: '1%', left: '55%' }, // Ring
+    position: { top: '1%', left: '49%' }, // Ring
   },
   {
     type: 'd10',
     notation: 'd10',
-    position: { top: '-3%', left: '45%' }, // Middle (tallest)
+    position: { top: '-10%', left: '39%' }, // Middle (tallest)
   },
   {
     type: 'd12',
     notation: 'd12',
-    position: { top: '5%', left: '35%' }, // Index
+    position: { top: '1%', left: '29%' }, // Index
   },
   {
     type: 'd20',
     notation: 'd20',
-    position: { top: '30%', left: '15%' }, // Thumb
+    position: { top: '30%', left: '12%' }, // Thumb
   },
 ]
 
@@ -179,30 +174,6 @@ const handleDiceSelect = (diceType: string) => {
 const getDicePositionClass = (diceType: string): string => {
   // Add specific classes for positioning adjustments if needed
   return ''
-}
-
-const getDiceBorderColor = (diceType: string): string => {
-  const colors: Record<string, string> = {
-    d4: 'border-red-500/50',
-    d6: 'border-green-500/50',
-    d10: 'border-blue-500/50',
-    d12: 'border-purple-500/50',
-    d20: 'border-orange-500/50',
-  }
-  return colors[diceType] || 'border-border'
-}
-
-const getResultColor = (roll: DiceRoll | null): string => {
-  if (!roll) return 'text-muted-foreground'
-
-  const outcome = roll.outcome
-  const colors: Record<string, string> = {
-    'Critical Success': 'text-yellow-500',
-    Success: 'text-green-500',
-    Fail: 'text-red-500',
-    'Critical Fail': 'text-purple-500',
-  }
-  return colors[outcome] || 'text-foreground'
 }
 </script>
 

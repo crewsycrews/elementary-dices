@@ -1,5 +1,5 @@
 <template>
-  <div class="dice-container" :style="{ perspective: `${perspective}px` }">
+  <div class="dice-container" :style="{ perspective: `${perspective}px`, transform: `scale(${scale})` }">
     <!-- Shadow beneath the dice -->
     <div
       class="dice-shadow"
@@ -66,7 +66,7 @@ const props = withDefaults(defineProps<Props>(), {
   size: 100,
   isRolling: false,
   showShadow: true,
-  animationSpeed: 0.4,
+  animationSpeed: 0.6,
 });
 
 const emit = defineEmits<{
@@ -305,7 +305,7 @@ defineExpose({
 
 .dice-face-d6 {
   background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-radius: 8px;
+  /* border-radius: 8px; */
 }
 
 .dice-face-d10 {
