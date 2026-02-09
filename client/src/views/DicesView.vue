@@ -18,108 +18,108 @@
     </div>
 
     <!-- Hand Dice Selector -->
-    <div class="flex justify-center py-8">
+    <div class="flex justify-center items-center py-8">
       <HandDiceSelector
         :selected-dice-type="selectedDiceType"
         @select="handleDiceTypeSelect"
       />
-    </div>
-
-    <!-- Selected Dice Details -->
-    <div v-if="selectedDiceType && selectedDiceDetails" class="max-w-4xl mx-auto space-y-6">
-      <div class="text-center">
-        <h2 class="text-2xl font-bold mb-2">{{ selectedDiceType.toUpperCase() }} Collection</h2>
-        <p class="text-muted-foreground">
-          {{ diceOfSelectedType.length }} {{ selectedDiceType }} dice owned
-        </p>
-      </div>
-
-      <!-- Dice Grid -->
-      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div
-          v-for="dice in diceOfSelectedType"
-          :key="dice.id"
-          class="p-6 rounded-lg border-2 transition-all cursor-pointer"
-          :class="
-            dice.is_equipped
-              ? 'border-primary bg-primary/10 shadow-lg'
-              : 'border-border bg-card hover:border-primary hover:bg-muted'
-          "
-          @click="handleEquipDice(dice)"
-        >
-          <!-- Dice Header -->
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <span class="text-3xl">🎲</span>
-              <div>
-                <h3 class="font-bold text-lg">{{ dice.dice_type?.dice_notation?.toUpperCase() }}</h3>
-                <p class="text-sm text-muted-foreground">{{ dice.dice_type?.name }}</p>
+      <!-- Selected Dice Details -->
+      <div v-if="selectedDiceType && selectedDiceDetails" class="flex flex-col content-center w-1/2 max-w-4xl mx-auto space-y-6">
+        <div class="text-center">
+          <h2 class="text-2xl font-bold mb-2">{{ selectedDiceType.toUpperCase() }} Collection</h2>
+          <p class="text-muted-foreground">
+            {{ diceOfSelectedType.length }} {{ selectedDiceType }} dice owned
+          </p>
+        </div>
+  
+        <!-- Dice Grid -->
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="dice in diceOfSelectedType"
+            :key="dice.id"
+            class="p-6 rounded-lg border-2 transition-all cursor-pointer"
+            :class="
+              dice.is_equipped
+                ? 'border-primary bg-primary/10 shadow-lg'
+                : 'border-border bg-card hover:border-primary hover:bg-muted'
+            "
+            @click="handleEquipDice(dice)"
+          >
+            <!-- Dice Header -->
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="text-3xl">🎲</span>
+                <div>
+                  <h3 class="font-bold text-lg">{{ dice.dice_type?.dice_notation?.toUpperCase() }}</h3>
+                  <p class="text-sm text-muted-foreground">{{ dice.dice_type?.name }}</p>
+                </div>
+              </div>
+              <div
+                v-if="dice.is_equipped"
+                class="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-bold"
+              >
+                ✓ Equipped
               </div>
             </div>
-            <div
-              v-if="dice.is_equipped"
-              class="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-bold"
-            >
-              ✓ Equipped
-            </div>
-          </div>
-
-          <!-- Rarity Badge -->
-          <div class="mb-3">
-            <span
-              class="px-3 py-1 rounded-full text-xs font-bold"
-              :class="getRarityClass(dice.dice_type?.rarity)"
-            >
-              {{ dice.dice_type?.rarity?.toUpperCase() }}
-            </span>
-          </div>
-
-          <!-- Stats -->
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-muted-foreground">Bonus Multiplier:</span>
-              <span class="font-bold">{{ dice.dice_type?.stat_bonuses?.bonus_multiplier || 1 }}x</span>
-            </div>
-            <div v-if="dice.dice_type?.stat_bonuses?.element_affinity" class="flex justify-between">
-              <span class="text-muted-foreground">Element Affinity:</span>
-              <span class="font-bold capitalize">
-                {{ dice.dice_type?.stat_bonuses?.element_affinity }}
+  
+            <!-- Rarity Badge -->
+            <div class="mb-3">
+              <span
+                class="px-3 py-1 rounded-full text-xs font-bold"
+                :class="getRarityClass(dice.dice_type?.rarity)"
+              >
+                {{ dice.dice_type?.rarity?.toUpperCase() }}
               </span>
             </div>
+  
+            <!-- Stats -->
+            <div class="space-y-2 text-sm">
+              <div class="flex justify-between">
+                <span class="text-muted-foreground">Bonus Multiplier:</span>
+                <span class="font-bold">{{ dice.dice_type?.stat_bonuses?.bonus_multiplier || 1 }}x</span>
+              </div>
+              <div v-if="dice.dice_type?.stat_bonuses?.element_affinity" class="flex justify-between">
+                <span class="text-muted-foreground">Element Affinity:</span>
+                <span class="font-bold capitalize">
+                  {{ dice.dice_type?.stat_bonuses?.element_affinity }}
+                </span>
+              </div>
+            </div>
+  
+            <!-- Description -->
+            <p class="text-xs text-muted-foreground mt-3 line-clamp-2">
+              {{ dice.dice_type?.description || 'A standard dice for rolling outcomes.' }}
+            </p>
+  
+            <!-- Action Button -->
+            <button
+              v-if="!dice.is_equipped"
+              @click.stop="handleEquipDice(dice)"
+              class="w-full mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
+            >
+              Equip
+            </button>
+            <button
+              v-else
+              @click.stop="handleUnequipDice(dice)"
+              class="w-full mt-4 px-4 py-2 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all"
+            >
+              Unequip
+            </button>
           </div>
-
-          <!-- Description -->
-          <p class="text-xs text-muted-foreground mt-3 line-clamp-2">
-            {{ dice.dice_type?.description || 'A standard dice for rolling outcomes.' }}
+        </div>
+  
+        <!-- Empty State -->
+        <div v-if="diceOfSelectedType.length === 0" class="p-12 border-2 border-dashed rounded-lg text-center">
+          <div class="text-6xl mb-4">🎲</div>
+          <h3 class="text-xl font-bold mb-2">No {{ selectedDiceType.toUpperCase() }} Dice</h3>
+          <p class="text-muted-foreground mb-4">
+            Purchase {{ selectedDiceType }} dice from merchants during events
           </p>
-
-          <!-- Action Button -->
-          <button
-            v-if="!dice.is_equipped"
-            @click.stop="handleEquipDice(dice)"
-            class="w-full mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-          >
-            Equip
-          </button>
-          <button
-            v-else
-            @click.stop="handleUnequipDice(dice)"
-            class="w-full mt-4 px-4 py-2 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all"
-          >
-            Unequip
-          </button>
         </div>
       </div>
-
-      <!-- Empty State -->
-      <div v-if="diceOfSelectedType.length === 0" class="p-12 border-2 border-dashed rounded-lg text-center">
-        <div class="text-6xl mb-4">🎲</div>
-        <h3 class="text-xl font-bold mb-2">No {{ selectedDiceType.toUpperCase() }} Dice</h3>
-        <p class="text-muted-foreground mb-4">
-          Purchase {{ selectedDiceType }} dice from merchants during events
-        </p>
-      </div>
     </div>
+
 
     <!-- Instructions -->
     <div class="text-center text-sm text-muted-foreground max-w-2xl mx-auto">

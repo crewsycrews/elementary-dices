@@ -1,11 +1,13 @@
 <template>
-  <div class="dice-container" :style="{ perspective: `${perspective}px`, transform: `scale(${scale})` }">
+  <div
+    class="dice-container"
+    :style="{
+      perspective: `${perspective}px`,
+      transform: `scale(${scale})`,
+      transition: 'transform 0.3s ease',
+    }"
+  >
     <!-- Shadow beneath the dice -->
-    <div
-      class="dice-shadow"
-      ref="shadowRef"
-      :class="{ 'is-rolling': isAnimating }"
-    ></div>
 
     <!-- Dice wrapper with optional base rotation -->
     <div class="dice-wrapper" :style="wrapperStyle">
@@ -25,7 +27,20 @@
           :class="`dice-face-${diceType}`"
           :style="getFaceStyle(face)"
         >
-          <span class="face-value">{{ face.value }}</span>
+          <!-- D4 faces show 3 values (all except the bottom face) -->
+          <template v-if="diceType === 'd4'">
+            <span class="face-value face-value-d4-left">{{
+              getD4Values(face.value)[0]
+            }}</span>
+            <span class="face-value face-value-d4-center">{{
+              getD4Values(face.value)[1]
+            }}</span>
+            <span class="face-value face-value-d4-right">{{
+              getD4Values(face.value)[2]
+            }}</span>
+          </template>
+          <!-- Other dice types show single value -->
+          <span v-else class="face-value">{{ face.value }}</span>
         </div>
       </div>
     </div>
@@ -49,7 +64,7 @@ interface Props {
   value?: number;
 
   /** Size of the dice in pixels */
-  size?: number;
+  scale?: number;
 
   /** Whether the dice is currently rolling */
   isRolling?: boolean;
@@ -63,7 +78,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   value: undefined,
-  size: 100,
+  scale: 1,
   isRolling: false,
   showShadow: true,
   animationSpeed: 0.6,
@@ -86,9 +101,6 @@ const geometry = computed(() => getGeometry(props.diceType));
 // Perspective depth for 3D effect
 const perspective = computed(() => 1000);
 
-// Base size scaling
-const scale = computed(() => props.size / geometry.value.width);
-
 // Wrapper style (includes optional base rotation for proper viewing angle)
 const wrapperStyle = computed(() => {
   const baseRotation = geometry.value.wrapperRotation;
@@ -105,7 +117,6 @@ const diceStyle = computed(() => {
   return {
     width: `${geometry.value.width}px`,
     height: `${geometry.value.height}px`,
-    // transform: `scale(${scale.value})`,
   };
 });
 
@@ -126,6 +137,25 @@ function getFaceStyle(face: DiceFace): Record<string, string> {
     style.transformOrigin = "center bottom";
   }
   return style;
+}
+
+/**
+ * Get the 3 values displayed on a d4 face
+ * Each triangular face shows all values except the bottom face value
+ */
+function getD4Values(faceValue: number): [number, number, number] {
+  switch (faceValue) {
+    case 1:
+      return [2, 1, 4];
+    case 2:
+      return [3, 1, 2];
+    case 3:
+      return [4, 1, 3];
+    case 4:
+      return [4, 3, 2];
+    default:
+      return [0, 0, 0]; // Should never happen
+  }
 }
 
 /**
@@ -335,6 +365,26 @@ defineExpose({
     0 1px 2px rgba(0, 0, 0, 0.3);
   user-select: none;
   pointer-events: none;
+}
+
+/* D4 face value positioning - 3 values per triangular face */
+.face-value-d4-left {
+  position: relative;
+  top: 42px;
+  left: -17px;
+  transform: rotateZ(-120deg);
+}
+
+.face-value-d4-center {
+  position: relative;
+  top: -15px;
+}
+
+.face-value-d4-right {
+  position: relative;
+  top: 42px;
+  left: 17px;
+  transform: rotateZ(120deg);
 }
 
 /* Adjust font size for dice with many faces */
