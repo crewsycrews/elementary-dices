@@ -224,12 +224,12 @@ function setValue(value: number): void {
 //   },
 // );
 
-// // Set initial value on mount
-// onMounted(() => {
-//   if (props.value !== undefined) {
-//     setValue(props.value);
-//   }
-// });
+// Set initial value on mount
+onMounted(() => {
+  if (props.value !== undefined) {
+    setValue(props.value);
+  }
+});
 
 // Expose methods for parent components
 defineExpose({

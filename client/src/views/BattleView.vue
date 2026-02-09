@@ -204,7 +204,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, nextTick } from "vue";
 import { useRouter } from "vue-router";
 import { useEventStore } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
@@ -234,6 +234,7 @@ const selectedDiceType = ref<string | null>(null);
 const showDiceRoll = ref(false);
 const rollResult = ref<any>(null);
 const battleResult = ref<any>(null);
+const currentDiceRollId = ref<string | null>(null);
 const diceVisualizationRef = ref<InstanceType<
   typeof DiceRollVisualization
 > | null>(null);
@@ -349,6 +350,12 @@ const handleBattleAttempt = async () => {
       outcome: diceRoll.outcome,
     };
 
+    // Save dice roll ID for later resolution
+    currentDiceRollId.value = diceRoll.id;
+    
+    nextTick(() => {
+      diceVisualizationRef.value?.roll();
+    });
     // Save last roll to inventory store
     const diceType = getDiceType(selectedDice.value);
     inventoryStore.updateLastRoll(diceType, {
@@ -356,25 +363,6 @@ const handleBattleAttempt = async () => {
       result: diceRoll.roll_value,
       outcome: diceRoll.outcome,
     } as any);
-
-    // Wait for visualization
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    // Resolve battle
-    const resolveResponse = await apiCall(
-      api.api.events["pvp-battle"].resolve.post({
-        player_id: userStore.userId,
-        dice_roll_id: diceRoll.id,
-      }),
-      { successMessage: "Battle complete!" },
-    );
-
-    battleResult.value = resolveResponse.data?.result;
-
-    // Refresh user currency and stats
-    await userStore.fetchUser(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
-    await elementalsStore.fetchPlayerElementals(userStore.userId);
   } catch (error) {
     console.error("Failed to resolve battle:", error);
   } finally {
@@ -383,15 +371,44 @@ const handleBattleAttempt = async () => {
 };
 
 // Handle roll complete
-const handleRollComplete = () => {
+const handleRollComplete = async () => {
   console.log("Roll visualization complete");
+  if (!currentDiceRollId.value || !userStore.userId) {
+    console.error("No current dice roll ID found for resolution");
+    return;
+  }
+  // Resolve battle to get the result
+  const resolveResponse = await apiCall(
+    api.api.events["pvp-battle"].resolve.post({
+      player_id: userStore.userId,
+      dice_roll_id: currentDiceRollId.value,
+    }),
+    { silent: true },
+  );
+
+  battleResult.value = resolveResponse.data?.result;
 };
 
 // Proceed to next event or dashboard
-const proceedToNext = () => {
-  // Clear event from store now that player has reviewed results
-  eventStore.clearEvent();
-  router.push("/");
+const proceedToNext = async () => {
+  if (!userStore.userId) {
+    eventStore.clearEvent();
+    router.push("/");
+    return;
+  }
+
+  try {
+    // Refresh user currency and stats after battle
+    await userStore.fetchUser(userStore.userId);
+    await inventoryStore.fetchPlayerItems(userStore.userId);
+    await elementalsStore.fetchPlayerElementals(userStore.userId);
+  } catch (error) {
+    console.error("Failed to refresh user data:", error);
+  } finally {
+    // Clear event from store now that player has reviewed results
+    eventStore.clearEvent();
+    router.push("/");
+  }
 };
 
 // Load event data

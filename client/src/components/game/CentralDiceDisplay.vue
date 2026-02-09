@@ -11,7 +11,7 @@
     </div>
 
     <!-- Label -->
-    <p class="text-xs md:text-sm text-muted-foreground text-center">
+    <p class="pt-4 text-xs md:text-sm text-muted-foreground text-center">
       {{ label }}
     </p>
   </div>
