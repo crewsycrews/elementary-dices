@@ -14,11 +14,21 @@ import type {
   LeaveMerchantResult,
 } from "./models";
 import { EVENT_PROBABILITIES } from "./models";
-import { EventRepository } from "./repository";
+import {
+  EventRepository,
+  WildEncounterEventRepository,
+  BattleEventRepository,
+  MerchantEventRepository,
+} from "./repository";
 import type { DiceRollOutcome } from "../dice-rolls/models";
 
 export class EventService {
-  constructor(private repository = new EventRepository()) {}
+  constructor(
+    private repository = new EventRepository(),
+    private wildEncounterRepo = new WildEncounterEventRepository(),
+    private battleRepo = new BattleEventRepository(),
+    private merchantRepo = new MerchantEventRepository(),
+  ) {}
 
   /**
    * Trigger a random event based on probabilities
@@ -36,28 +46,77 @@ export class EventService {
     // Determine event type based on probabilities
     const eventType = this.determineEventType();
 
-    // Generate event-specific data
+    // Generate event-specific data and create event records
     let eventResponse: EventResponse;
+    let eventRecordId: string;
+
     switch (eventType) {
-      case "wild_encounter":
-        eventResponse = await this.generateWildEncounter();
+      case "wild_encounter": {
+        const encounterData = await this.generateWildEncounter();
+        eventResponse = encounterData.response;
+
+        // Create event record
+        const wildEncounter = await this.wildEncounterRepo.create({
+          player_id: playerId,
+          elemental_id: encounterData.elemental_id,
+          stats_modifier: Math.random() * 0.4 + 0.8, // 0.8 to 1.2
+        });
+        eventRecordId = wildEncounter.id;
+
+        // Save current event pointer
+        await this.repository.setCurrentEvent({
+          player_id: playerId,
+          event_type: eventType,
+          wild_encounter_id: eventRecordId,
+        });
         break;
-      case "pvp_battle":
-        eventResponse = await this.generatePvPBattle(playerId);
+      }
+      case "pvp_battle": {
+        const battleData = await this.generatePvPBattle(playerId);
+        eventResponse = battleData.response;
+
+        // Create event record
+        const battle = await this.battleRepo.create({
+          player_id: playerId,
+          opponent_name: battleData.opponent_name,
+          opponent_power_level: battleData.opponent_power_level,
+        });
+        eventRecordId = battle.id;
+
+        // Save current event pointer
+        await this.repository.setCurrentEvent({
+          player_id: playerId,
+          event_type: eventType,
+          battle_id: eventRecordId,
+        });
         break;
-      case "merchant":
-        eventResponse = await this.generateMerchantEvent();
+      }
+      case "merchant": {
+        const merchantData = await this.generateMerchantEvent();
+        eventResponse = merchantData.response;
+
+        // Create event record (available for 30 minutes)
+        const availableUntil = new Date(Date.now() + 30 * 60 * 1000);
+        const merchant = await this.merchantRepo.create({
+          player_id: playerId,
+          available_until: availableUntil,
+        });
+        eventRecordId = merchant.id;
+
+        // TODO: Create merchant_inventory records for available items/dice
+        // This will be handled in a separate merchant service
+
+        // Save current event pointer
+        await this.repository.setCurrentEvent({
+          player_id: playerId,
+          event_type: eventType,
+          merchant_id: eventRecordId,
+        });
         break;
+      }
       default:
         throw new BadRequestError("Unknown event type");
     }
-
-    // Save current event to database
-    await this.repository.setCurrentEvent({
-      player_id: playerId,
-      event_type: eventType,
-      event_data: eventResponse.data,
-    });
 
     return eventResponse;
   }
@@ -89,7 +148,10 @@ export class EventService {
    * Generate a wild encounter event
    * Randomly selects an elemental from the database
    */
-  private async generateWildEncounter(): Promise<EventResponse> {
+  private async generateWildEncounter(): Promise<{
+    response: EventResponse;
+    elemental_id: string;
+  }> {
     // Get a random elemental from the database
     // Prefer base elementals (level 1) for wild encounters
     const elementals = await db("elementals")
@@ -121,9 +183,12 @@ export class EventService {
     };
 
     return {
-      event_type: "wild_encounter",
-      description: `A wild ${randomElemental.name} appeared! You can attempt to capture it using a dice roll and a capture item.`,
-      data,
+      response: {
+        event_type: "wild_encounter",
+        description: `A wild ${randomElemental.name} appeared! You can attempt to capture it using a dice roll and a capture item.`,
+        data,
+      },
+      elemental_id: randomElemental.id,
     };
   }
 
@@ -131,7 +196,11 @@ export class EventService {
    * Generate a PvP battle event
    * Creates a simulated opponent or matches with another player
    */
-  private async generatePvPBattle(playerId: string): Promise<EventResponse> {
+  private async generatePvPBattle(playerId: string): Promise<{
+    response: EventResponse;
+    opponent_name: string;
+    opponent_power_level: number;
+  }> {
     // For now, generate a simulated opponent
     // In the future, this could match with real players
 
@@ -153,16 +222,22 @@ export class EventService {
     // Calculate potential reward based on opponent power
     const potentialReward = Math.floor(opponentPowerLevel * 10);
 
+    const opponentName = this.generateOpponentName();
+
     const data: PvPData = {
-      opponent_name: this.generateOpponentName(),
+      opponent_name: opponentName,
       opponent_power_level: opponentPowerLevel,
       potential_reward: potentialReward,
     };
 
     return {
-      event_type: "pvp_battle",
-      description: `You've been challenged by ${data.opponent_name} to a battle! Win to earn ${potentialReward} currency.`,
-      data,
+      response: {
+        event_type: "pvp_battle",
+        description: `You've been challenged by ${opponentName} to a battle! Win to earn ${potentialReward} currency.`,
+        data,
+      },
+      opponent_name: opponentName,
+      opponent_power_level: opponentPowerLevel,
     };
   }
 
@@ -170,7 +245,7 @@ export class EventService {
    * Generate a merchant event
    * Offers random items and dice for sale
    */
-  private async generateMerchantEvent(): Promise<EventResponse> {
+  private async generateMerchantEvent(): Promise<{ response: EventResponse }> {
     // Get random items (2-4 items)
     const itemCount = Math.floor(Math.random() * 3) + 2;
     const allItems = await db("items").select("id", "name", "price", "rarity");
@@ -192,10 +267,12 @@ export class EventService {
     };
 
     return {
-      event_type: "merchant",
-      description:
-        "A traveling merchant has appeared! Browse their wares and make a purchase.",
-      data,
+      response: {
+        event_type: "merchant",
+        description:
+          "A traveling merchant has appeared! Browse their wares and make a purchase.",
+        data,
+      },
     };
   }
 
@@ -268,31 +345,130 @@ export class EventService {
       return null;
     }
 
-    // Transform database event into EventResponse format
-    return {
-      event_type: currentEvent.event_type,
-      description: this.getEventDescription(currentEvent),
-      data: currentEvent.event_data,
-    };
-  }
+    // Fetch event details from the appropriate table
+    switch (currentEvent.event_type) {
+      case "wild_encounter": {
+        if (!currentEvent.wild_encounter_id) {
+          throw new BadRequestError("Invalid wild encounter event");
+        }
+        const wildEncounter = await this.wildEncounterRepo.findById(
+          currentEvent.wild_encounter_id
+        );
+        if (!wildEncounter) {
+          throw new NotFoundError("Wild encounter event");
+        }
 
-  /**
-   * Generate description for an existing event
-   */
-  private getEventDescription(event: { event_type: EventType; event_data: any }): string {
-    switch (event.event_type) {
-      case 'wild_encounter': {
-        const data = event.event_data as WildEncounterData;
-        return `A wild ${data.elemental_name} appeared! You can attempt to capture it using a dice roll and a capture item.`;
+        // Get elemental details
+        const [elemental] = await db("elementals")
+          .where({ id: wildEncounter.elemental_id })
+          .limit(1);
+
+        if (!elemental) {
+          throw new NotFoundError("Elemental");
+        }
+
+        // Determine capture difficulty
+        let captureDifficulty: "easy" | "medium" | "hard";
+        if (elemental.level === 1) {
+          captureDifficulty = "easy";
+        } else if (elemental.level === 2) {
+          captureDifficulty = "medium";
+        } else {
+          captureDifficulty = "hard";
+        }
+
+        const data: WildEncounterData = {
+          elemental_id: elemental.id,
+          elemental_name: elemental.name,
+          elemental_level: elemental.level,
+          capture_difficulty: captureDifficulty,
+        };
+
+        return {
+          event_type: "wild_encounter",
+          description: `A wild ${elemental.name} appeared! You can attempt to capture it using a dice roll and a capture item.`,
+          data,
+        };
       }
-      case 'pvp_battle': {
-        const data = event.event_data as PvPData;
-        return `You've been challenged by ${data.opponent_name} to a battle! Win to earn ${data.potential_reward} currency.`;
+      case "pvp_battle": {
+        if (!currentEvent.battle_id) {
+          throw new BadRequestError("Invalid battle event");
+        }
+        const battle = await this.battleRepo.findById(currentEvent.battle_id);
+        if (!battle) {
+          throw new NotFoundError("Battle event");
+        }
+
+        const potentialReward = Math.floor(battle.opponent_power_level * 10);
+
+        const data: PvPData = {
+          opponent_name: battle.opponent_name,
+          opponent_power_level: battle.opponent_power_level,
+          potential_reward: potentialReward,
+        };
+
+        return {
+          event_type: "pvp_battle",
+          description: `You've been challenged by ${battle.opponent_name} to a battle! Win to earn ${potentialReward} currency.`,
+          data,
+        };
       }
-      case 'merchant':
-        return 'A traveling merchant has appeared! Browse their wares and make a purchase.';
+      case "merchant": {
+        if (!currentEvent.merchant_id) {
+          throw new BadRequestError("Invalid merchant event");
+        }
+        const merchant = await this.merchantRepo.findById(
+          currentEvent.merchant_id
+        );
+        if (!merchant) {
+          throw new NotFoundError("Merchant event");
+        }
+
+        // Get merchant inventory
+        const inventory = await db("merchant_inventory")
+          .where({ merchant_event_id: merchant.id })
+          .leftJoin("items", "merchant_inventory.item_id", "items.id")
+          .leftJoin("dice_types", "merchant_inventory.dice_type_id", "dice_types.id")
+          .select(
+            "merchant_inventory.*",
+            "items.name as item_name",
+            "items.rarity as item_rarity",
+            "dice_types.name as dice_name",
+            "dice_types.rarity as dice_rarity"
+          );
+
+        const availableItems = inventory
+          .filter((item) => item.item_id)
+          .map((item) => ({
+            id: item.item_id,
+            name: item.item_name,
+            price: item.price,
+            rarity: item.item_rarity,
+          }));
+
+        const availableDice = inventory
+          .filter((item) => item.dice_type_id)
+          .map((item) => ({
+            id: item.dice_type_id,
+            name: item.dice_name,
+            price: item.price,
+            rarity: item.dice_rarity,
+          }));
+
+        const data: MerchantData = {
+          available_items: availableItems,
+          available_dice: availableDice,
+        };
+
+        return {
+          event_type: "merchant",
+          description:
+            "A traveling merchant has appeared! Browse their wares and make a purchase.",
+          data,
+        };
+      }
       default:
-        return 'An event is in progress.';
+        throw new BadRequestError("Unknown event type");
     }
   }
 
@@ -309,7 +485,24 @@ export class EventService {
       throw new BadRequestError("No active wild encounter event");
     }
 
-    const eventData = currentEvent.event_data as WildEncounterData;
+    if (!currentEvent.wild_encounter_id) {
+      throw new BadRequestError("Invalid wild encounter event");
+    }
+
+    const wildEncounter = await this.wildEncounterRepo.findById(
+      currentEvent.wild_encounter_id
+    );
+    if (!wildEncounter) {
+      throw new NotFoundError("Wild encounter event");
+    }
+
+    // Get the elemental
+    const [elemental] = await db("elementals")
+      .where({ id: wildEncounter.elemental_id })
+      .limit(1);
+    if (!elemental) {
+      throw new NotFoundError("Elemental");
+    }
 
     // Get the dice roll
     const [diceRoll] = await db("dice_rolls")
@@ -371,7 +564,7 @@ export class EventService {
 
     // Determine success based on dice outcome and difficulty
     const outcome: DiceRollOutcome = diceRoll.outcome;
-    const difficulty = eventData.capture_difficulty;
+    const difficulty = elemental.level === 1 ? "easy" : elemental.level === 2 ? "medium" : "hard";
 
     let success = false;
     if (outcome === "crit_success") {
@@ -390,15 +583,6 @@ export class EventService {
     let message = "";
 
     if (success) {
-      // Get the elemental
-      const [elemental] = await db("elementals")
-        .where({ id: eventData.elemental_id })
-        .limit(1);
-
-      if (!elemental) {
-        throw new NotFoundError("Elemental");
-      }
-
       // Add elemental to player's collection
       const [playerElemental] = await db("player_elementals")
         .insert({
@@ -416,6 +600,16 @@ export class EventService {
       };
 
       message = `Successfully captured ${elemental.name}! It has been added to your collection.`;
+
+      // Update wild encounter record
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "victory",
+        dice_roll_id: data.dice_roll_id,
+        item_used_id: data.item_id,
+        captured_player_elemental_id: playerElemental.id,
+        resolved_at: new Date(),
+      });
 
       // Update player progress
       await db("player_progress")
@@ -435,7 +629,16 @@ export class EventService {
           .increment("unique_elementals_collected", 1);
       }
     } else {
-      message = `Failed to capture ${eventData.elemental_name}. The elemental escaped!`;
+      message = `Failed to capture ${elemental.name}. The elemental escaped!`;
+
+      // Update wild encounter record
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "defeat",
+        dice_roll_id: data.dice_roll_id,
+        item_used_id: data.item_id,
+        resolved_at: new Date(),
+      });
     }
 
     // Clear current event
@@ -460,13 +663,34 @@ export class EventService {
       throw new BadRequestError("No active wild encounter event");
     }
 
-    const eventData = currentEvent.event_data as WildEncounterData;
+    if (!currentEvent.wild_encounter_id) {
+      throw new BadRequestError("Invalid wild encounter event");
+    }
+
+    const wildEncounter = await this.wildEncounterRepo.findById(
+      currentEvent.wild_encounter_id
+    );
+    if (!wildEncounter) {
+      throw new NotFoundError("Wild encounter event");
+    }
+
+    // Get elemental name
+    const [elemental] = await db("elementals")
+      .where({ id: wildEncounter.elemental_id })
+      .limit(1);
+
+    // Update wild encounter record
+    await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+      status: "fled",
+      outcome: "fled",
+      resolved_at: new Date(),
+    });
 
     // Clear current event
     await this.repository.clearCurrentEvent(playerId);
 
     return {
-      message: `You decided to skip the encounter with ${eventData.elemental_name}. The elemental wandered away.`,
+      message: `You decided to skip the encounter with ${elemental?.name || "the elemental"}. The elemental wandered away.`,
       can_continue: true,
     };
   }
@@ -482,7 +706,14 @@ export class EventService {
       throw new BadRequestError("No active PvP battle event");
     }
 
-    const eventData = currentEvent.event_data as PvPData;
+    if (!currentEvent.battle_id) {
+      throw new BadRequestError("Invalid battle event");
+    }
+
+    const battle = await this.battleRepo.findById(currentEvent.battle_id);
+    if (!battle) {
+      throw new NotFoundError("Battle event");
+    }
 
     // Get the dice roll
     const [diceRoll] = await db("dice_rolls")
@@ -514,7 +745,7 @@ export class EventService {
     const playerPower = playerBasePower + playerDiceBonus;
 
     // Opponent rolls (simulated)
-    const opponentBasePower = eventData.opponent_power_level;
+    const opponentBasePower = battle.opponent_power_level;
     const opponentRoll = Math.floor(Math.random() * 20) + 1;
     const opponentDiceBonus = opponentRoll * 10;
     const opponentPower = opponentBasePower + opponentDiceBonus;
@@ -524,10 +755,11 @@ export class EventService {
     let message = "";
     let reward = undefined;
     let penalty = undefined;
+    let downgradedElementalId = undefined;
 
     if (victory) {
-      reward = eventData.potential_reward;
-      message = `Victory! You defeated ${eventData.opponent_name} and earned ${reward} currency.`;
+      reward = Math.floor(battle.opponent_power_level * 10);
+      message = `Victory! You defeated ${battle.opponent_name} and earned ${reward} currency.`;
 
       // Award currency
       await db("users")
@@ -539,8 +771,19 @@ export class EventService {
         .where({ player_id: data.player_id })
         .increment("total_battles", 1)
         .increment("battles_won", 1);
+
+      // Update battle record
+      await this.battleRepo.updateResolution(battle.id, {
+        status: "completed",
+        outcome: "victory",
+        player_power: playerPower,
+        opponent_actual_power: opponentPower,
+        dice_roll_id: data.dice_roll_id,
+        currency_reward: reward,
+        resolved_at: new Date(),
+      });
     } else {
-      message = `Defeat! ${eventData.opponent_name} was too strong.`;
+      message = `Defeat! ${battle.opponent_name} was too strong.`;
 
       // Apply penalty: downgrade a random elemental
       if (playerElementals.length > 0) {
@@ -574,6 +817,8 @@ export class EventService {
                   current_stats: baseElemental.base_stats,
                 });
 
+              downgradedElementalId = targetElemental.player_elemental_id;
+
               penalty = {
                 downgraded_elemental: targetElemental.name,
               };
@@ -589,6 +834,17 @@ export class EventService {
         .where({ player_id: data.player_id })
         .increment("total_battles", 1)
         .increment("battles_lost", 1);
+
+      // Update battle record
+      await this.battleRepo.updateResolution(battle.id, {
+        status: "completed",
+        outcome: "defeat",
+        player_power: playerPower,
+        opponent_actual_power: opponentPower,
+        dice_roll_id: data.dice_roll_id,
+        downgraded_elemental_id: downgradedElementalId,
+        resolved_at: new Date(),
+      });
     }
 
     // Clear current event
@@ -615,6 +871,21 @@ export class EventService {
     if (!currentEvent || currentEvent.event_type !== "merchant") {
       throw new BadRequestError("No active merchant event");
     }
+
+    if (!currentEvent.merchant_id) {
+      throw new BadRequestError("Invalid merchant event");
+    }
+
+    const merchant = await this.merchantRepo.findById(currentEvent.merchant_id);
+    if (!merchant) {
+      throw new NotFoundError("Merchant event");
+    }
+
+    // Update merchant record
+    await this.merchantRepo.updateResolution(merchant.id, {
+      status: "completed",
+      resolved_at: new Date(),
+    });
 
     // Clear current event
     await this.repository.clearCurrentEvent(playerId);

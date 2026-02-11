@@ -1,18 +1,27 @@
-import type { Knex } from 'knex';
+import type { Knex } from "knex";
 
 export async function seed(knex: Knex): Promise<void> {
   // Clear existing dice types
-  await knex('dice_types').del();
+  await knex("dice_types").del();
 
-  // Dice notations
-  const diceNotations = ['d4', 'd6', 'd10', 'd12', 'd20'];
+  // Dice notations with element affinities
+  const diceNotations = ["d4", "d6", "d10", "d12", "d20"];
+
+  // Element affinity mapping
+  const elementAffinities: Record<string, string> = {
+    d4: "fire",
+    d6: "water",
+    d10: "air",
+    d12: "earth",
+    d20: "lightning",
+  };
 
   // Rarities with stat multipliers
   const rarities = [
-    { rarity: 'green', multiplier: 1.0, priceBase: 50 },
-    { rarity: 'blue', multiplier: 1.2, priceBase: 150 },
-    { rarity: 'purple', multiplier: 1.5, priceBase: 400 },
-    { rarity: 'gold', multiplier: 2.0, priceBase: 1000 },
+    { rarity: "green", multiplier: 1.2, priceBase: 50 },
+    { rarity: "blue", multiplier: 1.3, priceBase: 150 },
+    { rarity: "purple", multiplier: 1.5, priceBase: 400 },
+    { rarity: "gold", multiplier: 1.8, priceBase: 1000 },
   ];
 
   // Thresholds for each dice type (normalized to 4 outcomes)
@@ -54,21 +63,34 @@ export async function seed(knex: Knex): Promise<void> {
   for (const dice of diceNotations) {
     for (const { rarity, multiplier, priceBase } of rarities) {
       diceTypes.push({
-        id: knex.raw('uuid_generate_v7()'),
+        id: knex.raw("uuid_generate_v7()"),
         dice_notation: dice,
         rarity,
         name: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} ${dice.toUpperCase()}`,
         stat_bonuses: JSON.stringify({
           bonus_multiplier: multiplier,
+          element_affinity: elementAffinities[dice],
         }),
         outcome_thresholds: JSON.stringify(thresholds[dice]),
-        price: priceBase * (dice === 'd4' ? 1 : dice === 'd6' ? 1.2 : dice === 'd10' ? 1.5 : dice === 'd12' ? 1.8 : 2.5),
-        description: `A ${rarity} quality ${dice} die. ${
-          multiplier > 1 ? `Provides ${((multiplier - 1) * 100).toFixed(0)}% bonus to rolls.` : 'Standard quality.'
+        price:
+          priceBase *
+          (dice === "d4"
+            ? 1
+            : dice === "d6"
+              ? 1.2
+              : dice === "d10"
+                ? 1.5
+                : dice === "d12"
+                  ? 1.8
+                  : 2.5),
+        description: `A ${rarity} quality ${dice} die with ${elementAffinities[dice]} affinity. ${
+          multiplier > 1
+            ? `Provides ${((multiplier - 1) * 100).toFixed(0)}% bonus to rolls.`
+            : "Standard quality."
         }`,
       });
     }
   }
 
-  await knex('dice_types').insert(diceTypes);
+  await knex("dice_types").insert(diceTypes);
 }

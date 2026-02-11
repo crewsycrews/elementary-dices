@@ -1,11 +1,6 @@
 import type { Knex } from 'knex';
 
 export async function up(knex: Knex): Promise<void> {
-  // Create battle type enum
-  await knex.raw(`
-    CREATE TYPE battle_type AS ENUM ('wild_encounter', 'pvp', 'merchant_event');
-  `);
-
   // Create battle status enum
   await knex.raw(`
     CREATE TYPE battle_status AS ENUM ('pending', 'in_progress', 'completed', 'fled');
@@ -16,15 +11,16 @@ export async function up(knex: Knex): Promise<void> {
     CREATE TYPE battle_outcome AS ENUM ('victory', 'defeat', 'draw');
   `);
 
-  await knex.schema.createTable('battles', (table) => {
+  await knex.schema.createTable('events_battle', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v7()'));
-    table.enu('battle_type', ['wild_encounter', 'pvp', 'merchant_event'], {
-      useNative: true,
-      enumName: 'battle_type',
-      existingType: true,
-    }).notNullable();
-    table.uuid('initiator_player_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
-    table.uuid('opponent_player_id').references('id').inTable('users').onDelete('CASCADE');
+    table.uuid('player_id').notNullable().references('id').inTable('users').onDelete('CASCADE');
+
+    // Opponent Details
+    table.uuid('opponent_player_id').references('id').inTable('users').onDelete('SET NULL');
+    table.string('opponent_name', 255).notNullable();
+    table.integer('opponent_power_level').notNullable();
+
+    // Battle Resolution (NULL until resolved)
     table.enu('status', ['pending', 'in_progress', 'completed', 'fled'], {
       useNative: true,
       enumName: 'battle_status',
@@ -35,20 +31,27 @@ export async function up(knex: Knex): Promise<void> {
       enumName: 'battle_outcome',
       existingType: true,
     });
-    table.jsonb('rewards'); // { currency?, items?, captured_elemental_id? }
-    table.jsonb('penalties'); // { downgraded_elemental_ids }
-    table.timestamp('completed_at');
+    table.integer('player_power');
+    table.integer('opponent_actual_power');
+    table.uuid('dice_roll_id').references('id').inTable('dice_rolls').onDelete('SET NULL');
+
+    // Rewards/Penalties
+    table.integer('currency_reward');
+    table.uuid('downgraded_elemental_id').references('id').inTable('player_elementals').onDelete('SET NULL');
+
+    // Timestamps
+    table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
+    table.timestamp('resolved_at');
 
     // Indexes
-    table.index(['initiator_player_id', 'status']);
-    table.index(['battle_type', 'id']); // id is sortable by time due to UUIDv7
-    table.index(['opponent_player_id']);
+    table.index(['player_id', 'created_at'], 'idx_battle_player');
+    table.index(['status'], 'idx_battle_status');
+    table.index(['opponent_player_id'], 'idx_battle_opponent');
   });
 }
 
 export async function down(knex: Knex): Promise<void> {
-  await knex.schema.dropTableIfExists('battles');
-  await knex.raw('DROP TYPE IF EXISTS battle_type');
+  await knex.schema.dropTableIfExists('events_battle');
   await knex.raw('DROP TYPE IF EXISTS battle_status');
   await knex.raw('DROP TYPE IF EXISTS battle_outcome');
 }

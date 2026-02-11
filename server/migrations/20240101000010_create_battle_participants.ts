@@ -3,7 +3,7 @@ import type { Knex } from 'knex';
 export async function up(knex: Knex): Promise<void> {
   await knex.schema.createTable('battle_participants', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v7()'));
-    table.uuid('battle_id').notNullable().references('id').inTable('battles').onDelete('CASCADE');
+    table.uuid('battle_id').notNullable().references('id').inTable('events_battle').onDelete('CASCADE');
     table.uuid('player_elemental_id').references('id').inTable('player_elementals').onDelete('SET NULL');
     table.uuid('wild_elemental_id').references('id').inTable('elementals').onDelete('SET NULL');
     table.integer('position').notNullable().checkBetween([1, 5]);

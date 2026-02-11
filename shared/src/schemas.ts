@@ -199,7 +199,7 @@ export const DiceTypeSchema = t.Object({
   name: t.String(),
   stat_bonuses: t.Object({
     bonus_multiplier: t.Number({ minimum: 1 }),
-    element_affinity: t.Optional(t.Array(ElementType)),
+    element_affinity: t.Optional(ElementType),
   }),
   outcome_thresholds: t.Object({
     crit_success_range: t.Tuple([t.Integer(), t.Integer()]),
@@ -217,7 +217,7 @@ export const CreateDiceTypeSchema = t.Object({
   name: t.String(),
   stat_bonuses: t.Object({
     bonus_multiplier: t.Number({ minimum: 1 }),
-    element_affinity: t.Optional(t.Array(ElementType)),
+    element_affinity: t.Optional(ElementType),
   }),
   outcome_thresholds: t.Object({
     crit_success_range: t.Tuple([t.Integer(), t.Integer()]),
@@ -297,9 +297,73 @@ export const CreatePlayerInventorySchema = t.Object({
 });
 
 // ========================================
-// Battle Schemas
+// Event Schemas
 // ========================================
 
+// Wild Encounter Event Schema
+export const WildEncounterEventSchema = t.Object({
+  id: t.String({ format: 'uuid' }),
+  player_id: t.String({ format: 'uuid' }),
+  elemental_id: t.String({ format: 'uuid' }),
+  stats_modifier: t.Number(),
+  status: EncounterStatus,
+  outcome: t.Optional(BattleOutcome),
+  dice_roll_id: t.Optional(t.String({ format: 'uuid' })),
+  item_used_id: t.Optional(t.String({ format: 'uuid' })),
+  captured_player_elemental_id: t.Optional(t.String({ format: 'uuid' })),
+  created_at: t.String({ format: 'date-time' }),
+  resolved_at: t.Optional(t.String({ format: 'date-time' })),
+});
+
+export const CreateWildEncounterEventSchema = t.Object({
+  player_id: t.String({ format: 'uuid' }),
+  elemental_id: t.String({ format: 'uuid' }),
+  stats_modifier: t.Optional(t.Number()),
+});
+
+// Battle Event Schema (PvP battles)
+export const BattleEventSchema = t.Object({
+  id: t.String({ format: 'uuid' }),
+  player_id: t.String({ format: 'uuid' }),
+  opponent_player_id: t.Optional(t.String({ format: 'uuid' })),
+  opponent_name: t.String(),
+  opponent_power_level: t.Integer(),
+  status: EncounterStatus,
+  outcome: t.Optional(BattleOutcome),
+  player_power: t.Optional(t.Integer()),
+  opponent_actual_power: t.Optional(t.Integer()),
+  dice_roll_id: t.Optional(t.String({ format: 'uuid' })),
+  currency_reward: t.Optional(t.Integer()),
+  downgraded_elemental_id: t.Optional(t.String({ format: 'uuid' })),
+  created_at: t.String({ format: 'date-time' }),
+  resolved_at: t.Optional(t.String({ format: 'date-time' })),
+});
+
+export const CreateBattleEventSchema = t.Object({
+  player_id: t.String({ format: 'uuid' }),
+  opponent_player_id: t.Optional(t.String({ format: 'uuid' })),
+  opponent_name: t.String(),
+  opponent_power_level: t.Integer(),
+});
+
+// Merchant Event Schema
+export const MerchantEventSchema = t.Object({
+  id: t.String({ format: 'uuid' }),
+  player_id: t.String({ format: 'uuid' }),
+  status: EncounterStatus,
+  available_until: t.String({ format: 'date-time' }),
+  total_purchases: t.Integer({ minimum: 0 }),
+  total_spent: t.Integer({ minimum: 0 }),
+  created_at: t.String({ format: 'date-time' }),
+  resolved_at: t.Optional(t.String({ format: 'date-time' })),
+});
+
+export const CreateMerchantEventSchema = t.Object({
+  player_id: t.String({ format: 'uuid' }),
+  available_until: t.String({ format: 'date-time' }),
+});
+
+// Legacy Battle Schema (kept for backwards compatibility if needed)
 export const BattleSchema = t.Object({
   id: t.String({ format: 'uuid' }),
   battle_type: EncounterType,
@@ -423,7 +487,15 @@ export const schemas = {
   PlayerInventorySchema,
   CreatePlayerInventorySchema,
 
-  // Battles
+  // Events
+  WildEncounterEventSchema,
+  CreateWildEncounterEventSchema,
+  BattleEventSchema,
+  CreateBattleEventSchema,
+  MerchantEventSchema,
+  CreateMerchantEventSchema,
+
+  // Battles (Legacy)
   BattleSchema,
   CreateBattleSchema,
   DiceRollSchema,
