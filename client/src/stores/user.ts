@@ -87,7 +87,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users.login.post(data), {
+        const response = await apiCall(api.api.auth.login.post(data), {
           successMessage: "Login successful!",
         });
 
@@ -107,6 +107,81 @@ export const useUserStore = defineStore(
       } catch (error) {
         console.error("Failed to login:", error);
         throw error;
+      }
+    }
+
+    // Google OAuth login - redirects to Google
+    function loginWithGoogle() {
+      const apiUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+      window.location.href = `${apiUrl}/api/auth/google`;
+    }
+
+    // Handle OAuth callback - gets current user after successful OAuth
+    async function handleOAuthCallback() {
+      const { api, apiCall } = useApi();
+
+      try {
+        const response = await apiCall(api.api.users.me.get(), {
+          successMessage: "Logged in with Google!",
+        });
+
+        if (response.data) {
+          const user = response.data.user;
+          userId.value = user.id;
+          username.value = user.username;
+          email.value = user.email;
+          currency.value = user.currency || 0;
+
+          // Initialize event state from server after OAuth login
+          const eventStore = useEventStore();
+          await eventStore.initializeEventState(user.id);
+
+          return user;
+        }
+      } catch (error) {
+        console.error("Failed to get user after OAuth:", error);
+        throw error;
+      }
+    }
+
+    // Get current authenticated user (for token refresh or session check)
+    async function getCurrentUser() {
+      const { api, apiCall } = useApi();
+
+      try {
+        const response = await apiCall(api.api.users.me.get(), {
+          silent: true,
+        });
+
+        if (response.data) {
+          const user = response.data.user;
+          userId.value = user.id;
+          username.value = user.username;
+          email.value = user.email;
+          currency.value = user.currency || 0;
+
+          return user;
+        }
+      } catch (error) {
+        console.error("Failed to get current user:", error);
+        // Don't throw - just return null for failed auth check
+        return null;
+      }
+    }
+
+    // Refresh access token
+    async function refreshAccessToken() {
+      const { api, apiCall } = useApi();
+
+      try {
+        const response = await apiCall(api.api.users.refresh.post({}), {
+          silent: true,
+        });
+
+        return response.data !== null;
+      } catch (error) {
+        console.error("Failed to refresh token:", error);
+        return false;
       }
     }
 
@@ -134,7 +209,20 @@ export const useUserStore = defineStore(
       }
     }
 
-    function logout() {
+    async function logout() {
+      const { api, apiCall } = useApi();
+
+      try {
+        // Call backend logout to invalidate tokens
+        await apiCall(api.api.users.logout.post({}), {
+          silent: true,
+        });
+      } catch (error) {
+        console.error("Failed to logout from backend:", error);
+        // Continue with local logout even if backend call fails
+      }
+
+      // Clear local state
       userId.value = null;
       username.value = "";
       email.value = "";
@@ -159,6 +247,10 @@ export const useUserStore = defineStore(
       fetchUser,
       createUser,
       loginUser,
+      loginWithGoogle,
+      handleOAuthCallback,
+      getCurrentUser,
+      refreshAccessToken,
       updateCurrency,
       logout,
     };
@@ -167,7 +259,7 @@ export const useUserStore = defineStore(
     persist: {
       key: "elementary-dices-user",
       storage: localStorage,
-      paths: ["userId", "username", "email"], // Only persist these fields
+      paths: ["userId", "username", "email", "currency", "stats"], // Only persist these fields
     },
   },
 );

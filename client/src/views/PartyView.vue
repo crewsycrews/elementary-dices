@@ -35,6 +35,9 @@
           :show-health="true"
           :show-stats="false"
           @click="handlePartySlotClick(index + 1)"
+          @drag-start="handleDragStart"
+          @drag-end="handleDragEnd"
+          @drop="handleDrop"
         />
       </div>
 
@@ -45,6 +48,23 @@
           <p class="text-2xl font-bold text-primary">{{ totalPartyPower }}</p>
         </div>
       </div>
+    </div>
+
+    <!-- Evolution Link -->
+    <div>
+      <button
+        @click="$router.push('/evolutions')"
+        class="w-full p-6 border-2 border-dashed border-primary/50 rounded-lg hover:border-primary hover:bg-primary/5 transition-all group"
+      >
+        <div class="flex items-center justify-center gap-4">
+          <div class="text-4xl">🔮</div>
+          <div class="text-left">
+            <h3 class="text-xl font-bold group-hover:text-primary">Elemental Evolutions</h3>
+            <p class="text-sm text-muted-foreground">Combine elementals to create powerful evolutions</p>
+          </div>
+          <div class="text-2xl">→</div>
+        </div>
+      </button>
     </div>
 
     <!-- Backpack -->
@@ -61,7 +81,11 @@
           :elemental="member.elemental"
           :stats="member.playerElemental.current_stats"
           :is-selectable="true"
+          :is-draggable="true"
+          :player-elemental-id="member.playerElemental.id"
           @click="handleAddToParty(member)"
+          @drag-start="handleBackpackDragStart(member)"
+          @drag-end="handleDragEnd"
         />
       </div>
 
@@ -81,6 +105,8 @@ import { ref, computed, onMounted } from 'vue';
 import { useUserStore } from '@/stores/user';
 import { useElementalsStore } from '@/stores/elementals';
 import { useUIStore } from '@/stores/ui';
+import { useApi } from '@/composables/useApi';
+import { playerApi } from '@/composables/useApiHelpers';
 import PartySlot from '@/components/game/PartySlot.vue';
 import ElementalCard from '@/components/game/ElementalCard.vue';
 
@@ -89,6 +115,9 @@ const elementalsStore = useElementalsStore();
 const uiStore = useUIStore();
 
 const maxBackpackSize = 20;
+
+// Track dragged elemental
+const draggedElemental = ref<{ playerElemental: any; elemental: any; position?: number } | null>(null);
 
 // Elemental data with full details
 const activePartyWithData = computed(() => {
@@ -114,45 +143,134 @@ const backpackWithData = computed(() => {
 });
 
 const totalPartyPower = computed(() => {
-  return elementalsStore.activeParty.reduce((sum, elemental) => sum + (elemental.power || 0), 0);
+  return elementalsStore.activeParty.reduce((sum, elemental) => {
+    const stats = elemental.current_stats;
+    return sum + stats.attack + stats.defense + stats.speed;
+  }, 0);
 });
+
+// Handle drag start from party slot
+const handleDragStart = (position: number, playerElemental: any) => {
+  const member = activePartyWithData.value[position - 1];
+  if (member) {
+    draggedElemental.value = { ...member, position };
+  }
+};
+
+// Handle drag start from backpack
+const handleBackpackDragStart = (member: { playerElemental: any; elemental: any }) => {
+  draggedElemental.value = { ...member }; // No position means it's from backpack
+};
+
+// Handle drag end
+const handleDragEnd = () => {
+  draggedElemental.value = null;
+};
+
+// Handle drop on party slot (reordering)
+const handleDrop = async (targetPosition: number) => {
+  if (!draggedElemental.value || !userStore.userId) return;
+
+  const sourcePosition = draggedElemental.value.position;
+
+  if (!sourcePosition) {
+    // Dragged from backpack - add to party at target position
+    await handleAddToPartyAtPosition(draggedElemental.value, targetPosition);
+  } else if (sourcePosition !== targetPosition) {
+    // Dragged within party - swap positions
+    try {
+      const { apiCall } = useApi();
+      const response = await apiCall(
+        playerApi.swapPartyPositions(userStore.userId, {
+          position1: sourcePosition,
+          position2: targetPosition
+        }),
+        { silent: true }
+      );
+
+      if (response.data) {
+        // Refresh party data
+        await elementalsStore.fetchPlayerElementals(userStore.userId);
+        uiStore.showToast('Party positions swapped!', 'success');
+      }
+    } catch (error) {
+      console.error('Failed to swap positions:', error);
+      uiStore.showToast('Failed to swap positions', 'error');
+    }
+  }
+
+  draggedElemental.value = null;
+};
+
+// Handle adding from backpack to specific position
+const handleAddToPartyAtPosition = async (member: { playerElemental: any; elemental: any }, position: number) => {
+  if (!userStore.userId) return;
+
+  if (activePartyWithData.value.length >= 5) {
+    uiStore.showToast('Party is full! Remove an elemental first.', 'error');
+    return;
+  }
+
+  try {
+    const { apiCall } = useApi();
+    await apiCall(
+      playerApi.updateElemental(userStore.userId, member.playerElemental.id, {
+        is_in_active_party: true,
+        party_position: position
+      }),
+      { silent: true }
+    );
+
+    await elementalsStore.fetchPlayerElementals(userStore.userId);
+    uiStore.showToast(`${member.elemental.name} added to party!`, 'success');
+  } catch (error) {
+    console.error('Failed to add to party:', error);
+    uiStore.showToast('Failed to add elemental to party', 'error');
+  }
+};
+
+// Handle removing from party
+const handleRemoveFromParty = async (position: number) => {
+  if (!userStore.userId) return;
+
+  const member = activePartyWithData.value[position - 1];
+  if (!member) return;
+
+  try {
+    await elementalsStore.removeFromParty(userStore.userId, member.playerElemental.id);
+    uiStore.showToast(`${member.elemental.name} moved to backpack`, 'success');
+  } catch (error) {
+    console.error('Failed to remove from party:', error);
+    uiStore.showToast('Failed to remove from party', 'error');
+  }
+};
 
 // Handle party slot click
 const handlePartySlotClick = (position: number) => {
   const member = activePartyWithData.value[position - 1];
   if (member) {
-    // Show modal or action sheet for elemental management
-    uiStore.showNotification({
-      message: `Clicked on ${member.elemental.name}`,
-      type: 'info',
-    });
+    // Show confirmation to remove from party
+    if (confirm(`Remove ${member.elemental.name} from party?`)) {
+      handleRemoveFromParty(position);
+    }
   }
 };
 
-// Handle adding elemental to party
+// Handle adding elemental to party (click on backpack card)
 const handleAddToParty = async (member: { playerElemental: any; elemental: any }) => {
   if (!userStore.userId) return;
 
   if (activePartyWithData.value.length >= 5) {
-    uiStore.showNotification({
-      message: 'Party is full! Remove an elemental first.',
-      type: 'error',
-    });
+    uiStore.showToast('Party is full! Remove an elemental first.', 'error');
     return;
   }
 
   try {
     await elementalsStore.addToParty(userStore.userId, member.playerElemental.id);
-    uiStore.showNotification({
-      message: `${member.elemental.name} added to party!`,
-      type: 'success',
-    });
+    uiStore.showToast(`${member.elemental.name} added to party!`, 'success');
   } catch (error) {
     console.error('Failed to add to party:', error);
-    uiStore.showNotification({
-      message: 'Failed to add elemental to party',
-      type: 'error',
-    });
+    uiStore.showToast('Failed to add elemental to party', 'error');
   }
 };
 

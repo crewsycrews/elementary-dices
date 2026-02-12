@@ -1,8 +1,6 @@
 import type {
   User,
   Elemental,
-  PlayerElemental,
-  PlayerElementalWithDetails,
   DiceType,
   PlayerDice,
   PlayerDiceWithDetails,

@@ -1,35 +1,159 @@
-import { Elysia, t } from 'elysia';
-import { UserService } from './service';
-import {
-  CreateUserDTO,
-  UpdateUserDTO,
-  UpdateCurrencyDTO,
-  LoginDTO,
-} from './models';
+import { Elysia, t } from "elysia";
+import { UserService } from "./service";
+import { CreateUserDTO, UpdateUserDTO, UpdateCurrencyDTO } from "./models";
+import { requireAuth } from "../auth/middleware";
+import { UnauthorizedError } from "../../shared/errors";
+import type { AccessTokenPayload } from "../auth/models";
 
-export const usersModule = new Elysia({ prefix: '/api/users' })
-  .decorate('userService', new UserService())
-  // Get all users
-  .get('/', async ({ userService }) => {
-    const users = await userService.findAll();
-    return { users };
-  })
-  // Get user by ID with full profile
+// Protected routes module with authentication
+const protectedUsersRoutes = new Elysia()
+  .use(requireAuth)
+  .decorate("userService", new UserService())
+  // Get user by ID with full profile (own profile only)
   .get(
-    '/:id',
-    async ({ params, userService }) => {
-      const user = await userService.getUserProfile(params.id);
-      return { user };
+    "/:id",
+    async (context) => {
+      const { params, userService } = context;
+      const user = context.user;
+
+      if (user.id !== params.id) {
+        throw new UnauthorizedError("You can only access your own profile");
+      }
+      const userProfile = await userService.getUserProfile(params.id);
+      return { user: userProfile };
     },
     {
       params: t.Object({
         id: t.String(),
       }),
-    }
+    },
   )
-  // Get user by username
+  // Update user (own profile only)
+  .patch(
+    "/:id",
+    async (context) => {
+      const { params, body, userService } = context;
+      const user = context.user;
+
+      if (user.id !== params.id) {
+        throw new UnauthorizedError("You can only update your own profile");
+      }
+      const updatedUser = await userService.update(params.id, body);
+      return { user: updatedUser };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: UpdateUserDTO,
+    },
+  )
+  // Update user currency (own account only)
+  .patch(
+    "/:id/currency",
+    async (context) => {
+      const { params, body, userService } = context;
+      const user = context.user;
+
+      if (user.id !== params.id) {
+        throw new UnauthorizedError("You can only update your own currency");
+      }
+      const updatedUser = await userService.updateCurrency(params.id, body);
+      return { user: updatedUser };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+      body: UpdateCurrencyDTO,
+    },
+  )
+  // Delete user (own account only)
+  .delete(
+    "/:id",
+    async (context) => {
+      const { params, userService } = context;
+      const user = context.user;
+
+      if (user.id !== params.id) {
+        throw new UnauthorizedError("You can only delete your own account");
+      }
+      await userService.delete(params.id);
+      return { message: "User deleted successfully" };
+    },
+    {
+      params: t.Object({
+        id: t.String(),
+      }),
+    },
+  )
+  /**
+   * POST /api/auth/refresh
+   * Refresh access token using refresh token
+   */
+  .post("/refresh", async ({ cookie, authService }) => {
+    const oldRefreshToken = cookie.refresh_token?.value as string | undefined;
+
+    const { accessToken, refreshToken } = await authService.refreshAccessToken(
+      oldRefreshToken!,
+    );
+
+    // Update cookies with new tokens
+    cookie.access_token.set({
+      value: accessToken,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 15 * 60,
+      path: "/",
+    });
+
+    cookie.refresh_token.set({
+      value: refreshToken,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60,
+      path: "/",
+    });
+
+    return { success: true };
+  })
+  /**
+   * GET /api/auth/me
+   * Get current authenticated user
+   */
+  .get("/me", async ({ user }) => {
+    return { user };
+  })
+  /**
+   * POST /api/auth/logout
+   * Logout and revoke refresh token
+   */
+  .post("/logout", async ({ user, cookie, authService }) => {
+    const refreshToken = cookie.refresh_token?.value as string | undefined;
+
+    await authService.logout(user.id, refreshToken);
+
+    // Clear cookies
+    cookie.access_token.remove();
+    cookie.refresh_token.remove();
+
+    return { success: true };
+  });
+// Main users module with public routes
+export const usersModule = new Elysia({ prefix: "/api/users" })
+  .decorate("userService", new UserService())
+
+  // Public routes
+  // Get all users (public for now - could be restricted later)
+  .get("/", async ({ userService }) => {
+    const users = await userService.findAll();
+    return { users };
+  })
+  // Get user by username (public for profile pages)
   .get(
-    '/username/:username',
+    "/username/:username",
     async ({ params, userService }) => {
       const user = await userService.findByUsername(params.username);
       return { user };
@@ -38,68 +162,19 @@ export const usersModule = new Elysia({ prefix: '/api/users' })
       params: t.Object({
         username: t.String(),
       }),
-    }
-  )
-  // Login endpoint
-  .post(
-    '/login',
-    async ({ body, userService }) => {
-      const user = await userService.login(body);
-      return { user };
     },
-    {
-      body: LoginDTO,
-    }
   )
-  // Create new user
+  // Create new user (registration - public)
   .post(
-    '/',
+    "/",
     async ({ body, userService }) => {
       const user = await userService.create(body);
       return { user };
     },
     {
       body: CreateUserDTO,
-    }
-  )
-  // Update user
-  .patch(
-    '/:id',
-    async ({ params, body, userService }) => {
-      const user = await userService.update(params.id, body);
-      return { user };
     },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      body: UpdateUserDTO,
-    }
   )
-  // Update user currency
-  .patch(
-    '/:id/currency',
-    async ({ params, body, userService }) => {
-      const user = await userService.updateCurrency(params.id, body);
-      return { user };
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-      body: UpdateCurrencyDTO,
-    }
-  )
-  // Delete user
-  .delete(
-    '/:id',
-    async ({ params, userService }) => {
-      await userService.delete(params.id);
-      return { message: 'User deleted successfully' };
-    },
-    {
-      params: t.Object({
-        id: t.String(),
-      }),
-    }
-  );
+
+  // Mount protected routes
+  .use(protectedUsersRoutes);

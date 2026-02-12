@@ -8,4 +8,6 @@ import type { App } from "@elementary-dices/server";
 /**
  * The API type that will be used by Eden for type-safe client generation
  */
-export const api = edenTreaty<App>("http://localhost:3000");
+export const api = edenTreaty<App>("http://localhost:3000", {
+  $fetch: { credentials: "include" },
+});

@@ -37,7 +37,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        api.api.elementals.get({ $query: filters }),
+        api.api.elementals.get({ $query: filters || {} }),
         { silent: true }
       )
 
@@ -112,6 +112,62 @@ export const useElementalsStore = defineStore('elementals', () => {
     }
   }
 
+  async function addToParty(playerId: string, elementalId: string) {
+    const { apiCall } = useApi()
+
+    // Find next available position (1-5)
+    const occupiedPositions = activeParty.value.map(e => e.party_position || 0)
+    const nextPosition = [1, 2, 3, 4, 5].find(pos => !occupiedPositions.includes(pos))
+
+    if (!nextPosition) {
+      throw new Error('Party is full')
+    }
+
+    try {
+      const response = await apiCall(
+        playerApi.updateElemental(playerId, elementalId, {
+          is_in_active_party: true,
+          party_position: nextPosition
+        }),
+        { silent: true }
+      )
+
+      if (response.data) {
+        const index = playerElementals.value.findIndex(e => e.id === elementalId)
+        if (index !== -1) {
+          playerElementals.value[index] = response.data.elemental
+        }
+      }
+    } catch (error) {
+      console.error('Failed to add to party:', error)
+      throw error
+    }
+  }
+
+  async function removeFromParty(playerId: string, elementalId: string) {
+    const { apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        playerApi.updateElemental(playerId, elementalId, {
+          is_in_active_party: false,
+          party_position: null
+        }),
+        { silent: true }
+      )
+
+      if (response.data) {
+        const index = playerElementals.value.findIndex(e => e.id === elementalId)
+        if (index !== -1) {
+          playerElementals.value[index] = response.data.elemental
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove from party:', error)
+      throw error
+    }
+  }
+
   async function getElementalById(id: string): Promise<Elemental | null> {
     const { api, apiCall } = useApi()
 
@@ -154,6 +210,8 @@ export const useElementalsStore = defineStore('elementals', () => {
     fetchBaseElementals,
     fetchPlayerElementals,
     updatePlayerElemental,
+    addToParty,
+    removeFromParty,
     getElementalById,
     getElementalsByLevel,
     getElementalsByElement,

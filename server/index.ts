@@ -4,6 +4,7 @@ import { db } from "./db";
 import { AppError, isDatabaseError, parsePostgresError } from "./shared/errors";
 
 // Import all modules
+import { authModule } from "./modules/auth";
 import { elementalsModule } from "./modules/elementals";
 import { usersModule } from "./modules/users";
 import { diceModule } from "./modules/dice";
@@ -14,7 +15,11 @@ import { evolutionModule } from "./modules/evolution";
 import { playerElementalsModule } from "./modules/player-elementals";
 
 export const app = new Elysia()
-  .use(cors())
+  .use(
+    cors({
+      credentials: true, // Allow cookies to be sent
+    }),
+  )
   // Global error handler
   .onError(({ code, error, set }) => {
     // Cast error to any for database error checking
@@ -36,13 +41,16 @@ export const app = new Elysia()
       return {
         error: dbError.message,
         code: dbError.code,
-        details: process.env.NODE_ENV === "development" ? {
-          pgCode: err.code,
-          table: err.table,
-          column: err.column,
-          constraint: err.constraint,
-          originalMessage: err.message,
-        } : undefined,
+        details:
+          process.env.NODE_ENV === "development"
+            ? {
+                pgCode: err.code,
+                table: err.table,
+                column: err.column,
+                constraint: err.constraint,
+                originalMessage: err.message,
+              }
+            : undefined,
       };
     }
 
@@ -109,6 +117,7 @@ export const app = new Elysia()
     }
   })
   // Register all feature modules
+  .use(authModule) // Auth module first (provides login/OAuth)
   .use(elementalsModule)
   .use(usersModule)
   .use(playerElementalsModule)
@@ -130,6 +139,7 @@ console.log(
   `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`,
 );
 console.log("\n📦 Registered modules:");
+console.log("  - Auth (Password + Google OAuth)");
 console.log("  - Elementals (CRUD)");
 console.log("  - Users (CRUD + profiles)");
 console.log("  - Player Elementals (Collection management + Onboarding)");

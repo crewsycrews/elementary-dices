@@ -4,9 +4,13 @@
     :class="[
       elementBorderColor,
       isSelectable ? 'cursor-pointer hover:scale-105' : '',
-      isSelected ? 'ring-4 ring-primary' : ''
+      isSelected ? 'ring-4 ring-primary' : '',
+      isDraggable ? 'cursor-move' : ''
     ]"
+    :draggable="isDraggable"
     @click="handleClick"
+    @dragstart="handleDragStart"
+    @dragend="handleDragEnd"
   >
     <!-- Level Badge -->
     <div class="absolute top-2 right-2 z-10">
@@ -73,6 +77,8 @@ interface Props {
   showStats?: boolean;
   isSelectable?: boolean;
   isSelected?: boolean;
+  isDraggable?: boolean;
+  playerElementalId?: string; // Required when isDraggable is true
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -80,10 +86,13 @@ const props = withDefaults(defineProps<Props>(), {
   showStats: true,
   isSelectable: false,
   isSelected: false,
+  isDraggable: false,
 });
 
 const emit = defineEmits<{
   click: [elemental: typeof ElementalSchema.static];
+  dragStart: [playerElementalId: string];
+  dragEnd: [];
 }>();
 
 // Use custom stats if provided, otherwise use base stats
@@ -118,6 +127,22 @@ const handleClick = () => {
   if (props.isSelectable) {
     emit('click', props.elemental);
   }
+};
+
+const handleDragStart = (event: DragEvent) => {
+  if (!props.isDraggable || !props.playerElementalId) return;
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('playerElementalId', props.playerElementalId);
+    event.dataTransfer.setData('source', 'backpack');
+  }
+
+  emit('dragStart', props.playerElementalId);
+};
+
+const handleDragEnd = () => {
+  emit('dragEnd');
 };
 </script>
 
