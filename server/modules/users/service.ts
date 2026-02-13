@@ -168,7 +168,7 @@ export class UserService {
   }
 
   // Give new players 5 dice (one per notation - d4, d6, d10, d12, d20)
-  private async giveStarterDice(playerId: string): Promise<void> {
+  async giveStarterDice(playerId: string): Promise<void> {
     // Get all green (starter) dice types
     const starterDiceTypes = await this.diceRepository.findDiceTypesByRarity('green');
 

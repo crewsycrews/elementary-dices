@@ -88,38 +88,6 @@ const protectedUsersRoutes = new Elysia()
     },
   )
   /**
-   * POST /api/auth/refresh
-   * Refresh access token using refresh token
-   */
-  .post("/refresh", async ({ cookie, authService }) => {
-    const oldRefreshToken = cookie.refresh_token?.value as string | undefined;
-
-    const { accessToken, refreshToken } = await authService.refreshAccessToken(
-      oldRefreshToken!,
-    );
-
-    // Update cookies with new tokens
-    cookie.access_token.set({
-      value: accessToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 15 * 60,
-      path: "/",
-    });
-
-    cookie.refresh_token.set({
-      value: refreshToken,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-    });
-
-    return { success: true };
-  })
-  /**
    * GET /api/auth/me
    * Get current authenticated user
    */

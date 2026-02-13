@@ -235,8 +235,11 @@ const handleDrop = (event: DragEvent) => {
 
   if (!props.isInteractive) return;
 
+  // Check if something is being dragged (either from party or backpack)
   const sourcePosition = event.dataTransfer?.getData('position');
-  if (sourcePosition) {
+  const playerElementalId = event.dataTransfer?.getData('playerElementalId');
+
+  if (sourcePosition || playerElementalId) {
     emit('drop', props.position);
   }
 };

@@ -1,6 +1,7 @@
 import { Google } from "arctic";
 import { AuthRepository } from "./repository";
 import { UserRepository } from "../users/repository";
+import { UserService } from "../users/service";
 import {
   generateAccessToken,
   generateRefreshToken,
@@ -15,6 +16,7 @@ import { UnauthorizedError, NotFoundError } from "../../shared/errors";
 export class AuthService {
   private repository = new AuthRepository();
   private userRepository = new UserRepository();
+  private userService = new UserService();
   private google: Google;
 
   constructor() {
@@ -150,6 +152,9 @@ export class AuthService {
       password: "", // Required by DTO but not used
       password_hash: "", // Empty hash for OAuth-only users (will be NULL after migration)
     });
+
+    // Give starter dice to new user
+    await this.userService.giveStarterDice(user.id);
 
     // Create OAuth account link
     await this.repository.createOAuthAccount(user.id, "google", googleUser.sub);

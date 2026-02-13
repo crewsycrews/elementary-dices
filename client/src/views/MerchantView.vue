@@ -61,12 +61,10 @@
         <div v-if="merchantDice.length > 0">
           <h2 class="text-2xl font-bold mb-4">Dice for Sale</h2>
           <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <ShopCard
+            <DiceShopCard
               v-for="dice in merchantDice"
               :key="dice.id"
-              type="dice"
               :dice="dice"
-              :can-afford="userStore.currency >= dice.price"
               @purchase="handlePurchaseDice(dice.id, dice.price)"
               :player-currency="userStore.currency"
             />
@@ -95,6 +93,7 @@ import { useUserStore } from "@/stores/user";
 import { useInventoryStore } from "@/stores/inventory";
 import { useApi } from "@/composables/useApi";
 import ShopCard from "@/components/game/ShopCard.vue";
+import DiceShopCard from "@/components/game/DiceShopCard.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();

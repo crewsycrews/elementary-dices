@@ -10,12 +10,10 @@ import type { User } from "../users/models";
 export const requireAuth = new Elysia({ name: "auth" })
   .decorate("authService", new AuthService())
   .derive({ as: "global" }, async ({ cookie, headers, authService }) => {
-    console.log(" Running auth middleware");
     // Try to get token from cookie first, then Authorization header
     let token: string | undefined = cookie.access_token?.value as
       | string
       | undefined;
-    console.log(token);
     if (!token && headers.authorization) {
       const authHeader = headers.authorization;
       if (authHeader.startsWith("Bearer ")) {

@@ -174,7 +174,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users.refresh.post({}), {
+        const response = await apiCall(api.api.auth.refresh.post({}), {
           silent: true,
         });
 
@@ -209,6 +209,19 @@ export const useUserStore = defineStore(
       }
     }
 
+    // Clear local state without backend call (for session expiration)
+    function clearLocalState() {
+      userId.value = null;
+      username.value = "";
+      email.value = "";
+      currency.value = 0;
+      stats.value = null;
+
+      // Clear event state
+      const eventStore = useEventStore();
+      eventStore.clearEvent();
+    }
+
     async function logout() {
       const { api, apiCall } = useApi();
 
@@ -223,15 +236,7 @@ export const useUserStore = defineStore(
       }
 
       // Clear local state
-      userId.value = null;
-      username.value = "";
-      email.value = "";
-      currency.value = 0;
-      stats.value = null;
-
-      // Clear event state on logout
-      const eventStore = useEventStore();
-      eventStore.clearEvent();
+      clearLocalState();
     }
 
     return {
@@ -252,6 +257,7 @@ export const useUserStore = defineStore(
       getCurrentUser,
       refreshAccessToken,
       updateCurrency,
+      clearLocalState,
       logout,
     };
   },

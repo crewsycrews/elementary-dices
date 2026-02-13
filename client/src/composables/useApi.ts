@@ -1,5 +1,6 @@
 import { api } from "@elementary-dices/shared/api";
 import { useUIStore } from "@/stores/ui";
+import { useUserStore } from "@/stores/user";
 
 // Track if we're currently refreshing to avoid multiple refresh attempts
 let isRefreshing = false;
@@ -17,7 +18,7 @@ async function attemptTokenRefresh(): Promise<boolean> {
   isRefreshing = true;
   refreshPromise = (async () => {
     try {
-      const response = await api.api.users.refresh.post({});
+      const response = await api.api.auth.refresh.post({});
       return response.data !== null && !response.error;
     } catch (error) {
       console.error("Token refresh failed:", error);
@@ -77,8 +78,10 @@ async function apiCall<T extends Promise<any>>(
           // Retry the original request with skipAuthRetry to avoid infinite loop
           return await apiCall(call, { ...options, skipAuthRetry: true });
         } else {
-          console.log("Token refresh failed, user needs to log in again");
-          // Redirect to login - the router guard will handle this
+          console.log("Token refresh failed, clearing user session");
+          // Clear local state without HTTP call since session is expired
+          const userStore = useUserStore();
+          userStore.clearLocalState();
           throw new Error("Session expired. Please log in again.");
         }
       }
