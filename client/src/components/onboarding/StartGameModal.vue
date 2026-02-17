@@ -163,10 +163,9 @@ const diceVisualizationRef = ref<InstanceType<
 onMounted(async () => {
   loading.value = true;
   try {
-    const response = await apiCall(
-      api.api.elementals.base.get(),
-      { silent: true },
-    );
+    const response = await apiCall(api.api.elementals.base.get(), {
+      silent: true,
+    });
 
     if (response.data?.elementals) {
       baseElementals.value = response.data.elementals.slice(0, 5); // First 5
@@ -187,12 +186,9 @@ const startRoll = async () => {
 
   try {
     // Call the start-game endpoint
-    const response = await apiCall(
-      playerApi.startGame(userStore.userId),
-      {
-        silent: true,
-      },
-    );
+    const response = await apiCall(playerApi.startGame(userStore.userId), {
+      silent: true,
+    });
 
     if (response.data) {
       const data = response.data;
@@ -208,8 +204,8 @@ const startRoll = async () => {
     }
   } catch (error) {
     console.error("Failed to start game:", error);
-    isRolling.value = false;
   } finally {
+    isRolling.value = false;
     loading.value = false;
   }
 };
