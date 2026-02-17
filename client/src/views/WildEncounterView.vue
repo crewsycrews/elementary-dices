@@ -31,11 +31,8 @@
     </div>
 
     <!-- Wild Encounter Event -->
-    <div
-      v-else
-      class="space-y-6 flex flex-row items-center justify-center gap-2"
-    >
-      <div class="flex flex-col items-center space-y-2">
+    <div v-else class="flex flex-row items-center justify-center gap-2">
+      <div class="flex flex-col items-center space-y-2 w-1/2">
         <h1 class="text-3xl font-bold mb-2">🌲 Wild Encounter!</h1>
 
         <!-- Wild Elemental Card -->
@@ -62,24 +59,23 @@
                 eventStore.wildEncounterData?.capture_difficulty?.toUpperCase()
               }}
             </div>
+            <div class="text-center mb-4">
+              <p class="text-sm text-muted-foreground">
+                Roll the dice to attempt capture!
+              </p>
+              <p class="text-xs text-muted-foreground mt-1">
+                Items increase your chances of success
+              </p>
+            </div>
           </div>
         </div>
       </div>
       <!-- Actions -->
-      <Transition>
-        <div v-if="!captureResult" class="max-w-md mx-auto space-y-4">
-          <div class="text-center mb-4">
-            <p class="text-sm text-muted-foreground">
-              Roll the dice to attempt capture!
-            </p>
-            <p class="text-xs text-muted-foreground mt-1">
-              Items increase your chances of success
-            </p>
-          </div>
-
+      <Transition name="fade" mode="out-in">
+        <div v-if="!captureResult" class="max-w-md mx-auto space-y-4 w-1/2">
           <!-- Dice Selection -->
           <div class="flex flex-col place-content-center space-y-4 h-[550px]">
-            <Transition>
+            <Transition mode="out-in">
               <HandDiceSelector
                 v-if="!selectedDice || !showDiceRoll"
                 :selected-dice-type="selectedDiceType"
@@ -140,7 +136,7 @@
         </div>
         <div
           v-else="captureResult"
-          class="max-w-md mx-auto text-center space-y-4"
+          class="max-w-md mx-auto text-center space-y-4 w-1/2"
         >
           <div
             class="p-6 rounded-lg"
@@ -333,9 +329,11 @@ const handleCaptureAttempt = async () => {
       roll_value: diceRoll.roll_value,
       outcome: diceRoll.outcome,
     };
-    nextTick(() => {
-      diceVisualizationRef.value?.roll();
-    });
+    setTimeout(() => {
+      nextTick(() => {
+        diceVisualizationRef.value?.roll();
+      });
+    }, 450);
 
     // Save last roll to inventory store
     const diceType = getDiceType(selectedDice.value);
@@ -432,13 +430,19 @@ onMounted(async () => {
 <style scoped>
 /* we will explain what these classes do next! */
 .v-enter-active,
-.v-leave-active {
+.v-leave-active,
+.fade-enter-active,
+.fade-leave-active {
   transition: all 0.4s ease-in-out;
 }
 
 .v-enter-from,
 .v-leave-to {
   transform: translateX(-200px);
+  opacity: 0;
+}
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
 }
 </style>
