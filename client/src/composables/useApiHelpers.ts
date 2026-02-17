@@ -65,6 +65,14 @@ export const playerApi = {
     return api.api.players[playerId].elementals[elementalId].patch(updates)
   },
 
+  removeElementalFromParty(
+    playerId: string,
+    elementalId: string,
+  ): Promise<EdenResponse<ApiPlayerElementalResponse>> {
+    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    return api.api.players[playerId].elementals[elementalId].delete()
+  },
+
   /**
    * Start game - roll for first elemental
    */

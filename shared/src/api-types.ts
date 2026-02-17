@@ -11,6 +11,7 @@ import type {
   ElementalEvolution,
   DiceRollOutcomeValue,
   BaseStats,
+  PlayerElemental,
 } from './types'
 
 /**
@@ -44,10 +45,10 @@ export type ApiElementalResponse = { elemental: Elemental }
 export type ApiElementalsResponse = { elementals: Elemental[] }
 
 // Player elemental responses (with joined data)
-export type ApiPlayerElementalResponse = { elemental: PlayerElementalWithDetails }
-export type ApiPlayerElementalsResponse = { elementals: PlayerElementalWithDetails[] }
-export type ApiPlayerPartyResponse = { party: PlayerElementalWithDetails[] }
-export type ApiPlayerBackpackResponse = { backpack: PlayerElementalWithDetails[] }
+export type ApiPlayerElementalResponse = { elemental: PlayerElemental }
+export type ApiPlayerElementalsResponse = { elementals: PlayerElemental[] }
+export type ApiPlayerPartyResponse = { party: PlayerElemental[] }
+export type ApiPlayerBackpackResponse = { backpack: PlayerElemental[] }
 
 // Dice responses
 export type ApiDiceTypesResponse = { diceTypes: DiceType[] }
@@ -70,7 +71,7 @@ export type ApiDiscoveredRecipesResponse = { recipes: ElementalEvolution[] }
 export type ApiStartGameResponse = {
   success: boolean
   message: string
-  first_elemental: PlayerElementalWithDetails
+  first_elemental: PlayerElemental
   dice_roll: {
     roll_value: number
     selected_index: number
@@ -89,7 +90,7 @@ export type ApiEventResponse = {
       capture_difficulty?: 'easy' | 'medium' | 'hard'
       // PVP battle
       opponent_id?: string
-      opponent_party?: PlayerElementalWithDetails[]
+      opponent_party?: PlayerElemental[]
       // Merchant
       available_items?: Item[]
       available_dice?: DiceType[]
@@ -118,7 +119,7 @@ export type ApiResolveEventResponse = {
     rewards?: {
       currency?: number
       items?: Array<{ item_id: string; quantity: number }>
-      captured_elemental?: PlayerElementalWithDetails
+      captured_elemental?: PlayerElemental
     }
     penalties?: {
       downgraded_elementals?: string[]
@@ -128,14 +129,14 @@ export type ApiResolveEventResponse = {
 
 export type ApiCombineElementalsResponse = {
   success: boolean
-  result_elemental?: PlayerElementalWithDetails
+  result_elemental?: PlayerElemental
   message: string
 }
 
 export type ApiSwapPartyResponse = {
   success: boolean
   message: string
-  party: PlayerElementalWithDetails[]
+  party: PlayerElemental[]
 }
 
 // Generic message response

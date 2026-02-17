@@ -1,8 +1,8 @@
-import { t } from 'elysia';
+import { t } from "elysia";
 import {
   EncounterType,
   type EncounterTypeValue,
-} from '@elementary-dices/shared';
+} from "@elementary-dices/shared";
 
 // Event types (alias for EncounterType)
 export type EventType = EncounterTypeValue;
@@ -10,8 +10,8 @@ export type EventType = EncounterTypeValue;
 // Event probabilities (as per game design)
 export const EVENT_PROBABILITIES = {
   wild_encounter: 0.5, // 50%
-  pvp_battle: 0.3,     // 30%
-  merchant: 0.2,       // 20%
+  pvp_battle: 0.3, // 30%
+  merchant: 0.2, // 20%
 } as const;
 
 // Event Response DTO
@@ -35,18 +35,22 @@ export const WildEncounterDataDTO = t.Object({
 
 // Merchant Event specific
 export const MerchantDataDTO = t.Object({
-  available_items: t.Array(t.Object({
-    id: t.String(),
-    name: t.String(),
-    price: t.Number(),
-    rarity: t.String(),
-  })),
-  available_dice: t.Array(t.Object({
-    id: t.String(),
-    name: t.String(),
-    price: t.Number(),
-    rarity: t.String(),
-  })),
+  available_items: t.Array(
+    t.Object({
+      id: t.String(),
+      name: t.String(),
+      price: t.Number(),
+      rarity: t.String(),
+    }),
+  ),
+  available_dice: t.Array(
+    t.Object({
+      id: t.String(),
+      name: t.String(),
+      price: t.Number(),
+      rarity: t.String(),
+    }),
+  ),
 });
 
 // PvP Battle specific
@@ -69,11 +73,13 @@ export const ResolveWildEncounterDTO = t.Object({
 export const WildEncounterResultDTO = t.Object({
   success: t.Boolean(),
   message: t.String(),
-  elemental_caught: t.Optional(t.Object({
-    id: t.String(),
-    name: t.String(),
-    level: t.Number(),
-  })),
+  elemental_caught: t.Optional(
+    t.Object({
+      id: t.String(),
+      name: t.String(),
+      level: t.Number(),
+    }),
+  ),
   can_continue: t.Boolean(), // Whether player can roll for next event
 });
 
@@ -89,9 +95,11 @@ export const PvPBattleResultDTO = t.Object({
   player_power: t.Number(),
   opponent_power: t.Number(),
   reward: t.Optional(t.Number()),
-  penalty: t.Optional(t.Object({
-    downgraded_elemental: t.Optional(t.String()),
-  })),
+  penalty: t.Optional(
+    t.Object({
+      downgraded_elemental: t.Optional(t.String()),
+    }),
+  ),
   can_continue: t.Boolean(),
 });
 
