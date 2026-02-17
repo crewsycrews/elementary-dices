@@ -31,11 +31,14 @@
     </div>
 
     <!-- Wild Encounter Event -->
-    <div v-else class="space-y-6 flex flex-row items-center justify-center gap-2">
+    <div
+      v-else
+      class="space-y-6 flex flex-row items-center justify-center gap-2"
+    >
       <div class="flex flex-col items-center space-y-2">
         <h1 class="text-3xl font-bold mb-2">🌲 Wild Encounter!</h1>
-        
-      <!-- Wild Elemental Card -->
+
+        <!-- Wild Elemental Card -->
         <div class="max-w-md mx-auto">
           <ElementalCard
             v-if="wildElemental"
@@ -44,23 +47,26 @@
             :show-description="true"
           />
         </div>
-      </div>
-
-
-      <div class="flex flex-col items-center space-y-2">
-        <div class="text-center">
-          <div
-            class="inline-block px-4 py-2 rounded-lg font-semibold"
-            :class="
-              getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)
-            "
-          >
-            Capture Difficulty:
-            {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+        <div class="flex flex-col items-center space-y-2">
+          <div class="text-center">
+            <div
+              class="inline-block px-4 py-2 rounded-lg font-semibold"
+              :class="
+                getDifficultyClass(
+                  eventStore.wildEncounterData?.capture_difficulty,
+                )
+              "
+            >
+              Capture Difficulty:
+              {{
+                eventStore.wildEncounterData?.capture_difficulty?.toUpperCase()
+              }}
+            </div>
           </div>
         </div>
-  
-        <!-- Actions -->
+      </div>
+      <!-- Actions -->
+      <Transition>
         <div v-if="!captureResult" class="max-w-md mx-auto space-y-4">
           <div class="text-center mb-4">
             <p class="text-sm text-muted-foreground">
@@ -72,12 +78,26 @@
           </div>
 
           <!-- Dice Selection -->
-          <HandDiceSelector
-            :selected-dice-type="selectedDiceType"
-            :disabled="isRolling"
-            @select="handleDiceTypeSelect"
-          />
-  
+          <div class="flex flex-col place-content-center space-y-4 h-[550px]">
+            <Transition>
+              <HandDiceSelector
+                v-if="!selectedDice || !showDiceRoll"
+                :selected-dice-type="selectedDiceType"
+                :disabled="isRolling"
+                @select="handleDiceTypeSelect"
+              />
+              <!-- Dice Roll Visualization -->
+              <div v-else>
+                <DiceRollVisualization
+                  ref="diceVisualizationRef"
+                  :dice-type="getDiceType(selectedDice)"
+                  :result="rollResult"
+                  @roll-complete="handleRollComplete"
+                />
+              </div>
+            </Transition>
+          </div>
+
           <!-- Item Selection (Optional) -->
           <div class="space-y-2">
             <label class="text-sm font-semibold">Use Item (Optional):</label>
@@ -99,7 +119,7 @@
               </option>
             </select>
           </div>
-  
+
           <!-- Roll Button -->
           <button
             @click="handleCaptureAttempt"
@@ -108,7 +128,7 @@
           >
             {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
           </button>
-  
+
           <!-- Skip Button -->
           <button
             @click="handleSkipEncounter"
@@ -118,85 +138,77 @@
             Skip Encounter
           </button>
         </div>
-      </div>
-      <!-- Capture Difficulty -->
-
-      <!-- Dice Roll Visualization -->
-      <div v-if="selectedDice && showDiceRoll" class="mt-6">
-        <DiceRollVisualization
-          ref="diceVisualizationRef"
-          :dice-type="getDiceType(selectedDice)"
-          :result="rollResult"
-          @roll-complete="handleRollComplete"
-        />
-      </div>
-
-      <!-- Result Display -->
-      <div v-if="captureResult" class="max-w-md mx-auto text-center space-y-4">
         <div
-          class="p-6 rounded-lg"
-          :class="
-            captureResult.success
-              ? 'bg-green-500/10 border-2 border-green-500'
-              : 'bg-red-500/10 border-2 border-red-500'
-          "
+          v-else="captureResult"
+          class="max-w-md mx-auto text-center space-y-4"
         >
-          <div class="text-6xl mb-4">
-            {{ captureResult.success ? "🎉" : "😞" }}
-          </div>
-          <h2 class="text-2xl font-bold mb-2">
-            {{
-              captureResult.success ? "Capture Successful!" : "Capture Failed!"
-            }}
-          </h2>
-          <p class="text-lg mb-4">{{ captureResult.message }}</p>
-
-          <!-- Additional details for successful capture -->
           <div
-            v-if="captureResult.success && captureResult.elemental_caught"
-            class="mt-4 p-4 bg-background/50 rounded-lg"
+            class="p-6 rounded-lg"
+            :class="
+              captureResult.success
+                ? 'bg-green-500/10 border-2 border-green-500'
+                : 'bg-red-500/10 border-2 border-red-500'
+            "
           >
-            <p class="text-sm text-muted-foreground mb-2">
-              New Elemental Added:
-            </p>
-            <p class="font-bold text-xl">
-              {{ captureResult.elemental_caught.name }}
-            </p>
-            <p class="text-sm text-muted-foreground">
-              Level {{ captureResult.elemental_caught.level }}
-            </p>
+            <div class="text-6xl mb-4">
+              {{ captureResult.success ? "🎉" : "😞" }}
+            </div>
+            <h2 class="text-2xl font-bold mb-2">
+              {{
+                captureResult.success
+                  ? "Capture Successful!"
+                  : "Capture Failed!"
+              }}
+            </h2>
+            <p class="text-lg mb-4">{{ captureResult.message }}</p>
+
+            <!-- Additional details for successful capture -->
+            <div
+              v-if="captureResult.success && captureResult.elemental_caught"
+              class="mt-4 p-4 bg-background/50 rounded-lg"
+            >
+              <p class="text-sm text-muted-foreground mb-2">
+                New Elemental Added:
+              </p>
+              <p class="font-bold text-xl">
+                {{ captureResult.elemental_caught.name }}
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Level {{ captureResult.elemental_caught.level }}
+              </p>
+            </div>
+
+            <!-- Roll details -->
+            <div class="mt-4 pt-4 border-t border-border">
+              <p class="text-sm text-muted-foreground">
+                Your roll:
+                <span class="font-bold">{{ rollResult?.roll_value }}</span>
+                <span
+                  class="ml-2 px-2 py-1 rounded text-xs"
+                  :class="
+                    rollResult?.outcome === 'critical_success'
+                      ? 'bg-green-500/20 text-green-600'
+                      : rollResult?.outcome === 'success'
+                        ? 'bg-blue-500/20 text-blue-600'
+                        : rollResult?.outcome === 'failure'
+                          ? 'bg-yellow-500/20 text-yellow-600'
+                          : 'bg-red-500/20 text-red-600'
+                  "
+                >
+                  {{ rollResult?.outcome?.replace("_", " ").toUpperCase() }}
+                </span>
+              </p>
+            </div>
           </div>
 
-          <!-- Roll details -->
-          <div class="mt-4 pt-4 border-t border-border">
-            <p class="text-sm text-muted-foreground">
-              Your roll:
-              <span class="font-bold">{{ rollResult?.roll_value }}</span>
-              <span
-                class="ml-2 px-2 py-1 rounded text-xs"
-                :class="
-                  rollResult?.outcome === 'critical_success'
-                    ? 'bg-green-500/20 text-green-600'
-                    : rollResult?.outcome === 'success'
-                      ? 'bg-blue-500/20 text-blue-600'
-                      : rollResult?.outcome === 'failure'
-                        ? 'bg-yellow-500/20 text-yellow-600'
-                        : 'bg-red-500/20 text-red-600'
-                "
-              >
-                {{ rollResult?.outcome?.replace("_", " ").toUpperCase() }}
-              </span>
-            </p>
-          </div>
+          <button
+            @click="proceedToNext"
+            class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
+          >
+            🎲 Proceed to Next Event
+          </button>
         </div>
-
-        <button
-          @click="proceedToNext"
-          class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-        >
-          🎲 Proceed to Next Event
-        </button>
-      </div>
+      </Transition>
     </div>
   </div>
 </template>
@@ -261,7 +273,7 @@ const handleDiceTypeSelect = (diceType: string) => {
   selectedDiceType.value = diceType;
   // Auto-select the first dice of that type
   const diceOfType = availableDice.value.find(
-    (d) => d.dice_type?.dice_notation === diceType
+    (d) => d.dice_type?.dice_notation === diceType,
   );
   if (diceOfType) {
     selectedDice.value = diceOfType.id;
@@ -417,3 +429,16 @@ onMounted(async () => {
   }
 });
 </script>
+<style scoped>
+/* we will explain what these classes do next! */
+.v-enter-active,
+.v-leave-active {
+  transition: all 0.4s ease-in-out;
+}
+
+.v-enter-from,
+.v-leave-to {
+  transform: translateX(-200px);
+  opacity: 0;
+}
+</style>
