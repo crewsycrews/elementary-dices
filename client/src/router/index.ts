@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserStore } from "@/stores/user";
+import path from "path";
 
 const routes = [
   {
@@ -61,6 +62,11 @@ const routes = [
     name: "Dices",
     component: () => import("@/views/DicesView.vue"),
     meta: { requiresAuth: true },
+  },
+  {
+    path: "/dice-test",
+    name: "DiceTest",
+    component: () => import("@/views/DiceTest.vue"),
   },
 ];
 
