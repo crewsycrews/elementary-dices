@@ -183,17 +183,17 @@ async function roll(targetValue: number): Promise<void> {
   emit("rollStart");
 
   const dice = diceRef.value;
-  const spinDuration = (800 + Math.random() * 250) / props.animationSpeed;
-  const settleDuration = (800 + Math.random() * 250) / props.animationSpeed;
+  const spinDuration = (500 + Math.random() * 250) / props.animationSpeed;
+  const settleDuration = (1000 + Math.random() * 250) / props.animationSpeed;
 
   // Phase 1: Dramatic spin
   // Add 2-4 complete rotations (720-1440 degrees) plus random offset
-  const randomX = 180 + Math.random() * 180; // 2-4 full rotations
-  const randomY = 180 + Math.random() * 180;
-  const randomZ = 180 + Math.random() * 180;
+  const randomX = 180 + Math.random() * 180 * 8; // 2-4 full rotations
+  const randomY = 180 + Math.random() * 180 * 8;
+  const randomZ = 180 + Math.random() * 180 * 8;
 
   dice.style.transform = `rotateX(${randomX}deg) rotateY(${randomY}deg) rotateZ(${randomZ}deg)`;
-  dice.style.transition = `transform ${spinDuration}ms cubic-bezier(0.45, 0.05, 0.55, 0.95)`;
+  dice.style.transition = `transform ${spinDuration}ms ease-in-out`;
 
   // Animate shadow during spin
   if (shadowRef.value) {
@@ -208,7 +208,7 @@ async function roll(targetValue: number): Promise<void> {
   if (rotation) {
     const { rotateX, rotateY, rotateZ } = rotation;
     dice.style.transform = `rotateX(${rotateX}deg) rotateY(${rotateY}deg) rotateZ(${rotateZ}deg)`;
-    dice.style.transition = `transform ${settleDuration}ms cubic-bezier(0.34, 1.56, 0.64, 1)`;
+    dice.style.transition = `transform ${settleDuration}ms ease-in-out`;
 
     // Reset shadow during settle
     if (shadowRef.value) {

@@ -63,12 +63,37 @@ import DiceRollVisualization, {
 type DiceType = "d4" | "d6" | "d10" | "d12" | "d20";
 
 const diceTypes: DiceType[] = ["d4", "d6", "d10", "d12", "d20"];
-const diceMaxValues: Record<DiceType, number> = {
-  d4: 4,
-  d6: 6,
-  d10: 10,
-  d12: 12,
-  d20: 20,
+const outcomeThresholds: Record<DiceType, Record<DiceRollResult["outcome"], [number, number]>> = {
+  d4: {
+    crit_fail: [1, 1],
+    fail: [2, 2],
+    success: [3, 3],
+    crit_success: [4, 4],
+  },
+  d6: {
+    crit_fail: [1, 1],
+    fail: [2, 3],
+    success: [4, 5],
+    crit_success: [6, 6],
+  },
+  d10: {
+    crit_fail: [1, 2],
+    fail: [3, 5],
+    success: [6, 8],
+    crit_success: [9, 10],
+  },
+  d12: {
+    crit_fail: [1, 2],
+    fail: [3, 6],
+    success: [7, 10],
+    crit_success: [11, 12],
+  },
+  d20: {
+    crit_fail: [1, 3],
+    fail: [4, 10],
+    success: [11, 17],
+    crit_success: [18, 20],
+  },
 };
 
 const selectedDice = ref<DiceType>("d6");
@@ -81,25 +106,36 @@ const rollLog = ref<Array<{ dice: string; value: number; outcome: string }>>(
   [],
 );
 
-function randomOutcome(): DiceRollResult["outcome"] {
-  const outcomes: DiceRollResult["outcome"][] = [
-    "crit_success",
-    "success",
-    "fail",
-    "crit_fail",
-  ];
-  return outcomes[Math.floor(Math.random() * outcomes.length)];
+function outcomeFromRoll(
+  value: number,
+  dice: DiceType,
+): DiceRollResult["outcome"] {
+  const ranges = outcomeThresholds[dice];
+  if (value <= ranges.crit_fail[1]) return "crit_fail";
+  if (value <= ranges.fail[1]) return "fail";
+  if (value <= ranges.success[1]) return "success";
+  return "crit_success";
 }
 
 async function rollDice() {
   if (isRolling.value) return;
   isRolling.value = true;
 
-  const max = diceMaxValues[selectedDice.value];
-  const rollValue = Math.floor(Math.random() * max) + 1;
-  const outcome = forcedOutcome.value
-    ? (forcedOutcome.value as DiceRollResult["outcome"])
-    : randomOutcome();
+  const dice = selectedDice.value;
+  const ranges = outcomeThresholds[dice];
+  const max = ranges.crit_success[1];
+
+  let rollValue: number;
+  let outcome: DiceRollResult["outcome"];
+
+  if (forcedOutcome.value) {
+    outcome = forcedOutcome.value as DiceRollResult["outcome"];
+    const [min, hi] = ranges[outcome];
+    rollValue = Math.floor(Math.random() * (hi - min + 1)) + min;
+  } else {
+    rollValue = Math.floor(Math.random() * max) + 1;
+    outcome = outcomeFromRoll(rollValue, dice);
+  }
 
   currentResult.value = {
     roll_value: rollValue,
