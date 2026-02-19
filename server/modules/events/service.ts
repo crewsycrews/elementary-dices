@@ -22,6 +22,9 @@ import {
 } from "./repository";
 import type { DiceRollOutcome } from "../dice-rolls/models";
 
+type DiceRarity = "green" | "blue" | "purple" | "gold";
+const RARITY_ORDER: DiceRarity[] = ["green", "blue", "purple", "gold"];
+
 export class EventService {
   constructor(
     private repository = new EventRepository(),
@@ -92,7 +95,7 @@ export class EventService {
         break;
       }
       case "merchant": {
-        const merchantData = await this.generateMerchantEvent();
+        const merchantData = await this.generateMerchantEvent(playerId);
         eventResponse = merchantData.response;
 
         // Create event record (available for 30 minutes)
@@ -244,15 +247,35 @@ export class EventService {
   /**
    * Generate a merchant event
    * Offers random items and dice for sale
+   * Only offers dice of better rarity than what the player already owns
    */
-  private async generateMerchantEvent(): Promise<{ response: EventResponse }> {
-    // Get random items (2-4 items)
-    const itemCount = Math.floor(Math.random() * 3) + 2;
+  private async generateMerchantEvent(
+    playerId: string,
+  ): Promise<{ response: EventResponse }> {
+    // Get random items (2-3 items)
+    const itemCount = Math.floor(Math.random() * 2) + 2;
     const allItems = await db("items").select("id", "name", "price", "rarity");
     const availableItems = this.getRandomItems(allItems, itemCount);
 
-    // Get random dice (2-3 dice)
-    const diceCount = Math.floor(Math.random() * 2) + 2;
+    // Get the player's best rarity per dice notation
+    const playerDice = await db("player_dice")
+      .where({ player_id: playerId })
+      .join("dice_types", "player_dice.dice_type_id", "dice_types.id")
+      .select("dice_types.dice_notation", "dice_types.rarity");
+
+    const bestRarityByNotation = new Map<string, DiceRarity>();
+    for (const die of playerDice) {
+      const rarity = die.rarity as DiceRarity;
+      const current = bestRarityByNotation.get(die.dice_notation);
+      if (
+        !current ||
+        RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(current)
+      ) {
+        bestRarityByNotation.set(die.dice_notation, rarity);
+      }
+    }
+
+    // Get all dice, then filter to only those strictly better than what the player has
     const allDice = await db("dice_types").select(
       "id",
       "name",
@@ -260,7 +283,17 @@ export class EventService {
       "rarity",
       "dice_notation",
     );
-    const availableDice = this.getRandomItems(allDice, diceCount);
+
+    const upgradeDice = allDice.filter((die) => {
+      const playerBest = bestRarityByNotation.get(die.dice_notation);
+      if (!playerBest) return true; // Player has no dice of this notation
+      const rarity = die.rarity as DiceRarity;
+      return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(playerBest);
+    });
+
+    // Get random dice (2-3 dice) from the filtered pool
+    const diceCount = Math.floor(Math.random() * 2) + 2;
+    const availableDice = this.getRandomItems(upgradeDice, diceCount);
 
     const data: MerchantData = {
       available_items: availableItems,
