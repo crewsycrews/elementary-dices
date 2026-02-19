@@ -9,7 +9,7 @@
  * - When 1 is facing you and 2 is on top, 3 is to your right
  */
 
-import type { DiceGeometry, DiceFace } from './types';
+import type { DiceGeometry, DiceFace } from "./types";
 
 /** Size of the cube (100x100x100 pixels) */
 const CUBE_SIZE = 100;
@@ -55,12 +55,12 @@ const faces: DiceFace[] = [
  * Values are based on the reference implementation and tested for correct display
  */
 const resultRotations = {
-  1: { rotateX: 180, rotateY: 0, rotateZ: 0 },
-  2: { rotateX: 0, rotateY: 90, rotateZ: 90 },
-  3: { rotateX: 270, rotateY: 0, rotateZ: 180 },
-  4: { rotateX: 90, rotateY: 0, rotateZ: 0 },
-  5: { rotateX: 180, rotateY: 270, rotateZ: 90 },
-  6: { rotateX: 0, rotateY: 0, rotateZ: 0 },
+  1: { rotateX: 0, rotateY: 90, rotateZ: 0 },
+  2: { rotateX: 90, rotateY: 0, rotateZ: 0 },
+  3: { rotateX: 180, rotateY: 0, rotateZ: 180 },
+  4: { rotateX: 0, rotateY: 0, rotateZ: 0 },
+  5: { rotateX: 270, rotateY: 0, rotateZ: 0 },
+  6: { rotateX: 0, rotateY: 270, rotateZ: 0 },
 };
 
 const wrapperRotation = {
@@ -77,6 +77,6 @@ export const d6Geometry: DiceGeometry = {
   height: CUBE_SIZE,
   faces,
   resultRotations,
-  wrapperRotation
+  wrapperRotation,
   // No wrapper rotation needed for cube - it's symmetrical
 };
