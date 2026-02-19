@@ -89,6 +89,10 @@
                   :dice-type="getDiceType(selectedDice)"
                   :result="rollResult"
                   @roll-complete="handleRollComplete"
+                  :affinity="
+                    selectedPlayerDice?.dice_type?.stat_bonuses
+                      ?.element_affinity
+                  "
                 />
               </div>
             </Transition>
@@ -295,6 +299,10 @@ const getDifficultyClass = (difficulty?: string) => {
   }
 };
 
+const selectedPlayerDice = computed(() =>
+  availableDice.value.find((d) => d.id === selectedDice.value),
+);
+
 // Handle capture attempt
 const handleCaptureAttempt = async () => {
   if (!selectedDice.value || !userStore.userId) return;
@@ -303,11 +311,7 @@ const handleCaptureAttempt = async () => {
   showDiceRoll.value = true;
 
   try {
-    // Get the dice_type_id from the selected player dice
-    const selectedPlayerDice = availableDice.value.find(
-      (d) => d.id === selectedDice.value,
-    );
-    if (!selectedPlayerDice) {
+    if (!selectedPlayerDice.value) {
       throw new Error("Selected dice not found");
     }
 
@@ -315,7 +319,7 @@ const handleCaptureAttempt = async () => {
     const rollResponse = await apiCall(
       api.api.rolls.post({
         player_id: userStore.userId,
-        dice_type_id: selectedPlayerDice.dice_type_id,
+        dice_type_id: selectedPlayerDice.value.dice_type_id,
         context: "capture_attempt",
       }),
       { silent: true },
@@ -337,7 +341,7 @@ const handleCaptureAttempt = async () => {
 
     // Save last roll to inventory store
     const diceType = getDiceType(selectedDice.value);
-    inventoryStore.updateLastRoll(diceType, diceRoll);
+    inventoryStore.updateLastRoll(diceRoll);
   } catch (error) {
     console.error("Failed to resolve capture:", error);
   } finally {
@@ -375,7 +379,7 @@ const handleRollComplete = async () => {
   const resolveResponse = await apiCall(
     api.api.events["wild-encounter"].resolve.post({
       player_id: userStore.userId,
-      dice_roll_id: inventoryStore.getLastRollForType(diceType)?.id!,
+      dice_roll_id: inventoryStore.lastRoll?.id!,
       item_id: selectedItem.value || undefined,
     }),
     { successMessage: "Encounter resolved!" },

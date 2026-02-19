@@ -50,6 +50,8 @@ export const MerchantDataDTO = t.Object({
       price: t.Number(),
       rarity: t.String(),
       dice_notation: t.String(), // e.g., 'd6', 'd20'
+      bonus_multiplier: t.Number(),
+      element_affinity: t.Optional(t.String()), // fire, water, earth, air, lightning
     }),
   ),
 });

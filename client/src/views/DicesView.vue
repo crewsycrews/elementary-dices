@@ -33,80 +33,14 @@
         </div>
   
         <!-- Dice Grid -->
-        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          <div
+        <div class="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <DiceCard
             v-for="dice in diceOfSelectedType"
             :key="dice.id"
-            class="p-6 rounded-lg border-2 transition-all cursor-pointer"
-            :class="
-              dice.is_equipped
-                ? 'border-primary bg-primary/10 shadow-lg'
-                : 'border-border bg-card hover:border-primary hover:bg-muted'
-            "
-            @click="handleEquipDice(dice)"
-          >
-            <!-- Dice Header -->
-            <div class="flex items-center justify-between mb-4">
-              <div class="flex items-center gap-2">
-                <span class="text-3xl">🎲</span>
-                <div>
-                  <h3 class="font-bold text-lg">{{ dice.dice_type?.dice_notation?.toUpperCase() }}</h3>
-                  <p class="text-sm text-muted-foreground">{{ dice.dice_type?.name }}</p>
-                </div>
-              </div>
-              <div
-                v-if="dice.is_equipped"
-                class="px-3 py-1 bg-primary text-primary-foreground rounded-full text-xs font-bold"
-              >
-                ✓ Equipped
-              </div>
-            </div>
-  
-            <!-- Rarity Badge -->
-            <div class="mb-3">
-              <span
-                class="px-3 py-1 rounded-full text-xs font-bold"
-                :class="getRarityClass(dice.dice_type?.rarity)"
-              >
-                {{ dice.dice_type?.rarity?.toUpperCase() }}
-              </span>
-            </div>
-  
-            <!-- Stats -->
-            <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-muted-foreground">Bonus Multiplier:</span>
-                <span class="font-bold">{{ dice.dice_type?.stat_bonuses?.bonus_multiplier || 1 }}x</span>
-              </div>
-              <div v-if="dice.dice_type?.stat_bonuses?.element_affinity" class="flex justify-between">
-                <span class="text-muted-foreground">Element Affinity:</span>
-                <span class="font-bold capitalize">
-                  {{ dice.dice_type?.stat_bonuses?.element_affinity }}
-                </span>
-              </div>
-            </div>
-  
-            <!-- Description -->
-            <p class="text-xs text-muted-foreground mt-3 line-clamp-2">
-              {{ dice.dice_type?.description || 'A standard dice for rolling outcomes.' }}
-            </p>
-  
-            <!-- Action Button -->
-            <button
-              v-if="!dice.is_equipped"
-              @click.stop="handleEquipDice(dice)"
-              class="w-full mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-            >
-              Equip
-            </button>
-            <button
-              v-else
-              @click.stop="handleUnequipDice(dice)"
-              class="w-full mt-4 px-4 py-2 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all"
-            >
-              Unequip
-            </button>
-          </div>
+            :dice="dice"
+            @equip="handleEquipDice(dice)"
+            @unequip="handleUnequipDice(dice)"
+          />
         </div>
   
         <!-- Empty State -->
@@ -137,6 +71,7 @@ import { useUserStore } from '@/stores/user';
 import { useInventoryStore } from '@/stores/inventory';
 import { useUIStore } from '@/stores/ui';
 import HandDiceSelector from '@/components/game/HandDiceSelector.vue';
+import DiceCard from '@/components/game/DiceCard.vue';
 
 const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
@@ -192,22 +127,6 @@ const handleUnequipDice = async (dice: any) => {
     );
   } catch (error) {
     console.error('Failed to unequip dice:', error);
-  }
-};
-
-// Get rarity class
-const getRarityClass = (rarity?: string) => {
-  switch (rarity) {
-    case 'green':
-      return 'bg-green-500/20 text-green-600';
-    case 'blue':
-      return 'bg-blue-500/20 text-blue-600';
-    case 'purple':
-      return 'bg-purple-500/20 text-purple-600';
-    case 'gold':
-      return 'bg-yellow-500/20 text-yellow-600';
-    default:
-      return 'bg-gray-500/20 text-gray-600';
   }
 };
 

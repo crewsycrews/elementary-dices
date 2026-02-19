@@ -24,6 +24,7 @@
           :value="1"
           :scale="0.7"
           :show-shadow="false"
+          :affinity="dice.element_affinity"
         />
       </div>
     </div>
@@ -33,17 +34,21 @@
       <!-- Name -->
       <div>
         <h3 class="font-bold text-lg truncate">{{ dice.name }}</h3>
-        <span
-          class="text-xs px-2 py-0.5 rounded bg-primary/20 text-primary font-mono font-bold"
-        >
-          Dice
-        </span>
       </div>
 
-      <!-- Description -->
-      <p class="text-sm text-muted-foreground">
-        A {{ dice.rarity }} rarity dice with unique properties.
-      </p>
+      <!-- Stats -->
+      <div class="space-y-1 text-sm">
+        <div class="flex justify-between">
+          <span class="text-muted-foreground">Bonus:</span>
+          <span class="font-bold">{{ dice.bonus_multiplier }}x</span>
+        </div>
+        <div v-if="dice.element_affinity" class="flex justify-between">
+          <span class="text-muted-foreground">Element:</span>
+          <span class="font-bold capitalize" :class="elementColorClass">
+            {{ dice.element_affinity }}
+          </span>
+        </div>
+      </div>
 
       <!-- Price and Purchase -->
       <div class="flex items-center justify-between pt-3 border-t border-muted">
@@ -92,6 +97,8 @@ interface SimplifiedDice {
   price: number;
   rarity: string;
   dice_notation: DiceType;
+  bonus_multiplier: number;
+  element_affinity?: "fire" | "water" | "earth" | "air" | "lightning";
 }
 
 interface Props {
@@ -103,8 +110,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   isPurchasing: false,
 });
-console.log(props.dice);
-
 const emit = defineEmits<{
   purchase: [];
 }>();
@@ -141,6 +146,17 @@ const backgroundClass = computed(() => {
   };
 
   return rarityBgs[props.dice.rarity] || "bg-muted/10";
+});
+
+const elementColorClass = computed(() => {
+  const colors: Record<string, string> = {
+    fire: "text-red-500",
+    water: "text-blue-400",
+    earth: "text-amber-600",
+    air: "text-cyan-300",
+    lightning: "text-yellow-400",
+  };
+  return colors[props.dice.element_affinity ?? ""] ?? "";
 });
 
 const rarityBadgeClass = computed(() => {

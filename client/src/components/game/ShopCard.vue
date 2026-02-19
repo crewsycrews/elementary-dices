@@ -211,11 +211,6 @@ const effects = computed(() => {
     if (bonus > 1) {
       effectList.push(`${Math.round((bonus - 1) * 100)}% stat bonus`);
     }
-
-    if (props.diceType.stat_bonuses.element_affinity) {
-      const elements = props.diceType.stat_bonuses.element_affinity.join(', ');
-      effectList.push(`Affinity: ${elements}`);
-    }
   }
 
   return effectList;

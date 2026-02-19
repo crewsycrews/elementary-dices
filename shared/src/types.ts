@@ -48,6 +48,13 @@ export type ItemTypeValue = Static<typeof ItemType>;
 
 // Extended types with joined data (client-side only)
 
+export type PlayerElementalWithDetails = PlayerElemental & {
+  elemental_name: string;
+  elemental_level: number;
+  element_types: ElementTypeValue[];
+  image_url: string | null;
+};
+
 export type PlayerDiceWithDetails = PlayerDice & {
   dice_type: DiceType;
 };

@@ -282,6 +282,7 @@ export class EventService {
       "price",
       "rarity",
       "dice_notation",
+      "stat_bonuses",
     );
 
     const upgradeDice = allDice.filter((die) => {
@@ -293,7 +294,17 @@ export class EventService {
 
     // Get random dice (2-3 dice) from the filtered pool
     const diceCount = Math.floor(Math.random() * 2) + 2;
-    const availableDice = this.getRandomItems(upgradeDice, diceCount);
+    const availableDice = this.getRandomItems(upgradeDice, diceCount).map(
+      (die) => ({
+        id: die.id,
+        name: die.name,
+        price: die.price,
+        rarity: die.rarity,
+        dice_notation: die.dice_notation,
+        bonus_multiplier: die.stat_bonuses?.bonus_multiplier ?? 1,
+        element_affinity: die.stat_bonuses?.element_affinity,
+      }),
+    );
 
     const data: MerchantData = {
       available_items: availableItems,
@@ -474,6 +485,7 @@ export class EventService {
             "dice_types.name as dice_name",
             "dice_types.rarity as dice_rarity",
             "dice_types.dice_notation as dice_notation",
+            "dice_types.stat_bonuses as dice_stat_bonuses",
           );
 
         const availableItems = inventory
@@ -493,6 +505,8 @@ export class EventService {
             price: item.price,
             rarity: item.dice_rarity,
             dice_notation: item.dice_notation,
+            bonus_multiplier: item.dice_stat_bonuses?.bonus_multiplier ?? 1,
+            element_affinity: item.dice_stat_bonuses?.element_affinity,
           }));
 
         const data: MerchantData = {

@@ -51,13 +51,14 @@
           :auto-roll="true"
           :result="rollResult"
           @roll-complete="handleRollComplete"
+          affinity="fire"
         />
       </div>
 
       <!-- Result State -->
       <div v-else-if="result" class="result-state">
         <h2 class="title">
-          🎉 You got {{ result.first_elemental.elemental.name }}!
+          🎉 You got {{ result.first_elemental.elemental_name }}!
         </h2>
         <p class="message">{{ result.message }}</p>
 
@@ -65,24 +66,20 @@
         <div class="selected-elemental">
           <div
             class="elemental-card"
-            :data-element="result.first_elemental.elemental.element_types[0]"
+            :data-element="result.first_elemental.element_types[0]"
           >
             <div class="elemental-header">
               <div class="elemental-icon large">
-                {{
-                  getElementIcon(result.first_elemental.elemental.element_types)
-                }}
+                {{ getElementIcon(result.first_elemental.element_types) }}
               </div>
               <div class="elemental-info">
-                <h3>{{ result.first_elemental.elemental.name }}</h3>
+                <h3>{{ result.first_elemental.elemental_name }}</h3>
                 <div class="elemental-meta">
                   <span class="level"
-                    >Level {{ result.first_elemental.elemental.level }}</span
+                    >Level {{ result.first_elemental.elemental_level }}</span
                   >
                   <span class="element">{{
-                    formatElementTypes(
-                      result.first_elemental.elemental.element_types,
-                    )
+                    formatElementTypes(result.first_elemental.element_types)
                   }}</span>
                 </div>
               </div>
@@ -299,14 +296,6 @@ const formatElementTypes = (elements: string[]): string => {
   font-size: 2rem;
   font-weight: bold;
   text-align: center;
-  background: linear-gradient(
-    135deg,
-    hsl(var(--primary)),
-    hsl(var(--primary) / 0.7)
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .subtitle {

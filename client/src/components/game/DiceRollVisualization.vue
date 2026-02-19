@@ -4,6 +4,7 @@
     <Dice3D
       ref="dice3DRef"
       :dice-type="diceType"
+      :affinity="affinity"
       :is-rolling="isRolling"
       @roll-completed="handleRollComplete"
     />
@@ -50,6 +51,7 @@ export interface DiceRollResult {
 
 const props = defineProps<{
   diceType: "d4" | "d6" | "d10" | "d12" | "d20";
+  affinity?: "fire" | "water" | "earth" | "air" | "lightning";
   autoRoll?: boolean;
   result?: DiceRollResult;
 }>();

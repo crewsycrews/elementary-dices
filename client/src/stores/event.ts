@@ -24,6 +24,9 @@ type MerchantData = {
     name: string
     price: number
     rarity: string
+    dice_notation: string
+    bonus_multiplier: number
+    element_affinity?: string
   }>
 }
 

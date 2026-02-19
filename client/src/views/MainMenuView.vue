@@ -1,5 +1,7 @@
 <template>
-  <div class="main-menu-view min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8">
+  <div
+    class="main-menu-view min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8"
+  >
     <!-- Start Game Modal (for new players) -->
     <StartGameModal
       v-if="showStartGameModal"
@@ -30,7 +32,9 @@
           "
           :is-active="eventStore.isEventActive"
           :pulse="eventStore.isEventActive"
-          :icon-color="eventStore.isEventActive ? 'text-orange-500' : 'text-primary'"
+          :icon-color="
+            eventStore.isEventActive ? 'text-orange-500' : 'text-primary'
+          "
           @click="handleEventClick"
         />
       </div>
@@ -51,8 +55,9 @@
       <div class="area-dice flex justify-center items-center">
         <CentralDiceDisplay
           :last-roll="lastRoll"
-          :is-rolling="isRolling"
-          label="Always showing your last roll"
+          :spinning="isRolling"
+          :affinity="lastRollAffinity"
+          label="Your last roll"
         />
       </div>
 
@@ -82,127 +87,135 @@
 
     <!-- Subtitle hint -->
     <p class="text-xs text-muted-foreground mt-8 text-center">
-      {{ eventStore.isEventActive ? 'Click Current Event to continue' : 'Click any section to begin' }}
+      {{
+        eventStore.isEventActive
+          ? "Click Current Event to continue"
+          : "Click any section to begin"
+      }}
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useUserStore } from '@/stores/user'
-import { useElementalsStore } from '@/stores/elementals'
-import { useInventoryStore } from '@/stores/inventory'
-import { useEventStore } from '@/stores/event'
-import MainMenuButton from '@/components/game/MainMenuButton.vue'
-import CentralDiceDisplay from '@/components/game/CentralDiceDisplay.vue'
-import StartGameModal from '@/components/onboarding/StartGameModal.vue'
-import type { DiceRoll } from '@elementary-dices/shared'
+import { ref, computed, onMounted } from "vue";
+import { useRouter } from "vue-router";
+import { useUserStore } from "@/stores/user";
+import { useElementalsStore } from "@/stores/elementals";
+import { useInventoryStore } from "@/stores/inventory";
+import { useEventStore } from "@/stores/event";
+import MainMenuButton from "@/components/game/MainMenuButton.vue";
+import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
+import StartGameModal from "@/components/onboarding/StartGameModal.vue";
 
-const router = useRouter()
-const userStore = useUserStore()
-const elementalsStore = useElementalsStore()
-const inventoryStore = useInventoryStore()
-const eventStore = useEventStore()
+const router = useRouter();
+const userStore = useUserStore();
+const elementalsStore = useElementalsStore();
+const inventoryStore = useInventoryStore();
+const eventStore = useEventStore();
 
 // Show start game modal for new players
-const showStartGameModal = ref(false)
-const isRolling = ref(false)
+const showStartGameModal = ref(false);
+const isRolling = ref(false);
 
-// Last roll state - get from inventory store or show most recent roll
-const lastRoll = computed(() => {
-  // Find the most recent roll from all dice types
-  const rolls = Object.values(inventoryStore.lastRollsByDiceType).filter(Boolean)
-  return rolls.length > 0 ? rolls[rolls.length - 1] : null
-})
+const lastRoll = computed(() => inventoryStore.lastRoll);
+
+// Derive affinity from the dice used for the last roll
+const lastRollAffinity = computed(() => {
+  if (!lastRoll.value) return "water";
+  const dice = inventoryStore.playerDice.find(
+    (d) => d.dice_type_id === lastRoll.value!.dice_type_id,
+  );
+  return dice?.dice_type?.stat_bonuses?.element_affinity;
+});
 
 // Handle onboarding completion
 const handleOnboardingComplete = () => {
-  showStartGameModal.value = false
+  showStartGameModal.value = false;
   // Reload data to reflect the new elemental
   if (userStore.userId) {
-    elementalsStore.fetchPlayerElementals(userStore.userId)
-    userStore.fetchUser(userStore.userId)
+    elementalsStore.fetchPlayerElementals(userStore.userId);
+    userStore.fetchUser(userStore.userId);
   }
-}
+};
 
 // Get event type label
 const getEventTypeLabel = (type: string) => {
   const labels: Record<string, string> = {
-    wild_encounter: '🌲 Wild Encounter',
-    pvp_battle: '⚔️ PvP Battle',
-    merchant: '🏪 Merchant',
-  }
-  return labels[type] || type
-}
+    wild_encounter: "🌲 Wild Encounter",
+    pvp_battle: "⚔️ PvP Battle",
+    merchant: "🏪 Merchant",
+  };
+  return labels[type] || type;
+};
 
 // Get route for event type
 const getEventRoute = () => {
-  if (eventStore.isWildEncounter) return '/wild-encounter'
-  if (eventStore.isPvPBattle) return '/battle'
-  if (eventStore.isMerchant) return '/merchant'
-  return '/event' // fallback
-}
+  if (eventStore.isWildEncounter) return "/wild-encounter";
+  if (eventStore.isPvPBattle) return "/battle";
+  if (eventStore.isMerchant) return "/merchant";
+  return "/event"; // fallback
+};
 
 // Handle event click
 const handleEventClick = async () => {
   if (eventStore.isEventActive) {
     // Continue existing event - route to specific event view
-    router.push(getEventRoute())
+    router.push(getEventRoute());
   } else {
     // Check if player has active party
     if (elementalsStore.activeParty.length === 0) {
-      alert('You need at least one elemental in your party to trigger an event!')
-      router.push('/party')
-      return
+      alert(
+        "You need at least one elemental in your party to trigger an event!",
+      );
+      router.push("/party");
+      return;
     }
 
     // Trigger new event
     try {
-      isRolling.value = true
-      await eventStore.triggerEvent(userStore.userId!)
+      isRolling.value = true;
+      await eventStore.triggerEvent(userStore.userId!);
 
-      // Simulate dice roll for visual effect
       setTimeout(() => {
-        isRolling.value = false
-        router.push(getEventRoute())
-      }, 1000)
+        isRolling.value = false;
+        router.push(getEventRoute());
+      }, 2000);
     } catch (error) {
-      console.error('Failed to trigger event:', error)
-      isRolling.value = false
+      isRolling.value = false;
+      console.error("Failed to trigger event:", error);
     }
   }
-}
+};
 
 // Navigate to section
 const navigateTo = (section: string) => {
-  router.push(`/${section}`)
-}
+  router.push(`/${section}`);
+};
 
 // Load initial data
 onMounted(async () => {
   if (userStore.userId) {
     try {
       // Load user data
-      await userStore.fetchUser(userStore.userId)
+      await userStore.fetchUser(userStore.userId);
 
       // Load elementals
-      await elementalsStore.fetchAllElementals()
-      await elementalsStore.fetchPlayerElementals(userStore.userId)
+      await elementalsStore.fetchAllElementals();
+      await elementalsStore.fetchPlayerElementals(userStore.userId);
 
       // Check if player needs onboarding
       if (elementalsStore.playerElementals.length === 0) {
-        showStartGameModal.value = true
+        showStartGameModal.value = true;
       }
 
       // Load inventory
-      await inventoryStore.fetchPlayerItems(userStore.userId)
-      await inventoryStore.fetchPlayerDice(userStore.userId)
+      await inventoryStore.fetchPlayerItems(userStore.userId);
+      await inventoryStore.fetchPlayerDice(userStore.userId);
     } catch (error) {
-      console.error('Failed to load main menu data:', error)
+      console.error("Failed to load main menu data:", error);
     }
   }
-})
+});
 </script>
 
 <style scoped>
@@ -211,11 +224,11 @@ onMounted(async () => {
   display: grid;
   gap: 1rem;
   grid-template-areas:
-    'event'
-    'party'
-    'dice'
-    'inventory'
-    'dices';
+    "event"
+    "party"
+    "dice"
+    "inventory"
+    "dices";
   grid-template-rows: auto auto auto auto auto;
   grid-template-columns: 1fr;
 }
@@ -223,9 +236,9 @@ onMounted(async () => {
 @media (min-width: 768px) {
   .main-menu-grid {
     grid-template-areas:
-      '. . event . .'
-      '. party dice inventory .'
-      '. . dices . .';
+      ". . event . ."
+      ". party dice inventory ."
+      ". . dices . .";
     grid-template-rows: auto auto auto;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     min-height: 600px;

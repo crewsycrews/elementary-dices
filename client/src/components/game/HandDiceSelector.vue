@@ -40,9 +40,10 @@
           <!-- 3D Dice -->
           <Dice3D
             :dice-type="diceType.type"
-            :value="lastRolls[diceType.type]?.roll_value"
+            :value="diceType.maxValue || 4"
             :scale="selectedDiceType === diceType.type ? 0.4 : 0.3"
             :show-shadow="true"
+            :affinity="diceAffinities[diceType.type] as any"
           />
         </div>
       </div>
@@ -99,14 +100,21 @@ const groupedDice = computed(() => {
   return grouped;
 });
 
-// Get last rolls from store
-const lastRolls = computed(() => inventoryStore.lastRollsByDiceType);
+// Get the affinity of the first equipped dice for each type
+const diceAffinities = computed(() => {
+  const result: Record<string, string | undefined> = {};
+  for (const [type, dice] of Object.entries(groupedDice.value)) {
+    result[type] = (dice[0] as any)?.dice_type?.stat_bonuses?.element_affinity;
+  }
+  return result;
+});
 
 // Dice configuration interface
 interface DiceConfig {
   type: DiceType;
   notation: string;
   position: { top: string; left: string };
+  maxValue?: number;
 }
 
 // Dice types with positions (left to right: thumb, index, middle, ring, pinky)
@@ -114,36 +122,37 @@ const diceTypes: DiceConfig[] = [
   {
     type: "d4",
     notation: "d4",
-    position: { top: "8%", left: "53%" }, // Pinky
+    position: { top: "7%", left: "55%" }, // Pinky
+    maxValue: 4,
   },
   {
     type: "d6",
     notation: "d6",
     position: { top: "1%", left: "49%" }, // Ring
+    maxValue: 6,
   },
   {
     type: "d10",
     notation: "d10",
     position: { top: "-10%", left: "39%" }, // Middle (tallest)
+    maxValue: 10,
   },
   {
     type: "d12",
     notation: "d12",
     position: { top: "1%", left: "29%" }, // Index
+    maxValue: 12,
   },
   {
     type: "d20",
     notation: "d20",
     position: { top: "30%", left: "12%" }, // Thumb
+    maxValue: 20,
   },
 ];
 
 const isDiceAvailable = (diceType: string): boolean => {
   return (groupedDice.value[diceType]?.length || 0) > 0;
-};
-
-const getOwnedCount = (diceType: string): number => {
-  return groupedDice.value[diceType]?.length || 0;
 };
 
 const handleDiceSelect = (diceType: string) => {

@@ -4,6 +4,7 @@ import type {
   DiceType,
   PlayerDice,
   PlayerDiceWithDetails,
+  PlayerElementalWithDetails,
   Item,
   PlayerInventoryItem,
   DiceRoll,
@@ -71,7 +72,7 @@ export type ApiDiscoveredRecipesResponse = { recipes: ElementalEvolution[] }
 export type ApiStartGameResponse = {
   success: boolean
   message: string
-  first_elemental: PlayerElemental
+  first_elemental: PlayerElementalWithDetails
   dice_roll: {
     roll_value: number
     selected_index: number

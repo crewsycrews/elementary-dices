@@ -49,7 +49,7 @@ const faces: DiceFace[] = [
  * D4 geometry requires specific angles to show each triangular face
  */
 const resultRotations = {
-  1: { rotateX: 5, rotateY: 0, rotateZ: 0 },
+  1: { rotateX: 5, rotateY: 0, rotateZ: 0 }, // 1: { rotateX: 60, rotateY: 0, rotateZ: 60 },
   2: { rotateX: 115, rotateY: 0, rotateZ: -60 },
   3: { rotateX: 245, rotateY: 0, rotateZ: 0 },
   4: { rotateX: 115, rotateY: 0, rotateZ: 60 },

@@ -115,6 +115,9 @@
           :auto-roll="true"
           :result="rollResult"
           @roll-complete="handleRollComplete"
+          :affinity="
+            selectedPlayerDice?.dice_type?.stat_bonuses?.element_affinity
+          "
         />
       </div>
 
@@ -239,6 +242,9 @@ const diceVisualizationRef = ref<InstanceType<
 const availableDice = computed(() => {
   return inventoryStore.playerDice;
 });
+const selectedPlayerDice = computed(() =>
+  availableDice.value.find((d) => d.id === selectedDice.value),
+);
 
 // Convert active party to array with nulls for empty slots
 const playerPartyArray = computed(() => {
@@ -284,7 +290,7 @@ const handleDiceTypeSelect = (diceType: string) => {
   selectedDiceType.value = diceType;
   // Auto-select the first dice of that type
   const diceOfType = availableDice.value.find(
-    (d) => d.dice_type?.dice_notation === diceType
+    (d) => d.dice_type?.dice_notation === diceType,
   );
   if (diceOfType) {
     selectedDice.value = diceOfType.id;
@@ -330,17 +336,12 @@ const handleBattleAttempt = async () => {
 
     // Save dice roll ID for later resolution
     currentDiceRollId.value = diceRoll.id;
-    
+
     nextTick(() => {
       diceVisualizationRef.value?.roll();
     });
     // Save last roll to inventory store
-    const diceType = getDiceType(selectedDice.value);
-    inventoryStore.updateLastRoll(diceType, {
-      diceType,
-      result: diceRoll.roll_value,
-      outcome: diceRoll.outcome,
-    } as any);
+    inventoryStore.updateLastRoll(diceRoll);
   } catch (error) {
     console.error("Failed to resolve battle:", error);
   } finally {

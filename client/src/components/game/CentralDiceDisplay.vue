@@ -4,9 +4,12 @@
     <div class="dice-display-wrapper">
       <Dice3D
         v-if="diceType"
+        ref="dice3dRef"
         :dice-type="diceType"
         :value="lastRoll?.roll_value"
-        :is-rolling="isRolling"
+        :affinity="affinity"
+        :spinning="spinning"
+        @click="handleToyRoll"
       />
     </div>
 
@@ -18,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import type { DiceRoll } from "@elementary-dices/shared";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry";
@@ -26,14 +29,32 @@ import type { DiceType } from "./dice-geometry";
 interface Props {
   lastRoll?: DiceRoll | null;
   label?: string;
-  isRolling?: boolean;
+  affinity?: "fire" | "water" | "earth" | "air" | "lightning";
+  spinning?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   lastRoll: null,
-  label: "Always showing your last roll",
-  isRolling: false,
+  label: "Your last roll",
+  affinity: undefined,
+  spinning: false,
 });
+
+const dice3dRef = ref<InstanceType<typeof Dice3D> | null>(null);
+
+function handleToyRoll() {
+  if (!diceType.value || !dice3dRef.value) return;
+  const maxFaces = parseInt(diceType.value.slice(1));
+  const randomValue = Math.floor(Math.random() * maxFaces) + 1;
+  dice3dRef.value.roll(randomValue);
+
+  const originalValue = props.lastRoll?.roll_value;
+  if (originalValue !== undefined) {
+    setTimeout(() => {
+      dice3dRef.value?.roll(originalValue);
+    }, 6000);
+  }
+}
 
 /**
  * Extract dice type from dice notation (e.g., "1d6" → "d6")

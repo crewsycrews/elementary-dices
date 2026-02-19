@@ -11,36 +11,47 @@
 
     <!-- Dice wrapper with optional base rotation -->
     <div class="dice-wrapper" :style="wrapperStyle">
-      <!-- The 3D dice itself -->
-      <div
-        class="dice-3d"
-        ref="diceRef"
-        :class="[`dice-${diceType}`, { 'is-rolling': isAnimating }]"
-        :style="diceStyle"
-        @click="handleClick"
-      >
-        <!-- Render all faces -->
+      <!-- Spin wrapper: handles continuous X-axis spin independently of face rotation -->
+      <div class="spin-wrapper" :class="{ 'is-spinning': spinning }">
+        <!-- The 3D dice itself -->
         <div
-          v-for="face in geometry.faces"
-          :key="`face-${face.value}`"
-          class="dice-face"
-          :class="`dice-face-${diceType}`"
-          :style="getFaceStyle(face)"
+          class="dice-3d"
+          ref="diceRef"
+          :class="[`dice-${diceType}`, { 'is-rolling': isAnimating }]"
+          :style="diceStyle"
+          @click="handleClick"
         >
-          <!-- D4 faces show 3 values (all except the bottom face) -->
-          <template v-if="diceType === 'd4'">
-            <span class="face-value face-value-d4-left">{{
-              getD4Values(face.value)[0]
+          <!-- Render all faces -->
+          <div
+            v-for="face in geometry.faces"
+            :key="`face-${face.value}`"
+            class="dice-face"
+            :class="`dice-face-${diceType}`"
+            :style="faceStyles[face.value]"
+          >
+            <!-- D4 faces show 3 values (all except the bottom face) -->
+            <template v-if="diceType === 'd4'">
+              <span
+                class="face-value face-value-d4-left"
+                :style="faceValueStyle"
+                >{{ getD4Values(face.value)[0] }}</span
+              >
+              <span
+                class="face-value face-value-d4-center"
+                :style="faceValueStyle"
+                >{{ getD4Values(face.value)[1] }}</span
+              >
+              <span
+                class="face-value face-value-d4-right"
+                :style="faceValueStyle"
+                >{{ getD4Values(face.value)[2] }}</span
+              >
+            </template>
+            <!-- Other dice types show single value -->
+            <span v-else class="face-value" :style="faceValueStyle">{{
+              face.value
             }}</span>
-            <span class="face-value face-value-d4-center">{{
-              getD4Values(face.value)[1]
-            }}</span>
-            <span class="face-value face-value-d4-right">{{
-              getD4Values(face.value)[2]
-            }}</span>
-          </template>
-          <!-- Other dice types show single value -->
-          <span v-else class="face-value">{{ face.value }}</span>
+          </div>
         </div>
       </div>
     </div>
@@ -49,16 +60,35 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from "vue";
-import {
-  getGeometry,
-  type DiceType,
-  type DiceFace,
-  createTransform,
-} from "./dice-geometry";
+import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
+import airTexture from "../../../assets/dice-affinities/air.gif";
+import fireTexture from "../../../assets/dice-affinities/fire.gif";
+import waterTexture from "../../../assets/dice-affinities/water.gif";
+import earthTexture from "../../../assets/dice-affinities/stone.avif";
+import lightningTexture from "../../../assets/dice-affinities/lightning 2.gif";
+
+const affinityTextures: Record<string, string> = {
+  air: airTexture,
+  fire: fireTexture,
+  water: waterTexture,
+  earth: earthTexture,
+  lightning: lightningTexture,
+};
+
+const affinityTextColors: Record<string, string> = {
+  air: "black",
+  fire: "black",
+  water: "black",
+  earth: "black",
+  lightning: "crimson",
+};
 
 interface Props {
   /** The type of dice to render (d4, d6, d10, d12, d20) */
   diceType: DiceType;
+
+  /** Element affinity to use as face texture */
+  affinity?: "fire" | "water" | "earth" | "air" | "lightning";
 
   /** The current face value to display (1-N) */
   value?: number;
@@ -74,6 +104,9 @@ interface Props {
 
   /** Animation speed multiplier (1 = normal, 2 = double speed, 0.5 = half speed) */
   animationSpeed?: number;
+
+  /** Continuously spin on X-axis (e.g. while an API call is in progress) */
+  spinning?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -82,6 +115,8 @@ const props = withDefaults(defineProps<Props>(), {
   isRolling: false,
   showShadow: true,
   animationSpeed: 0.6,
+  affinity: undefined,
+  spinning: false,
 });
 
 const emit = defineEmits<{
@@ -120,24 +155,27 @@ const diceStyle = computed(() => {
   };
 });
 
-/**
- * Get the complete style for a dice face
- * Includes transform, clip-path, and gradient background
- */
-function getFaceStyle(face: DiceFace): Record<string, string> {
-  const style: Record<string, string> = {
-    transform: face.transform,
-  };
-
-  if (face.clipPath) {
-    style.clipPath = face.clipPath;
+const faceStyles = computed(() => {
+  const styles: Record<number, Record<string, string>> = {};
+  for (const face of geometry.value.faces) {
+    const style: Record<string, string> = { transform: face.transform };
+    if (face.clipPath) style.clipPath = face.clipPath;
+    if (props.diceType === "d12") style.transformOrigin = "center bottom";
+    if (props.affinity && affinityTextures[props.affinity]) {
+      style.background = `url(${affinityTextures[props.affinity]}) center / cover`;
+    }
+    styles[face.value] = style;
   }
+  return styles;
+});
 
-  if (props.diceType === "d12") {
-    style.transformOrigin = "center bottom";
+const faceValueStyle = computed(() => {
+  const style: Record<string, string> = {};
+  if (props.affinity && affinityTextColors[props.affinity]) {
+    style.color = affinityTextColors[props.affinity] || "white";
   }
   return style;
-}
+});
 
 /**
  * Get the 3 values displayed on a d4 face
@@ -302,6 +340,23 @@ defineExpose({
   transform-origin: center;
 }
 
+.spin-wrapper {
+  transform-style: preserve-3d;
+}
+
+.spin-wrapper.is-spinning {
+  animation: spin-x 0.7s linear infinite;
+}
+
+@keyframes spin-x {
+  from {
+    transform: rotateX(0deg);
+  }
+  to {
+    transform: rotateX(360deg);
+  }
+}
+
 .dice-3d {
   position: relative;
   transform-style: preserve-3d;
@@ -343,8 +398,7 @@ defineExpose({
 }
 
 .dice-face-d12 {
-  background: url("https://i.pinimg.com/originals/c0/a2/06/c0a2068f8dd8b53742308a4998823e02.gif");
-  background-size: cover;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
 }
 
 .dice-face-d20 {
@@ -361,8 +415,10 @@ defineExpose({
   font-weight: bold;
   color: white;
   text-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.5),
-    0 1px 2px rgba(0, 0, 0, 0.3);
+    1px 0 0 white,
+    /*right */ 0 1px 0 white,
+    /*top */ -1px 0 0 white,
+    /*left */ 0 -1px 0 white; /*bottom */
   user-select: none;
   pointer-events: none;
 }
