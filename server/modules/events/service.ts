@@ -258,6 +258,7 @@ export class EventService {
       "name",
       "price",
       "rarity",
+      "dice_notation",
     );
     const availableDice = this.getRandomItems(allDice, diceCount);
 
@@ -352,7 +353,7 @@ export class EventService {
           throw new BadRequestError("Invalid wild encounter event");
         }
         const wildEncounter = await this.wildEncounterRepo.findById(
-          currentEvent.wild_encounter_id
+          currentEvent.wild_encounter_id,
         );
         if (!wildEncounter) {
           throw new NotFoundError("Wild encounter event");
@@ -418,7 +419,7 @@ export class EventService {
           throw new BadRequestError("Invalid merchant event");
         }
         const merchant = await this.merchantRepo.findById(
-          currentEvent.merchant_id
+          currentEvent.merchant_id,
         );
         if (!merchant) {
           throw new NotFoundError("Merchant event");
@@ -428,13 +429,18 @@ export class EventService {
         const inventory = await db("merchant_inventory")
           .where({ merchant_event_id: merchant.id })
           .leftJoin("items", "merchant_inventory.item_id", "items.id")
-          .leftJoin("dice_types", "merchant_inventory.dice_type_id", "dice_types.id")
+          .leftJoin(
+            "dice_types",
+            "merchant_inventory.dice_type_id",
+            "dice_types.id",
+          )
           .select(
             "merchant_inventory.*",
             "items.name as item_name",
             "items.rarity as item_rarity",
             "dice_types.name as dice_name",
-            "dice_types.rarity as dice_rarity"
+            "dice_types.rarity as dice_rarity",
+            "dice_types.dice_notation as dice_notation",
           );
 
         const availableItems = inventory
@@ -453,6 +459,7 @@ export class EventService {
             name: item.dice_name,
             price: item.price,
             rarity: item.dice_rarity,
+            dice_notation: item.dice_notation,
           }));
 
         const data: MerchantData = {
@@ -490,7 +497,7 @@ export class EventService {
     }
 
     const wildEncounter = await this.wildEncounterRepo.findById(
-      currentEvent.wild_encounter_id
+      currentEvent.wild_encounter_id,
     );
     if (!wildEncounter) {
       throw new NotFoundError("Wild encounter event");
@@ -564,7 +571,12 @@ export class EventService {
 
     // Determine success based on dice outcome and difficulty
     const outcome: DiceRollOutcome = diceRoll.outcome;
-    const difficulty = elemental.level === 1 ? "easy" : elemental.level === 2 ? "medium" : "hard";
+    const difficulty =
+      elemental.level === 1
+        ? "easy"
+        : elemental.level === 2
+          ? "medium"
+          : "hard";
 
     let success = false;
     if (outcome === "crit_success") {
@@ -668,7 +680,7 @@ export class EventService {
     }
 
     const wildEncounter = await this.wildEncounterRepo.findById(
-      currentEvent.wild_encounter_id
+      currentEvent.wild_encounter_id,
     );
     if (!wildEncounter) {
       throw new NotFoundError("Wild encounter event");

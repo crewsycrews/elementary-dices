@@ -49,6 +49,7 @@ export const MerchantDataDTO = t.Object({
       name: t.String(),
       price: t.Number(),
       rarity: t.String(),
+      dice_notation: t.String(), // e.g., 'd6', 'd20'
     }),
   ),
 });
