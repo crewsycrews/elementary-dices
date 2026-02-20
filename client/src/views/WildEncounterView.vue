@@ -98,50 +98,57 @@
             </Transition>
           </div>
 
-          <!-- Item Selection (Optional) -->
-          <div class="space-y-2">
-            <label class="text-sm font-semibold">Use Item (Optional):</label>
-            <select
-              v-model="selectedItem"
-              class="w-full p-3 border rounded-lg bg-background"
-              :disabled="isRolling"
-            >
-              <option value="">No item (lower success chance)</option>
-              <option
-                v-for="item in captureItems"
-                :key="item.item_id"
-                :value="item.item_id"
+          <div class="max-w-md mx-auto space-y-4" v-if="!showDiceRoll">
+            <!-- Item Selection (Optional) -->
+            <div class="space-y-2">
+              <label class="text-sm font-semibold">Use Item (Optional):</label>
+              <select
+                v-model="selectedItem"
+                class="w-full p-3 border rounded-lg bg-background"
+                :disabled="isRolling"
               >
-                {{ item.item?.name }} (x{{ item.quantity }}) - +{{
-                  getCaptureBonus(item)
-                }}
-                bonus
-              </option>
-            </select>
+                <option value="">No item (lower success chance)</option>
+                <option
+                  v-for="item in captureItems"
+                  :key="item.item_id"
+                  :value="item.item_id"
+                >
+                  {{ item.item?.name }} (x{{ item.quantity }}) - +{{
+                    getCaptureBonus(item)
+                  }}
+                  bonus
+                </option>
+              </select>
+            </div>
+
+            <!-- Roll Button -->
+            <button
+              @click="handleCaptureAttempt"
+              :disabled="!selectedDice || isRolling"
+              class="w-full px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
+            </button>
+
+            <!-- Skip Button -->
+            <button
+              @click="handleSkipEncounter"
+              :disabled="isRolling"
+              class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
+            >
+              Skip Encounter
+            </button>
           </div>
-
-          <!-- Roll Button -->
-          <button
-            @click="handleCaptureAttempt"
-            :disabled="!selectedDice || isRolling"
-            class="w-full px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
-          </button>
-
-          <!-- Skip Button -->
-          <button
-            @click="handleSkipEncounter"
-            :disabled="isRolling"
-            class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
-          >
-            Skip Encounter
-          </button>
         </div>
-        <div
-          v-else="captureResult"
-          class="max-w-md mx-auto text-center space-y-4 w-1/2"
-        >
+        <div v-else class="max-w-md mx-auto text-center space-y-4 w-1/2">
+          <DiceRollVisualization
+            :dice-type="getDiceType(selectedDice)"
+            :result="rollResult"
+            @roll-complete="handleRollComplete"
+            :affinity="
+              selectedPlayerDice?.dice_type?.stat_bonuses?.element_affinity
+            "
+          />
           <div
             class="p-6 rounded-lg"
             :class="

@@ -7,6 +7,7 @@
       :affinity="affinity"
       :is-rolling="isRolling"
       @roll-completed="handleRollComplete"
+      :value="result?.roll_value"
     />
 
     <!-- Dice type label -->
