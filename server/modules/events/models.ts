@@ -56,12 +56,53 @@ export const MerchantDataDTO = t.Object({
   ),
 });
 
+// Battle Party Member (shared between PvP data and battle state)
+export const BattlePartyMemberDTO = t.Object({
+  player_elemental_id: t.Optional(t.String()),
+  elemental_id: t.String(),
+  name: t.String(),
+  element: t.String(),
+  level: t.Number(),
+  base_power: t.Number(),
+  current_power: t.Number(),
+  target_index: t.Number(),
+});
+
 // PvP Battle specific
 export const PvPDataDTO = t.Object({
   opponent_id: t.Optional(t.String()),
   opponent_name: t.String(),
   opponent_power_level: t.Number(),
   potential_reward: t.Number(),
+  opponent_party: t.Array(BattlePartyMemberDTO),
+  player_party: t.Array(BattlePartyMemberDTO),
+  battle_state: t.Optional(t.Any()),
+});
+
+// Battle Roll Record
+export const BattleRollRecordDTO = t.Object({
+  turn: t.Number(),
+  side: t.String(), // "player" | "opponent"
+  dice_type_id: t.Optional(t.String()),
+  dice_element: t.String(),
+  outcome: t.String(),
+  bonus_applied: t.Number(),
+  affected_element: t.String(), // element name or "all_others"
+  roll_value: t.Optional(t.Number()),
+});
+
+// Battle State DTO
+export const BattleStateDTO = t.Object({
+  phase: t.String(), // "targeting" | "rolling" | "resolved"
+  player_party: t.Array(BattlePartyMemberDTO),
+  opponent_party: t.Array(BattlePartyMemberDTO),
+  rolls: t.Array(BattleRollRecordDTO),
+  current_turn: t.Number(),
+  player_rolls_done: t.Number(),
+  opponent_rolls_done: t.Number(),
+  winner: t.Optional(t.String()),
+  player_total_power: t.Optional(t.Number()),
+  opponent_total_power: t.Optional(t.Number()),
 });
 
 // Event Resolution DTOs
@@ -86,24 +127,38 @@ export const WildEncounterResultDTO = t.Object({
   can_continue: t.Boolean(), // Whether player can roll for next event
 });
 
-// PvP Battle Resolution
-export const ResolvePvPBattleDTO = t.Object({
+// Battle Start
+export const BattleStartDTO = t.Object({
   player_id: t.String(),
-  dice_roll_id: t.String(), // ID of the dice roll performed
 });
 
-export const PvPBattleResultDTO = t.Object({
-  victory: t.Boolean(),
-  message: t.String(),
-  player_power: t.Number(),
-  opponent_power: t.Number(),
-  reward: t.Optional(t.Number()),
-  penalty: t.Optional(
+// Battle Roll (player rolls a dice)
+export const BattleRollDTO = t.Object({
+  player_id: t.String(),
+  dice_type_id: t.String(),
+});
+
+// Battle Roll Result (returned after each roll)
+export const BattleRollResultDTO = t.Object({
+  battle_state: BattleStateDTO,
+  player_roll: t.Optional(BattleRollRecordDTO),
+  opponent_roll: t.Optional(BattleRollRecordDTO),
+  is_resolved: t.Boolean(),
+  result: t.Optional(
     t.Object({
-      downgraded_elemental: t.Optional(t.String()),
+      victory: t.Boolean(),
+      message: t.String(),
+      player_total_power: t.Number(),
+      opponent_total_power: t.Number(),
+      reward: t.Optional(t.Number()),
+      penalty: t.Optional(
+        t.Object({
+          downgraded_elemental: t.Optional(t.String()),
+        }),
+      ),
+      can_continue: t.Boolean(),
     }),
   ),
-  can_continue: t.Boolean(),
 });
 
 // Wild Encounter Skip
@@ -132,10 +187,14 @@ export type TriggerEventData = typeof TriggerEventDTO.static;
 export type WildEncounterData = typeof WildEncounterDataDTO.static;
 export type MerchantData = typeof MerchantDataDTO.static;
 export type PvPData = typeof PvPDataDTO.static;
+export type BattlePartyMemberData = typeof BattlePartyMemberDTO.static;
+export type BattleRollRecord = typeof BattleRollRecordDTO.static;
+export type BattleStateData = typeof BattleStateDTO.static;
 export type ResolveWildEncounterData = typeof ResolveWildEncounterDTO.static;
 export type WildEncounterResult = typeof WildEncounterResultDTO.static;
-export type ResolvePvPBattleData = typeof ResolvePvPBattleDTO.static;
-export type PvPBattleResult = typeof PvPBattleResultDTO.static;
+export type BattleStartData = typeof BattleStartDTO.static;
+export type BattleRollData = typeof BattleRollDTO.static;
+export type BattleRollResult = typeof BattleRollResultDTO.static;
 export type SkipWildEncounterData = typeof SkipWildEncounterDTO.static;
 export type SkipWildEncounterResult = typeof SkipWildEncounterResultDTO.static;
 export type LeaveMerchantData = typeof LeaveMerchantDTO.static;

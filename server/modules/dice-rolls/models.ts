@@ -17,7 +17,6 @@ export const PerformRollDTO = t.Object({
   player_id: t.String({ format: 'uuid' }),
   dice_type_id: t.Optional(t.String({ format: 'uuid' })), // If not provided, use equipped dice
   context: DiceRollContext,
-  battle_id: t.Optional(t.String({ format: 'uuid' })),
   element_affinity: t.Optional(t.String()), // For element bonus calculation
   item_bonus: t.Optional(t.Integer()),
 });

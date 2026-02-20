@@ -1,273 +1,178 @@
-import { ref, computed } from 'vue';
-import type { PlayerElementalSchema, ElementalSchema, StatsSchema } from '@elementary-dices/shared/schemas';
+import { ref, computed } from 'vue'
+import type { BattlePartyMember, BattleRollRecord, BattleState, BattleResult } from '@/stores/event'
 
-export interface BattleParticipant {
-  playerElemental: typeof PlayerElementalSchema.static;
-  elemental: typeof ElementalSchema.static;
+// Element display config
+const ELEMENT_CONFIG: Record<string, { emoji: string; color: string; bgColor: string }> = {
+  fire: { emoji: '🔥', color: 'text-red-500', bgColor: 'bg-red-500/20' },
+  water: { emoji: '💧', color: 'text-blue-500', bgColor: 'bg-blue-500/20' },
+  earth: { emoji: '🪨', color: 'text-amber-600', bgColor: 'bg-amber-600/20' },
+  air: { emoji: '💨', color: 'text-cyan-400', bgColor: 'bg-cyan-400/20' },
+  lightning: { emoji: '⚡', color: 'text-yellow-400', bgColor: 'bg-yellow-400/20' },
 }
 
-export interface BattleResult {
-  winner: 'player' | 'opponent' | 'draw';
-  playerDamageDealt: number;
-  opponentDamageDealt: number;
-  rounds: BattleRound[];
-  summary: string;
-}
-
-export interface BattleRound {
-  round: number;
-  playerAttack: number;
-  opponentAttack: number;
-  playerDamage: number;
-  opponentDamage: number;
-  playerHealthRemaining: number;
-  opponentHealthRemaining: number;
+// Weakness cycle: W -> F -> A -> E -> W
+const ELEMENT_BEATS: Record<string, string> = {
+  water: 'fire',
+  fire: 'air',
+  air: 'earth',
+  earth: 'water',
 }
 
 export function useBattle() {
-  const isBattleActive = ref(false);
-  const currentRound = ref(0);
-  const battleLog = ref<string[]>([]);
+  // State
+  const battleState = ref<BattleState | null>(null)
+  const battleResult = ref<BattleResult | null>(null)
+  const lastPlayerRoll = ref<BattleRollRecord | null>(null)
+  const lastOpponentRoll = ref<BattleRollRecord | null>(null)
+  const isRolling = ref(false)
+  const showingAiRoll = ref(false)
+  const recentlyBuffedElement = ref<string | null>(null)
 
-  /**
-   * Calculate effective damage based on attack and defense
-   * Formula: damage = max(1, attack - (defense / 2))
-   */
-  const calculateDamage = (attack: number, defense: number): number => {
-    return Math.max(1, Math.floor(attack - defense / 2));
-  };
+  // Computed
+  const battlePhase = computed(() => battleState.value?.phase ?? null)
+  const playerParty = computed(() => battleState.value?.player_party ?? [])
+  const opponentParty = computed(() => battleState.value?.opponent_party ?? [])
+  const rollHistory = computed(() => battleState.value?.rolls ?? [])
+  const currentTurn = computed(() => battleState.value?.current_turn ?? 1)
+  const playerRollsDone = computed(() => battleState.value?.player_rolls_done ?? 0)
+  const opponentRollsDone = computed(() => battleState.value?.opponent_rolls_done ?? 0)
+  const isPlayerTurn = computed(() => playerRollsDone.value <= opponentRollsDone.value && playerRollsDone.value < 3)
 
-  /**
-   * Determine turn order based on speed stat
-   */
-  const determineTurnOrder = (
-    playerSpeed: number,
-    opponentSpeed: number
-  ): 'player' | 'opponent' => {
-    if (playerSpeed > opponentSpeed) return 'player';
-    if (opponentSpeed > playerSpeed) return 'opponent';
+  const totalPlayerPower = computed(() =>
+    playerParty.value.reduce((sum, m) => sum + m.current_power, 0)
+  )
 
-    // Equal speed - random
-    return Math.random() > 0.5 ? 'player' : 'opponent';
-  };
+  const totalOpponentPower = computed(() =>
+    opponentParty.value.reduce((sum, m) => sum + m.current_power, 0)
+  )
 
-  /**
-   * Calculate battle power - sum of all stats
-   */
-  const calculatePower = (stats: typeof StatsSchema.static): number => {
-    return stats.health + stats.attack + stats.defense + stats.speed;
-  };
-
-  /**
-   * Simulate a battle between player's party and opponent
-   * This is a turn-based calculation, not real-time
-   */
-  const simulateBattle = (
-    playerParty: BattleParticipant[],
-    opponentParty: BattleParticipant[]
-  ): BattleResult => {
-    battleLog.value = [];
-    const rounds: BattleRound[] = [];
-
-    // Use first elemental from each party (can be extended for full party battles)
-    const player = playerParty[0];
-    const opponent = opponentParty[0];
-
-    if (!player || !opponent) {
-      throw new Error('Both parties must have at least one elemental');
-    }
-
-    let playerHealth = player.playerElemental.current_stats.health;
-    let opponentHealth = opponent.playerElemental.current_stats.health;
-
-    let totalPlayerDamage = 0;
-    let totalOpponentDamage = 0;
-    let round = 0;
-
-    battleLog.value.push(`Battle Start!`);
-    battleLog.value.push(
-      `${player.elemental.name} (HP: ${playerHealth}) vs ${opponent.elemental.name} (HP: ${opponentHealth})`
-    );
-
-    // Battle loop - max 50 rounds to prevent infinite battles
-    while (playerHealth > 0 && opponentHealth > 0 && round < 50) {
-      round++;
-
-      // Determine who attacks first based on speed
-      const firstAttacker = determineTurnOrder(
-        player.playerElemental.current_stats.speed,
-        opponent.playerElemental.current_stats.speed
-      );
-
-      let playerDamage = 0;
-      let opponentDamage = 0;
-
-      if (firstAttacker === 'player') {
-        // Player attacks first
-        playerDamage = calculateDamage(
-          player.playerElemental.current_stats.attack,
-          opponent.playerElemental.current_stats.defense
-        );
-        opponentHealth -= playerDamage;
-        totalPlayerDamage += playerDamage;
-
-        battleLog.value.push(
-          `Round ${round}: ${player.elemental.name} attacks for ${playerDamage} damage!`
-        );
-
-        // Opponent counter-attacks if still alive
-        if (opponentHealth > 0) {
-          opponentDamage = calculateDamage(
-            opponent.playerElemental.current_stats.attack,
-            player.playerElemental.current_stats.defense
-          );
-          playerHealth -= opponentDamage;
-          totalOpponentDamage += opponentDamage;
-
-          battleLog.value.push(
-            `Round ${round}: ${opponent.elemental.name} counter-attacks for ${opponentDamage} damage!`
-          );
-        }
-      } else {
-        // Opponent attacks first
-        opponentDamage = calculateDamage(
-          opponent.playerElemental.current_stats.attack,
-          player.playerElemental.current_stats.defense
-        );
-        playerHealth -= opponentDamage;
-        totalOpponentDamage += opponentDamage;
-
-        battleLog.value.push(
-          `Round ${round}: ${opponent.elemental.name} attacks for ${opponentDamage} damage!`
-        );
-
-        // Player counter-attacks if still alive
-        if (playerHealth > 0) {
-          playerDamage = calculateDamage(
-            player.playerElemental.current_stats.attack,
-            opponent.playerElemental.current_stats.defense
-          );
-          opponentHealth -= playerDamage;
-          totalPlayerDamage += playerDamage;
-
-          battleLog.value.push(
-            `Round ${round}: ${player.elemental.name} counter-attacks for ${playerDamage} damage!`
-          );
-        }
+  const targetLines = computed(() => {
+    return playerParty.value.map((member, index) => {
+      const target = opponentParty.value[member.target_index]
+      const hasAdvantage = target ? elementBeats(member.element, target.element) : false
+      return {
+        fromIndex: index,
+        toIndex: member.target_index,
+        hasAdvantage,
+        attackerElement: member.element,
+        defenderElement: target?.element ?? '',
       }
+    })
+  })
 
-      // Record round
-      rounds.push({
-        round,
-        playerAttack: player.playerElemental.current_stats.attack,
-        opponentAttack: opponent.playerElemental.current_stats.attack,
-        playerDamage,
-        opponentDamage,
-        playerHealthRemaining: Math.max(0, playerHealth),
-        opponentHealthRemaining: Math.max(0, opponentHealth),
-      });
+  // Helpers
+  function elementBeats(attacker: string, defender: string): boolean {
+    return ELEMENT_BEATS[attacker] === defender
+  }
+
+  function getElementConfig(element: string) {
+    return ELEMENT_CONFIG[element] ?? ELEMENT_CONFIG.fire
+  }
+
+  function getOutcomeLabel(outcome: string): string {
+    switch (outcome) {
+      case 'crit_success': return 'CRIT SUCCESS'
+      case 'success': return 'SUCCESS'
+      case 'fail': return 'FAIL'
+      case 'crit_fail': return 'CRIT FAIL'
+      default: return outcome.toUpperCase()
+    }
+  }
+
+  function getOutcomeColor(outcome: string): string {
+    switch (outcome) {
+      case 'crit_success': return 'text-green-400'
+      case 'success': return 'text-blue-400'
+      case 'fail': return 'text-yellow-500'
+      case 'crit_fail': return 'text-red-500'
+      default: return 'text-gray-400'
+    }
+  }
+
+  function getRollDescription(roll: BattleRollRecord): string {
+    const sideLabel = roll.side === 'player' ? 'You' : 'Opponent'
+    const elementEmoji = getElementConfig(roll.dice_element).emoji
+    const outcomeLabel = getOutcomeLabel(roll.outcome)
+    const affectedEmoji = roll.affected_element === 'all_others'
+      ? '🌍 all non-lightning'
+      : getElementConfig(roll.affected_element).emoji
+
+    return `${sideLabel} rolled ${elementEmoji} dice - ${outcomeLabel}! +${roll.bonus_applied.toFixed(1)} power to ${affectedEmoji} elementals`
+  }
+
+  // Actions
+  function initFromState(state: BattleState) {
+    battleState.value = state
+  }
+
+  function updateFromRollResult(data: {
+    battle_state: BattleState
+    player_roll?: BattleRollRecord | null
+    opponent_roll?: BattleRollRecord | null
+    is_resolved: boolean
+    result?: BattleResult | null
+  }) {
+    battleState.value = data.battle_state
+    lastPlayerRoll.value = data.player_roll ?? null
+    lastOpponentRoll.value = data.opponent_roll ?? null
+
+    if (data.is_resolved && data.result) {
+      battleResult.value = data.result
     }
 
-    // Determine winner
-    let winner: 'player' | 'opponent' | 'draw';
-    let summary: string;
-
-    if (playerHealth > 0 && opponentHealth <= 0) {
-      winner = 'player';
-      summary = `${player.elemental.name} wins the battle!`;
-      battleLog.value.push(`🎉 Victory! ${summary}`);
-    } else if (opponentHealth > 0 && playerHealth <= 0) {
-      winner = 'opponent';
-      summary = `${opponent.elemental.name} wins the battle!`;
-      battleLog.value.push(`💀 Defeat! ${summary}`);
-    } else {
-      winner = 'draw';
-      summary = 'The battle ends in a draw!';
-      battleLog.value.push(`🤝 ${summary}`);
+    // Track recently buffed element for animation
+    if (data.player_roll) {
+      recentlyBuffedElement.value = data.player_roll.affected_element
+      setTimeout(() => {
+        if (recentlyBuffedElement.value === data.player_roll?.affected_element) {
+          recentlyBuffedElement.value = null
+        }
+      }, 1500)
     }
+  }
 
-    return {
-      winner,
-      playerDamageDealt: totalPlayerDamage,
-      opponentDamageDealt: totalOpponentDamage,
-      rounds,
-      summary,
-    };
-  };
-
-  /**
-   * Calculate battle odds based on party power levels
-   */
-  const calculateBattleOdds = (
-    playerParty: BattleParticipant[],
-    opponentParty: BattleParticipant[]
-  ): {
-    playerWinChance: number;
-    opponentWinChance: number;
-    playerPower: number;
-    opponentPower: number;
-  } => {
-    const playerPower = playerParty.reduce(
-      (sum, p) => sum + calculatePower(p.playerElemental.current_stats),
-      0
-    );
-
-    const opponentPower = opponentParty.reduce(
-      (sum, p) => sum + calculatePower(p.playerElemental.current_stats),
-      0
-    );
-
-    const totalPower = playerPower + opponentPower;
-
-    return {
-      playerWinChance: Math.round((playerPower / totalPower) * 100),
-      opponentWinChance: Math.round((opponentPower / totalPower) * 100),
-      playerPower,
-      opponentPower,
-    };
-  };
-
-  /**
-   * Check if elemental type has advantage over another
-   * Fire > Earth > Lightning > Water > Fire
-   * Air is neutral
-   */
-  const hasTypeAdvantage = (attackerType: string, defenderType: string): boolean => {
-    const advantages: Record<string, string[]> = {
-      fire: ['earth'],
-      earth: ['lightning'],
-      lightning: ['water'],
-      water: ['fire'],
-      air: [], // Neutral
-    };
-
-    return advantages[attackerType]?.includes(defenderType) || false;
-  };
-
-  /**
-   * Apply type advantage modifier to damage (1.5x if advantage)
-   */
-  const applyTypeAdvantage = (
-    damage: number,
-    attackerElements: string[],
-    defenderElements: string[]
-  ): number => {
-    const hasAdvantage = attackerElements.some(attacker =>
-      defenderElements.some(defender => hasTypeAdvantage(attacker, defender))
-    );
-
-    return hasAdvantage ? Math.floor(damage * 1.5) : damage;
-  };
+  function reset() {
+    battleState.value = null
+    battleResult.value = null
+    lastPlayerRoll.value = null
+    lastOpponentRoll.value = null
+    isRolling.value = false
+    showingAiRoll.value = false
+    recentlyBuffedElement.value = null
+  }
 
   return {
-    isBattleActive,
-    currentRound,
-    battleLog,
-    simulateBattle,
-    calculateBattleOdds,
-    calculateDamage,
-    calculatePower,
-    hasTypeAdvantage,
-    applyTypeAdvantage,
-  };
+    // State
+    battleState,
+    battleResult,
+    lastPlayerRoll,
+    lastOpponentRoll,
+    isRolling,
+    showingAiRoll,
+    recentlyBuffedElement,
+    // Computed
+    battlePhase,
+    playerParty,
+    opponentParty,
+    rollHistory,
+    currentTurn,
+    playerRollsDone,
+    opponentRollsDone,
+    isPlayerTurn,
+    totalPlayerPower,
+    totalOpponentPower,
+    targetLines,
+    // Helpers
+    elementBeats,
+    getElementConfig,
+    getOutcomeLabel,
+    getOutcomeColor,
+    getRollDescription,
+    // Actions
+    initFromState,
+    updateFromRollResult,
+    reset,
+    // Constants
+    ELEMENT_CONFIG,
+  }
 }

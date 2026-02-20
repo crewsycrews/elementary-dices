@@ -4,12 +4,12 @@ import {
   TriggerEventDTO,
   ResolveWildEncounterDTO,
   SkipWildEncounterDTO,
-  ResolvePvPBattleDTO,
+  BattleStartDTO,
+  BattleRollDTO,
   LeaveMerchantDTO,
 } from "./models";
 import { requireAuth } from "../auth/middleware";
 import { UnauthorizedError } from "../../shared/errors";
-import type { AccessTokenPayload } from "../auth/models";
 
 export const eventsModule = new Elysia({ prefix: "/api/events" })
   .decorate("eventService", new EventService())
@@ -86,21 +86,41 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       body: SkipWildEncounterDTO,
     },
   )
-  // Resolve PvP battle
+  // Start PvP battle (transition from targeting to rolling phase)
   .post(
-    "/pvp-battle/resolve",
+    "/pvp-battle/start",
     async (context) => {
       const { body, eventService } = context;
       const user = context.user;
 
       if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only resolve your own battles");
+        throw new UnauthorizedError("You can only start your own battles");
       }
-      const result = await eventService.resolvePvPBattle(body);
+      const battleState = await eventService.startBattle(body.player_id);
+      return { battle_state: battleState };
+    },
+    {
+      body: BattleStartDTO,
+    },
+  )
+  // Roll dice in PvP battle (player rolls, AI auto-rolls)
+  .post(
+    "/pvp-battle/roll",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only roll in your own battles");
+      }
+      const result = await eventService.rollBattleDice(
+        body.player_id,
+        body.dice_type_id,
+      );
       return { result };
     },
     {
-      body: ResolvePvPBattleDTO,
+      body: BattleRollDTO,
     },
   )
   // Leave merchant

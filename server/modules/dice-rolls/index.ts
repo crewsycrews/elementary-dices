@@ -84,17 +84,4 @@ export const diceRollsModule = new Elysia({ prefix: "/api/rolls" })
       }),
     },
   )
-  // Get rolls by battle
-  .get(
-    "/battles/:battleId",
-    async (context) => {
-      const { params, rollService } = context;
-      const rolls = await rollService.getBattleRolls(params.battleId);
-      return { rolls };
-    },
-    {
-      params: t.Object({
-        battleId: t.String(),
-      }),
-    },
-  );
+;

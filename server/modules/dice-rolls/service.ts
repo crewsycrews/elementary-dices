@@ -57,7 +57,6 @@ export class DiceRollService {
       roll_value: rollResult.final_value,
       outcome: rollResult.outcome,
       context: data.context,
-      battle_id: data.battle_id,
       modifiers,
     });
 
@@ -172,13 +171,6 @@ export class DiceRollService {
    */
   async getPlayerRolls(playerId: string, limit: number = 50): Promise<DiceRoll[]> {
     return this.repository.findByPlayer(playerId, limit);
-  }
-
-  /**
-   * Get rolls by battle
-   */
-  async getBattleRolls(battleId: string): Promise<DiceRoll[]> {
-    return this.repository.findByBattle(battleId);
   }
 
   /**

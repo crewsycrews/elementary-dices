@@ -10,7 +10,6 @@ export class DiceRollRepository {
     roll_value: number;
     outcome: DiceRollOutcome;
     context: DiceRollContext;
-    battle_id?: string;
     modifiers?: RollModifiers;
   }): Promise<DiceRoll> {
     const insertData: any = {
@@ -20,10 +19,6 @@ export class DiceRollRepository {
       outcome: data.outcome,
       context: data.context,
     };
-
-    if (data.battle_id) {
-      insertData.battle_id = data.battle_id;
-    }
 
     if (data.modifiers) {
       insertData.modifiers = JSON.stringify(data.modifiers);
@@ -53,14 +48,6 @@ export class DiceRollRepository {
       .select(`${this.table}.*`, 'dice_types.dice_notation')
       .orderBy(`${this.table}.id`, 'desc')
       .limit(limit);
-  }
-
-  async findByBattle(battleId: string): Promise<DiceRoll[]> {
-    return db(this.table)
-      .leftJoin('dice_types', `${this.table}.dice_type_id`, 'dice_types.id')
-      .where({ [`${this.table}.battle_id`]: battleId })
-      .select(`${this.table}.*`, 'dice_types.dice_notation')
-      .orderBy(`${this.table}.id`, 'asc');
   }
 
   async findByContext(playerId: string, context: DiceRollContext, limit: number = 50): Promise<DiceRoll[]> {

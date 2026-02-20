@@ -30,11 +30,61 @@ type MerchantData = {
   }>
 }
 
+export type BattlePartyMember = {
+  player_elemental_id?: string
+  elemental_id: string
+  name: string
+  element: string
+  level: number
+  base_power: number
+  current_power: number
+  target_index: number
+}
+
+export type BattleRollRecord = {
+  turn: number
+  side: 'player' | 'opponent'
+  dice_type_id?: string
+  dice_element: string
+  outcome: string
+  bonus_applied: number
+  affected_element: string
+  roll_value?: number
+}
+
+export type BattleState = {
+  phase: 'targeting' | 'rolling' | 'resolved'
+  player_party: BattlePartyMember[]
+  opponent_party: BattlePartyMember[]
+  rolls: BattleRollRecord[]
+  current_turn: number
+  player_rolls_done: number
+  opponent_rolls_done: number
+  winner?: 'player' | 'opponent' | 'draw'
+  player_total_power?: number
+  opponent_total_power?: number
+}
+
 type PvPData = {
   opponent_id?: string
   opponent_name: string
   opponent_power_level: number
   potential_reward: number
+  opponent_party: BattlePartyMember[]
+  player_party: BattlePartyMember[]
+  battle_state?: BattleState
+}
+
+export type BattleResult = {
+  victory: boolean
+  message: string
+  player_total_power: number
+  opponent_total_power: number
+  reward?: number
+  penalty?: {
+    downgraded_elemental?: string
+  }
+  can_continue: boolean
 }
 
 type EventData = WildEncounterData | MerchantData | PvPData
@@ -70,6 +120,10 @@ export const useEventStore = defineStore('event', () => {
     isPvPBattle.value ? (currentEvent.value?.data as PvPData) : null
   )
 
+  const battleState = computed(() =>
+    pvpData.value?.battle_state ?? null
+  )
+
   // Actions
   async function triggerEvent(playerId: string) {
     const { api, apiCall } = useApi()
@@ -84,13 +138,11 @@ export const useEventStore = defineStore('event', () => {
         currentEvent.value = response.data.event as EventResponse
         isEventActive.value = true
 
-        // Add to history
         eventHistory.value.unshift({
           event_type: currentEvent.value.event_type,
           timestamp: new Date(),
         })
 
-        // Keep only last 10 events in history
         if (eventHistory.value.length > 10) {
           eventHistory.value = eventHistory.value.slice(0, 10)
         }
@@ -129,25 +181,49 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
-  async function resolvePvPBattle(playerId: string, diceRollId: string) {
+  async function startBattle(playerId: string) {
     const { api, apiCall } = useApi()
 
     try {
       const response = await apiCall(
-        api.api.events['pvp-battle'].resolve.post({
+        api.api.events['pvp-battle'].start.post({
           player_id: playerId,
-          dice_roll_id: diceRollId,
         }),
-        { silent: false }
+        { silent: true }
       )
 
-      if (response.data?.result.can_continue) {
-        clearEvent()
+      if (response.data?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.battle_state as BattleState
       }
 
       return response.data
     } catch (error) {
-      console.error('Failed to resolve PvP battle:', error)
+      console.error('Failed to start battle:', error)
+      throw error
+    }
+  }
+
+  async function rollBattleDice(playerId: string, diceTypeId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        api.api.events['pvp-battle'].roll.post({
+          player_id: playerId,
+          dice_type_id: diceTypeId,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as BattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to roll battle dice:', error)
       throw error
     }
   }
@@ -221,19 +297,15 @@ export const useEventStore = defineStore('event', () => {
         { silent: true }
       )
 
-      // If there's an active event on the server, restore it
       if (response.data?.event) {
         currentEvent.value = response.data.event as EventResponse
         isEventActive.value = true
         console.log('Restored active event from server:', currentEvent.value?.event_type)
       } else {
-        // No active event, ensure local state is cleared
         clearEvent()
       }
     } catch (error) {
       console.error('Failed to initialize event state:', error)
-      // Don't throw - initialization failure shouldn't block the app
-      // Just clear local state to be safe
       clearEvent()
     }
   }
@@ -256,10 +328,12 @@ export const useEventStore = defineStore('event', () => {
     wildEncounterData,
     merchantData,
     pvpData,
+    battleState,
     // Actions
     triggerEvent,
     resolveWildEncounter,
-    resolvePvPBattle,
+    startBattle,
+    rollBattleDice,
     skipWildEncounter,
     leaveMerchant,
     getEventProbabilities,
@@ -270,6 +344,6 @@ export const useEventStore = defineStore('event', () => {
   persist: {
     key: 'elementary-dices-event',
     storage: localStorage,
-    paths: ['currentEvent', 'isEventActive'], // Persist current event to resume on refresh
+    paths: ['currentEvent', 'isEventActive'],
   },
 })

@@ -144,7 +144,6 @@ Core game mechanics - dice rolling and outcome determination.
 | GET | `/api/rolls/:id` | Get roll by ID |
 | GET | `/api/rolls/players/:playerId` | Get player's roll history |
 | GET | `/api/rolls/players/:playerId/stats` | Get player roll statistics |
-| GET | `/api/rolls/battles/:battleId` | Get rolls by battle |
 
 **Perform Roll Request:**
 ```json
@@ -152,7 +151,6 @@ Core game mechanics - dice rolling and outcome determination.
   "player_id": "uuid",
   "dice_type_id": "uuid (optional - uses equipped if not provided)",
   "context": "capture_attempt | combat | penalty_roll | event_trigger | initial_roll",
-  "battle_id": "uuid (optional)",
   "element_affinity": "fire|water|earth|air|lightning (optional)",
   "item_bonus": 5 (optional)
 }

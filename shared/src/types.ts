@@ -11,6 +11,10 @@ import {
   DiceRollSchema,
   ElementalEvolutionSchema,
   StatsSchema,
+  BattlePartyMemberSchema,
+  BattleRollRecordSchema,
+  BattleStateSchema,
+  BattlePhase,
   ElementType,
   DiceRarity,
   ItemRarity,
@@ -45,6 +49,10 @@ export type EncounterTypeValue = Static<typeof EncounterType>;
 export type EncounterStatusValue = Static<typeof EncounterStatus>;
 export type BattleOutcomeValue = Static<typeof BattleOutcome>;
 export type ItemTypeValue = Static<typeof ItemType>;
+export type BattlePartyMember = Static<typeof BattlePartyMemberSchema>;
+export type BattleRollRecord = Static<typeof BattleRollRecordSchema>;
+export type BattleState = Static<typeof BattleStateSchema>;
+export type BattlePhaseValue = Static<typeof BattlePhase>;
 
 // Extended types with joined data (client-side only)
 

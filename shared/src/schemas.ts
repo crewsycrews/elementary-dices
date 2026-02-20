@@ -365,6 +365,51 @@ export const CreateMerchantEventSchema = t.Object({
   available_until: t.String({ format: "date-time" }),
 });
 
+// ========================================
+// Battle State Schemas (3-phase battle system)
+// ========================================
+
+export const BattlePartyMemberSchema = t.Object({
+  player_elemental_id: t.Optional(t.String({ format: "uuid" })),
+  elemental_id: t.String({ format: "uuid" }),
+  name: t.String(),
+  element: ElementType,
+  level: t.Integer({ minimum: 1, maximum: 4 }),
+  base_power: t.Number(),
+  current_power: t.Number(),
+  target_index: t.Integer(),
+});
+
+export const BattleRollRecordSchema = t.Object({
+  turn: t.Integer({ minimum: 1, maximum: 3 }),
+  side: t.Union([t.Literal("player"), t.Literal("opponent")]),
+  dice_type_id: t.Optional(t.String({ format: "uuid" })),
+  dice_element: ElementType,
+  outcome: DiceRollOutcome,
+  bonus_applied: t.Number(),
+  affected_element: t.String(), // element name or "all_others"
+  roll_value: t.Optional(t.Integer()),
+});
+
+export const BattlePhase = t.Union([
+  t.Literal("targeting"),
+  t.Literal("rolling"),
+  t.Literal("resolved"),
+]);
+
+export const BattleStateSchema = t.Object({
+  phase: BattlePhase,
+  player_party: t.Array(BattlePartyMemberSchema),
+  opponent_party: t.Array(BattlePartyMemberSchema),
+  rolls: t.Array(BattleRollRecordSchema),
+  current_turn: t.Integer({ minimum: 0, maximum: 3 }),
+  player_rolls_done: t.Integer({ minimum: 0, maximum: 3 }),
+  opponent_rolls_done: t.Integer({ minimum: 0, maximum: 3 }),
+  winner: t.Optional(t.Union([t.Literal("player"), t.Literal("opponent"), t.Literal("draw")])),
+  player_total_power: t.Optional(t.Number()),
+  opponent_total_power: t.Optional(t.Number()),
+});
+
 // Legacy Battle Schema (kept for backwards compatibility if needed)
 export const BattleSchema = t.Object({
   id: t.String({ format: "uuid" }),
@@ -508,4 +553,10 @@ export const schemas = {
 
   // Stats
   StatsSchema,
+
+  // Battle State
+  BattlePartyMemberSchema,
+  BattleRollRecordSchema,
+  BattlePhase,
+  BattleStateSchema,
 };

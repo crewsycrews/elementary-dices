@@ -8,10 +8,9 @@ import type {
   PvPData,
   ResolveWildEncounterData,
   WildEncounterResult,
-  ResolvePvPBattleData,
-  PvPBattleResult,
   SkipWildEncounterResult,
   LeaveMerchantResult,
+  BattleRollResult,
 } from "./models";
 import { EVENT_PROBABILITIES } from "./models";
 import {
@@ -21,6 +20,19 @@ import {
   MerchantEventRepository,
 } from "./repository";
 import type { DiceRollOutcome } from "../dice-rolls/models";
+import { DiceRollService } from "../dice-rolls/service";
+import {
+  buildPartyMember,
+  computeTargetAssignments,
+  applyAdvantageBonuses,
+  applyDiceRollEffect,
+  determineBattleWinner,
+  pickOpponentDiceElement,
+  simulateAiRollOutcome,
+  type BattleState,
+  type BattlePartyMember,
+  type ElementType,
+} from "./battle-logic";
 
 type DiceRarity = "green" | "blue" | "purple" | "gold";
 const RARITY_ORDER: DiceRarity[] = ["green", "blue", "purple", "gold"];
@@ -31,11 +43,12 @@ export class EventService {
     private wildEncounterRepo = new WildEncounterEventRepository(),
     private battleRepo = new BattleEventRepository(),
     private merchantRepo = new MerchantEventRepository(),
+    private diceRollService = new DiceRollService(),
   ) {}
 
   /**
-   * Trigger a random event based on probabilities
-   * 50% wild encounter, 30% PvP, 20% merchant
+   * Trigger a random event based on probabilities.
+   * PvP battles require 5 active party elementals.
    */
   async triggerEvent(playerId: string): Promise<EventResponse> {
     // Check if player already has a current event
@@ -46,8 +59,15 @@ export class EventService {
       );
     }
 
+    // Check active party size for PvP eligibility
+    const activePartyCount = await db("player_elementals")
+      .where({ player_id: playerId, is_in_active_party: true })
+      .count("* as count")
+      .first();
+    const partySize = Number(activePartyCount?.count ?? 0);
+
     // Determine event type based on probabilities
-    const eventType = this.determineEventType();
+    const eventType = this.determineEventType(partySize < 5);
 
     // Generate event-specific data and create event records
     let eventResponse: EventResponse;
@@ -78,11 +98,13 @@ export class EventService {
         const battleData = await this.generatePvPBattle(playerId);
         eventResponse = battleData.response;
 
-        // Create event record
+        // Create event record with battle state
         const battle = await this.battleRepo.create({
           player_id: playerId,
           opponent_name: battleData.opponent_name,
           opponent_power_level: battleData.opponent_power_level,
+          battle_state: battleData.battleState,
+          opponent_party_data: battleData.opponentPartyData,
         });
         eventRecordId = battle.id;
 
@@ -106,9 +128,6 @@ export class EventService {
         });
         eventRecordId = merchant.id;
 
-        // TODO: Create merchant_inventory records for available items/dice
-        // This will be handled in a separate merchant service
-
         // Save current event pointer
         await this.repository.setCurrentEvent({
           player_id: playerId,
@@ -125,38 +144,45 @@ export class EventService {
   }
 
   /**
-   * Determine event type based on weighted probabilities
+   * Determine event type based on weighted probabilities.
+   * If excludePvP is true, redistribute PvP probability to other events.
    */
-  private determineEventType(): EventType {
+  private determineEventType(excludePvP: boolean): EventType {
+    let wildWeight = EVENT_PROBABILITIES.wild_encounter;
+    let pvpWeight = EVENT_PROBABILITIES.pvp_battle;
+    let merchantWeight = EVENT_PROBABILITIES.merchant;
+
+    if (excludePvP) {
+      // Redistribute PvP weight proportionally
+      const totalNonPvP = wildWeight + merchantWeight;
+      wildWeight = wildWeight + pvpWeight * (wildWeight / totalNonPvP);
+      merchantWeight = merchantWeight + pvpWeight * (merchantWeight / totalNonPvP);
+      pvpWeight = 0;
+    }
+
     const random = Math.random();
     let cumulative = 0;
 
-    // Check wild encounter (50%)
-    cumulative += EVENT_PROBABILITIES.wild_encounter;
+    cumulative += wildWeight;
     if (random < cumulative) {
       return "wild_encounter";
     }
 
-    // Check PvP (30%)
-    cumulative += EVENT_PROBABILITIES.pvp_battle;
+    cumulative += pvpWeight;
     if (random < cumulative) {
       return "pvp_battle";
     }
 
-    // Otherwise merchant (20%)
     return "merchant";
   }
 
   /**
    * Generate a wild encounter event
-   * Randomly selects an elemental from the database
    */
   private async generateWildEncounter(): Promise<{
     response: EventResponse;
     elemental_id: string;
   }> {
-    // Get a random elemental from the database
-    // Prefer base elementals (level 1) for wild encounters
     const elementals = await db("elementals")
       .where({ is_base_elemental: true })
       .select("*");
@@ -168,7 +194,6 @@ export class EventService {
     const randomElemental =
       elementals[Math.floor(Math.random() * elementals.length)];
 
-    // Determine capture difficulty based on elemental level
     let captureDifficulty: "easy" | "medium" | "hard";
     if (randomElemental.level === 1) {
       captureDifficulty = "easy";
@@ -196,41 +221,73 @@ export class EventService {
   }
 
   /**
-   * Generate a PvP battle event
-   * Creates a simulated opponent or matches with another player
+   * Generate a PvP battle event with full 3-phase battle state.
    */
   private async generatePvPBattle(playerId: string): Promise<{
     response: EventResponse;
     opponent_name: string;
     opponent_power_level: number;
+    battleState: BattleState;
+    opponentPartyData: BattlePartyMember[];
   }> {
-    // For now, generate a simulated opponent
-    // In the future, this could match with real players
-
-    // Get player's active elementals to determine power level
+    // Get player's active party with elemental details
     const playerElementals = await db("player_elementals")
       .where({ player_id: playerId, is_in_active_party: true })
       .leftJoin("elementals", "player_elementals.elemental_id", "elementals.id")
-      .select("elementals.*", "player_elementals.current_stats");
+      .select(
+        "elementals.id as elemental_id",
+        "elementals.name",
+        "elementals.level",
+        "elementals.element_types",
+        "player_elementals.id as player_elemental_id",
+      )
+      .orderBy("player_elementals.party_position", "asc");
 
-    const playerPowerLevel = this.calculatePowerLevel(playerElementals);
+    // Build player party members
+    const playerParty: BattlePartyMember[] = playerElementals.map((pe: any) =>
+      buildPartyMember(
+        {
+          id: pe.elemental_id,
+          name: pe.name,
+          level: pe.level,
+          element_types: pe.element_types,
+        },
+        pe.player_elemental_id,
+      ),
+    );
 
-    // Generate opponent with similar power level (+/- 20%)
-    const variance = 0.2;
-    const minPower = Math.floor(playerPowerLevel * (1 - variance));
-    const maxPower = Math.ceil(playerPowerLevel * (1 + variance));
-    const opponentPowerLevel =
-      Math.floor(Math.random() * (maxPower - minPower + 1)) + minPower;
-
-    // Calculate potential reward based on opponent power
-    const potentialReward = Math.floor(opponentPowerLevel * 10);
-
+    // Generate opponent party matching player's total power roughly
+    const playerTotalPower = playerParty.reduce((sum, m) => sum + m.base_power, 0);
+    const opponentParty = await this.generateOpponentParty(playerTotalPower);
     const opponentName = this.generateOpponentName();
+    const opponentPowerLevel = opponentParty.reduce((sum, m) => sum + m.base_power, 0);
+
+    // Compute target assignments (Phase 1)
+    const assigned = computeTargetAssignments(playerParty, opponentParty);
+
+    // Apply advantage bonuses (+10% for advantage matchups)
+    const withBonuses = applyAdvantageBonuses(assigned.playerParty, assigned.opponentParty);
+
+    // Build initial battle state
+    const battleState: BattleState = {
+      phase: "targeting",
+      player_party: withBonuses.playerParty,
+      opponent_party: withBonuses.opponentParty,
+      rolls: [],
+      current_turn: 1,
+      player_rolls_done: 0,
+      opponent_rolls_done: 0,
+    };
+
+    const potentialReward = Math.floor(opponentPowerLevel * 10);
 
     const data: PvPData = {
       opponent_name: opponentName,
       opponent_power_level: opponentPowerLevel,
       potential_reward: potentialReward,
+      opponent_party: withBonuses.opponentParty,
+      player_party: withBonuses.playerParty,
+      battle_state: battleState,
     };
 
     return {
@@ -241,23 +298,400 @@ export class EventService {
       },
       opponent_name: opponentName,
       opponent_power_level: opponentPowerLevel,
+      battleState,
+      opponentPartyData: withBonuses.opponentParty,
+    };
+  }
+
+  /**
+   * Generate an AI opponent party matching the player's total power roughly (+/- 20%).
+   */
+  private async generateOpponentParty(
+    targetTotalPower: number,
+  ): Promise<BattlePartyMember[]> {
+    // Get all base elementals from DB
+    const allElementals = await db("elementals")
+      .select("id", "name", "level", "element_types")
+      .orderByRaw("RANDOM()");
+
+    if (allElementals.length === 0) {
+      throw new BadRequestError("No elementals available for opponent party");
+    }
+
+    // Build 5 opponent members, trying to match target power
+    const variance = 0.2;
+    const minPower = Math.floor(targetTotalPower * (1 - variance));
+    const maxPower = Math.ceil(targetTotalPower * (1 + variance));
+    const targetPower =
+      Math.floor(Math.random() * (maxPower - minPower + 1)) + minPower;
+
+    // Simple strategy: pick 5 random elementals, then adjust if needed
+    const party: BattlePartyMember[] = [];
+    let currentPower = 0;
+
+    for (let i = 0; i < 5; i++) {
+      // Pick from available elementals, cycling through the list
+      const elemental = allElementals[i % allElementals.length];
+      const member = buildPartyMember({
+        id: elemental.id,
+        name: elemental.name,
+        level: elemental.level,
+        element_types: elemental.element_types,
+      });
+      party.push(member);
+      currentPower += member.base_power;
+    }
+
+    // If total power is too far from target, adjust levels
+    // Each level step changes power by 10
+    const powerDiff = targetPower - currentPower;
+    if (Math.abs(powerDiff) > 10) {
+      const stepsNeeded = Math.round(powerDiff / 10);
+      const stepsPerMember = Math.floor(Math.abs(stepsNeeded) / 5);
+      const remainder = Math.abs(stepsNeeded) % 5;
+      const direction = stepsNeeded > 0 ? 1 : -1;
+
+      for (let i = 0; i < 5; i++) {
+        const extraStep = i < remainder ? 1 : 0;
+        const totalSteps = (stepsPerMember + extraStep) * direction;
+        const newLevel = Math.max(1, Math.min(4, party[i].level + totalSteps));
+        const newPower = newLevel * 10;
+        party[i].level = newLevel;
+        party[i].base_power = newPower;
+        party[i].current_power = newPower;
+      }
+    }
+
+    return party;
+  }
+
+  /**
+   * Start a battle - transition from targeting phase to rolling phase.
+   */
+  async startBattle(playerId: string): Promise<BattleState> {
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+    if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
+      throw new BadRequestError("No active PvP battle event");
+    }
+
+    if (!currentEvent.battle_id) {
+      throw new BadRequestError("Invalid battle event");
+    }
+
+    const battle = await this.battleRepo.findById(currentEvent.battle_id);
+    if (!battle) {
+      throw new NotFoundError("Battle event");
+    }
+
+    const battleState: BattleState = battle.battle_state;
+    if (!battleState) {
+      throw new BadRequestError("Battle state not initialized");
+    }
+
+    if (battleState.phase !== "targeting") {
+      throw new BadRequestError("Battle already started");
+    }
+
+    // Transition to rolling phase
+    battleState.phase = "rolling";
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+
+    return battleState;
+  }
+
+  /**
+   * Player rolls a dice in battle. After player roll, AI auto-rolls.
+   * Returns updated battle state and both roll results.
+   */
+  async rollBattleDice(
+    playerId: string,
+    diceTypeId: string,
+  ): Promise<BattleRollResult> {
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+    if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
+      throw new BadRequestError("No active PvP battle event");
+    }
+
+    if (!currentEvent.battle_id) {
+      throw new BadRequestError("Invalid battle event");
+    }
+
+    const battle = await this.battleRepo.findById(currentEvent.battle_id);
+    if (!battle) {
+      throw new NotFoundError("Battle event");
+    }
+
+    let battleState: BattleState = battle.battle_state;
+    if (!battleState || battleState.phase !== "rolling") {
+      throw new BadRequestError("Battle is not in rolling phase");
+    }
+
+    if (battleState.player_rolls_done >= 3) {
+      throw new BadRequestError("All player rolls have been made");
+    }
+
+    // Verify it's player's turn (player goes first each turn)
+    if (battleState.player_rolls_done > battleState.opponent_rolls_done) {
+      throw new BadRequestError("Waiting for opponent's roll");
+    }
+
+    // Get the dice type
+    const [diceType] = await db("dice_types")
+      .where({ id: diceTypeId })
+      .limit(1);
+    if (!diceType) {
+      throw new NotFoundError("Dice type");
+    }
+
+    // Perform the player's dice roll
+    const rollResult = await this.diceRollService.performRoll({
+      player_id: playerId,
+      dice_type_id: diceTypeId,
+      context: "combat",
+    });
+
+    const diceElement = (diceType.stat_bonuses?.element_affinity ?? "fire") as ElementType;
+    const bonusMultiplier = diceType.stat_bonuses?.bonus_multiplier ?? 1;
+    const outcome = rollResult.roll.outcome as "crit_success" | "success" | "fail" | "crit_fail";
+
+    // Apply player roll effect
+    const playerEffect = applyDiceRollEffect(
+      battleState,
+      diceElement,
+      outcome,
+      bonusMultiplier,
+    );
+    battleState = playerEffect.state;
+
+    // Record player roll
+    const playerRoll = {
+      turn: battleState.player_rolls_done + 1,
+      side: "player" as const,
+      dice_type_id: diceTypeId,
+      dice_element: diceElement,
+      outcome,
+      bonus_applied: playerEffect.bonusApplied,
+      affected_element: playerEffect.affectedElement,
+      roll_value: rollResult.roll.roll_value,
+    };
+    battleState.rolls.push(playerRoll);
+    battleState.player_rolls_done += 1;
+
+    // AI auto-roll
+    const aiDiceElement = pickOpponentDiceElement(battleState);
+    const aiOutcome = simulateAiRollOutcome();
+    // AI uses a virtual bonus multiplier based on the average of dice in the game
+    const aiBonusMultiplier = 1.5; // balanced default for AI
+
+    const aiEffect = applyDiceRollEffect(
+      battleState,
+      aiDiceElement,
+      aiOutcome,
+      aiBonusMultiplier,
+    );
+    battleState = aiEffect.state;
+
+    const opponentRoll = {
+      turn: battleState.opponent_rolls_done + 1,
+      side: "opponent" as const,
+      dice_element: aiDiceElement,
+      outcome: aiOutcome,
+      bonus_applied: aiEffect.bonusApplied,
+      affected_element: aiEffect.affectedElement,
+    };
+    battleState.rolls.push(opponentRoll);
+    battleState.opponent_rolls_done += 1;
+
+    // Update current turn
+    battleState.current_turn = battleState.player_rolls_done + 1;
+
+    // Check if battle is resolved (both sides made 3 rolls)
+    let isResolved = false;
+    let result: BattleRollResult["result"] = undefined;
+
+    if (battleState.player_rolls_done >= 3 && battleState.opponent_rolls_done >= 3) {
+      isResolved = true;
+      battleState.phase = "resolved";
+
+      const { winner, playerTotal, opponentTotal } = determineBattleWinner(battleState);
+      battleState.winner = winner;
+      battleState.player_total_power = playerTotal;
+      battleState.opponent_total_power = opponentTotal;
+
+      const victory = winner === "player" || winner === "draw"; // draw counts as player win
+      result = await this.resolveBattleOutcome(
+        playerId,
+        battle.id,
+        victory,
+        playerTotal,
+        opponentTotal,
+        battle.opponent_name,
+        battle.opponent_power_level,
+      );
+    }
+
+    // Persist updated battle state
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+
+    return {
+      battle_state: battleState,
+      player_roll: playerRoll,
+      opponent_roll: opponentRoll,
+      is_resolved: isResolved,
+      result,
+    };
+  }
+
+  /**
+   * Handle battle outcome: rewards, penalties, event cleanup.
+   */
+  private async resolveBattleOutcome(
+    playerId: string,
+    battleId: string,
+    victory: boolean,
+    playerPower: number,
+    opponentPower: number,
+    opponentName: string,
+    opponentPowerLevel: number,
+  ): Promise<NonNullable<BattleRollResult["result"]>> {
+    let message = "";
+    let reward: number | undefined = undefined;
+    let penalty: { downgraded_elemental?: string } | undefined = undefined;
+    let downgradedElementalId: string | undefined = undefined;
+
+    if (victory) {
+      reward = Math.floor(opponentPowerLevel * 10);
+      message = `Victory! You defeated ${opponentName} and earned ${reward} currency.`;
+
+      await db("users")
+        .where({ id: playerId })
+        .increment("currency", reward);
+
+      await db("player_progress")
+        .where({ player_id: playerId })
+        .increment("total_battles", 1)
+        .increment("battles_won", 1);
+
+      await this.battleRepo.updateResolution(battleId, {
+        status: "completed",
+        outcome: "victory",
+        player_power: playerPower,
+        opponent_actual_power: opponentPower,
+        currency_reward: reward,
+        resolved_at: new Date(),
+      });
+    } else {
+      message = `Defeat! ${opponentName} was too strong.`;
+
+      // Apply penalty: downgrade a random evolved elemental
+      const playerElementals = await db("player_elementals")
+        .where({ player_id: playerId, is_in_active_party: true })
+        .leftJoin("elementals", "player_elementals.elemental_id", "elementals.id")
+        .select(
+          "elementals.*",
+          "player_elementals.id as player_elemental_id",
+        );
+
+      const downgradableElementals = playerElementals.filter(
+        (e: any) => e.level > 1,
+      );
+
+      if (downgradableElementals.length > 0) {
+        const randomIndex = Math.floor(
+          Math.random() * downgradableElementals.length,
+        );
+        const targetElemental = downgradableElementals[randomIndex];
+
+        const [evolution] = await db("elemental_evolutions")
+          .where({ result_elemental_id: targetElemental.id })
+          .limit(1);
+
+        if (evolution) {
+          let downgradeToId: string | null = null;
+
+          if (evolution.required_same_element) {
+            const [base] = await db("elementals")
+              .where({ level: 1 })
+              .whereRaw("element_types @> ?::jsonb", [
+                JSON.stringify([evolution.required_same_element]),
+              ])
+              .limit(1);
+            downgradeToId = base?.id ?? null;
+          } else if (evolution.required_element_1) {
+            const [base] = await db("elementals")
+              .where({ level: 2 })
+              .whereRaw("element_types @> ?::jsonb", [
+                JSON.stringify([evolution.required_element_1]),
+              ])
+              .limit(1);
+            downgradeToId = base?.id ?? null;
+          } else if (evolution.required_elemental_ids) {
+            const ids = Array.isArray(evolution.required_elemental_ids)
+              ? evolution.required_elemental_ids
+              : JSON.parse(evolution.required_elemental_ids);
+            downgradeToId = ids[0] ?? null;
+          }
+
+          if (downgradeToId) {
+            const [baseElemental] = await db("elementals")
+              .where({ id: downgradeToId })
+              .limit(1);
+
+            if (baseElemental) {
+              await db("player_elementals")
+                .where({ id: targetElemental.player_elemental_id })
+                .update({
+                  elemental_id: baseElemental.id,
+                  current_stats: baseElemental.base_stats,
+                });
+
+              downgradedElementalId = targetElemental.player_elemental_id;
+              penalty = { downgraded_elemental: targetElemental.name };
+              message += ` Your ${targetElemental.name} was downgraded to ${baseElemental.name}.`;
+            }
+          }
+        }
+      }
+
+      await db("player_progress")
+        .where({ player_id: playerId })
+        .increment("total_battles", 1)
+        .increment("battles_lost", 1);
+
+      await this.battleRepo.updateResolution(battleId, {
+        status: "completed",
+        outcome: "defeat",
+        player_power: playerPower,
+        opponent_actual_power: opponentPower,
+        downgraded_elemental_id: downgradedElementalId,
+        resolved_at: new Date(),
+      });
+    }
+
+    // Clear current event
+    await this.repository.clearCurrentEvent(playerId);
+
+    return {
+      victory,
+      message,
+      player_total_power: playerPower,
+      opponent_total_power: opponentPower,
+      reward,
+      penalty,
+      can_continue: true,
     };
   }
 
   /**
    * Generate a merchant event
-   * Offers random items and dice for sale
-   * Only offers dice of better rarity than what the player already owns
    */
   private async generateMerchantEvent(
     playerId: string,
   ): Promise<{ response: EventResponse }> {
-    // Get random items (2-3 items)
     const itemCount = Math.floor(Math.random() * 2) + 2;
     const allItems = await db("items").select("id", "name", "price", "rarity");
     const availableItems = this.getRandomItems(allItems, itemCount);
 
-    // Get the player's best rarity per dice notation
     const playerDice = await db("player_dice")
       .where({ player_id: playerId })
       .join("dice_types", "player_dice.dice_type_id", "dice_types.id")
@@ -275,7 +709,6 @@ export class EventService {
       }
     }
 
-    // Get all dice, then filter to only those strictly better than what the player has
     const allDice = await db("dice_types").select(
       "id",
       "name",
@@ -287,12 +720,11 @@ export class EventService {
 
     const upgradeDice = allDice.filter((die) => {
       const playerBest = bestRarityByNotation.get(die.dice_notation);
-      if (!playerBest) return true; // Player has no dice of this notation
+      if (!playerBest) return true;
       const rarity = die.rarity as DiceRarity;
       return RARITY_ORDER.indexOf(rarity) > RARITY_ORDER.indexOf(playerBest);
     });
 
-    // Get random dice (2-3 dice) from the filtered pool
     const diceCount = Math.floor(Math.random() * 2) + 2;
     const availableDice = this.getRandomItems(upgradeDice, diceCount).map(
       (die) => ({
@@ -319,18 +751,6 @@ export class EventService {
         data,
       },
     };
-  }
-
-  /**
-   * Calculate total power level from elementals
-   */
-  private calculatePowerLevel(elementals: any[]): number {
-    if (elementals.length === 0) return 100; // Default power level
-
-    return elementals.reduce((total, elemental) => {
-      const stats = elemental.current_stats;
-      return total + stats.health + stats.attack + stats.defense + stats.speed;
-    }, 0);
   }
 
   /**
@@ -380,8 +800,8 @@ export class EventService {
   }
 
   /**
-   * Get the current active event for a player
-   * Returns null if no active event exists
+   * Get the current active event for a player.
+   * For PvP battles, includes the full battle_state for mid-battle resume.
    */
   async getCurrentEvent(playerId: string): Promise<EventResponse | null> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
@@ -390,7 +810,6 @@ export class EventService {
       return null;
     }
 
-    // Fetch event details from the appropriate table
     switch (currentEvent.event_type) {
       case "wild_encounter": {
         if (!currentEvent.wild_encounter_id) {
@@ -403,7 +822,6 @@ export class EventService {
           throw new NotFoundError("Wild encounter event");
         }
 
-        // Get elemental details
         const [elemental] = await db("elementals")
           .where({ id: wildEncounter.elemental_id })
           .limit(1);
@@ -412,7 +830,6 @@ export class EventService {
           throw new NotFoundError("Elemental");
         }
 
-        // Determine capture difficulty
         let captureDifficulty: "easy" | "medium" | "hard";
         if (elemental.level === 1) {
           captureDifficulty = "easy";
@@ -450,6 +867,9 @@ export class EventService {
           opponent_name: battle.opponent_name,
           opponent_power_level: battle.opponent_power_level,
           potential_reward: potentialReward,
+          opponent_party: battle.opponent_party_data ?? [],
+          player_party: battle.battle_state?.player_party ?? [],
+          battle_state: battle.battle_state,
         };
 
         return {
@@ -469,7 +889,6 @@ export class EventService {
           throw new NotFoundError("Merchant event");
         }
 
-        // Get merchant inventory
         const inventory = await db("merchant_inventory")
           .where({ merchant_event_id: merchant.id })
           .leftJoin("items", "merchant_inventory.item_id", "items.id")
@@ -528,12 +947,10 @@ export class EventService {
 
   /**
    * Resolve a wild encounter event
-   * Attempts to capture the wild elemental based on dice roll and optional item
    */
   async resolveWildEncounter(
     data: ResolveWildEncounterData,
   ): Promise<WildEncounterResult> {
-    // Get current event
     const currentEvent = await this.repository.getCurrentEvent(data.player_id);
     if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
       throw new BadRequestError("No active wild encounter event");
@@ -550,7 +967,6 @@ export class EventService {
       throw new NotFoundError("Wild encounter event");
     }
 
-    // Get the elemental
     const [elemental] = await db("elementals")
       .where({ id: wildEncounter.elemental_id })
       .limit(1);
@@ -558,7 +974,6 @@ export class EventService {
       throw new NotFoundError("Elemental");
     }
 
-    // Get the dice roll
     const [diceRoll] = await db("dice_rolls")
       .where({ id: data.dice_roll_id })
       .limit(1);
@@ -566,12 +981,10 @@ export class EventService {
       throw new NotFoundError("Dice roll");
     }
 
-    // Verify dice roll belongs to player
     if (diceRoll.player_id !== data.player_id) {
       throw new BadRequestError("Dice roll does not belong to player");
     }
 
-    // Check if player has space (max 15 total: 5 active + 10 backpack)
     const elementalCount = await db("player_elementals")
       .where({ player_id: data.player_id })
       .count("* as count")
@@ -581,16 +994,13 @@ export class EventService {
       throw new BadRequestError("Maximum elemental capacity reached (15)");
     }
 
-    // Calculate capture success
     let captureBonus = 0;
-    // Apply item bonus if provided
     if (data.item_id) {
       const [item] = await db("items").where({ id: data.item_id }).limit(1);
       if (!item) {
         throw new NotFoundError("Item");
       }
 
-      // Check if player has the item
       const [inventoryItem] = await db("player_inventory")
         .where({ player_id: data.player_id, item_id: data.item_id })
         .limit(1);
@@ -601,12 +1011,10 @@ export class EventService {
         );
       }
 
-      // Apply capture bonus from item
       if (item.effect?.capture_bonus) {
         captureBonus = item.effect.capture_bonus;
       }
 
-      // Consume the item
       if (inventoryItem.quantity === 1) {
         await db("player_inventory").where({ id: inventoryItem.id }).delete();
       } else {
@@ -616,7 +1024,6 @@ export class EventService {
       }
     }
 
-    // Determine success based on dice outcome and difficulty
     const outcome: DiceRollOutcome = diceRoll.outcome;
     const difficulty =
       elemental.level === 1
@@ -627,14 +1034,13 @@ export class EventService {
 
     let success = false;
     if (outcome === "crit_success") {
-      success = true; // Always succeed on crit
+      success = true;
     } else if (outcome === "success") {
       success =
         difficulty === "easy" || (difficulty === "medium" && captureBonus > 0);
     } else if (outcome === "fail") {
-      success = difficulty === "easy" && captureBonus >= 5; // Need good item for easy captures
+      success = difficulty === "easy" && captureBonus >= 5;
     }
-    // crit_fail always fails
 
     let elementalCaught:
       | { id: string; name: string; level: number }
@@ -642,7 +1048,6 @@ export class EventService {
     let message = "";
 
     if (success) {
-      // Add elemental to player's collection
       const [playerElemental] = await db("player_elementals")
         .insert({
           player_id: data.player_id,
@@ -660,7 +1065,6 @@ export class EventService {
 
       message = `Successfully captured ${elemental.name}! It has been added to your collection.`;
 
-      // Update wild encounter record
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
         outcome: "victory",
@@ -670,13 +1074,11 @@ export class EventService {
         resolved_at: new Date(),
       });
 
-      // Update player progress
       await db("player_progress")
         .where({ player_id: data.player_id })
         .increment("successful_captures", 1)
         .increment("total_elementals_owned", 1);
 
-      // Update unique elementals if first time catching this one
       const previousCaptures = await db("player_elementals")
         .where({ player_id: data.player_id, elemental_id: elemental.id })
         .count("* as count")
@@ -690,7 +1092,6 @@ export class EventService {
     } else {
       message = `Failed to capture ${elemental.name}. The elemental escaped!`;
 
-      // Update wild encounter record
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
         outcome: "defeat",
@@ -700,7 +1101,6 @@ export class EventService {
       });
     }
 
-    // Clear current event
     await this.repository.clearCurrentEvent(data.player_id);
 
     return {
@@ -713,10 +1113,8 @@ export class EventService {
 
   /**
    * Skip wild encounter event
-   * Allows player to decline the encounter and continue
    */
   async skipWildEncounter(playerId: string): Promise<SkipWildEncounterResult> {
-    // Get current event
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
       throw new BadRequestError("No active wild encounter event");
@@ -733,19 +1131,16 @@ export class EventService {
       throw new NotFoundError("Wild encounter event");
     }
 
-    // Get elemental name
     const [elemental] = await db("elementals")
       .where({ id: wildEncounter.elemental_id })
       .limit(1);
 
-    // Update wild encounter record
     await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
       status: "fled",
       outcome: "fled",
       resolved_at: new Date(),
     });
 
-    // Clear current event
     await this.repository.clearCurrentEvent(playerId);
 
     return {
@@ -755,207 +1150,9 @@ export class EventService {
   }
 
   /**
-   * Resolve a PvP battle event
-   * Simulates battle based on party stats and dice rolls
-   */
-  async resolvePvPBattle(data: ResolvePvPBattleData): Promise<PvPBattleResult> {
-    // Get current event
-    const currentEvent = await this.repository.getCurrentEvent(data.player_id);
-    if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
-      throw new BadRequestError("No active PvP battle event");
-    }
-
-    if (!currentEvent.battle_id) {
-      throw new BadRequestError("Invalid battle event");
-    }
-
-    const battle = await this.battleRepo.findById(currentEvent.battle_id);
-    if (!battle) {
-      throw new NotFoundError("Battle event");
-    }
-
-    // Get the dice roll
-    const [diceRoll] = await db("dice_rolls")
-      .where({ id: data.dice_roll_id })
-      .limit(1);
-    if (!diceRoll) {
-      throw new NotFoundError("Dice roll");
-    }
-
-    // Verify dice roll belongs to player
-    if (diceRoll.player_id !== data.player_id) {
-      throw new BadRequestError("Dice roll does not belong to player");
-    }
-
-    // Get player's active elementals
-    const playerElementals = await db("player_elementals")
-      .where({ player_id: data.player_id, is_in_active_party: true })
-      .leftJoin("elementals", "player_elementals.elemental_id", "elementals.id")
-      .select(
-        "elementals.*",
-        "player_elementals.current_stats",
-        "player_elementals.id as player_elemental_id",
-      );
-
-    const playerBasePower = this.calculatePowerLevel(playerElementals);
-
-    // Apply dice roll modifier (roll value contributes to power)
-    const playerDiceBonus = diceRoll.roll_value * 10;
-    const playerPower = playerBasePower + playerDiceBonus;
-
-    // Opponent rolls (simulated)
-    const opponentBasePower = battle.opponent_power_level;
-    const opponentRoll = Math.floor(Math.random() * 20) + 1;
-    const opponentDiceBonus = opponentRoll * 10;
-    const opponentPower = opponentBasePower + opponentDiceBonus;
-
-    const victory = playerPower >= opponentPower;
-
-    let message = "";
-    let reward = undefined;
-    let penalty = undefined;
-    let downgradedElementalId = undefined;
-
-    if (victory) {
-      reward = Math.floor(battle.opponent_power_level * 10);
-      message = `Victory! You defeated ${battle.opponent_name} and earned ${reward} currency.`;
-
-      // Award currency
-      await db("users")
-        .where({ id: data.player_id })
-        .increment("currency", reward);
-
-      // Update battle stats
-      await db("player_progress")
-        .where({ player_id: data.player_id })
-        .increment("total_battles", 1)
-        .increment("battles_won", 1);
-
-      // Update battle record
-      await this.battleRepo.updateResolution(battle.id, {
-        status: "completed",
-        outcome: "victory",
-        player_power: playerPower,
-        opponent_actual_power: opponentPower,
-        dice_roll_id: data.dice_roll_id,
-        currency_reward: reward,
-        resolved_at: new Date(),
-      });
-    } else {
-      message = `Defeat! ${battle.opponent_name} was too strong.`;
-
-      // Apply penalty: downgrade a random elemental
-      if (playerElementals.length > 0) {
-        // Get elementals that can be downgraded (level > 1)
-        const downgradableElementals = playerElementals.filter(
-          (e: any) => e.level > 1,
-        );
-
-        if (downgradableElementals.length > 0) {
-          const randomIndex = Math.floor(
-            Math.random() * downgradableElementals.length,
-          );
-          const targetElemental = downgradableElementals[randomIndex];
-
-          // Find the evolution recipe that produced this elemental
-          const [evolution] = await db("elemental_evolutions")
-            .where({ result_elemental_id: targetElemental.id })
-            .limit(1);
-
-          if (evolution) {
-            // Derive what elemental to downgrade to based on evolution type:
-            // L1→L2: required_same_element → find L1 of that element
-            // L2→L3: required_element_1 → find L2 of that element
-            // L3→L4: required_elemental_ids → use first listed L3 elemental
-            let downgradeToId: string | null = null;
-
-            if (evolution.required_same_element) {
-              const [base] = await db("elementals")
-                .where({ level: 1 })
-                .whereRaw("element_types @> ?::jsonb", [
-                  JSON.stringify([evolution.required_same_element]),
-                ])
-                .limit(1);
-              downgradeToId = base?.id ?? null;
-            } else if (evolution.required_element_1) {
-              const [base] = await db("elementals")
-                .where({ level: 2 })
-                .whereRaw("element_types @> ?::jsonb", [
-                  JSON.stringify([evolution.required_element_1]),
-                ])
-                .limit(1);
-              downgradeToId = base?.id ?? null;
-            } else if (evolution.required_elemental_ids) {
-              const ids = Array.isArray(evolution.required_elemental_ids)
-                ? evolution.required_elemental_ids
-                : JSON.parse(evolution.required_elemental_ids);
-              downgradeToId = ids[0] ?? null;
-            }
-
-            if (downgradeToId) {
-              const [baseElemental] = await db("elementals")
-                .where({ id: downgradeToId })
-                .limit(1);
-
-              if (baseElemental) {
-                await db("player_elementals")
-                  .where({ id: targetElemental.player_elemental_id })
-                  .update({
-                    elemental_id: baseElemental.id,
-                    current_stats: baseElemental.base_stats,
-                  });
-
-                downgradedElementalId = targetElemental.player_elemental_id;
-
-                penalty = {
-                  downgraded_elemental: targetElemental.name,
-                };
-
-                message += ` Your ${targetElemental.name} was downgraded to ${baseElemental.name}.`;
-              }
-            }
-          }
-        }
-      }
-
-      // Update battle stats
-      await db("player_progress")
-        .where({ player_id: data.player_id })
-        .increment("total_battles", 1)
-        .increment("battles_lost", 1);
-
-      // Update battle record
-      await this.battleRepo.updateResolution(battle.id, {
-        status: "completed",
-        outcome: "defeat",
-        player_power: playerPower,
-        opponent_actual_power: opponentPower,
-        dice_roll_id: data.dice_roll_id,
-        downgraded_elemental_id: downgradedElementalId,
-        resolved_at: new Date(),
-      });
-    }
-
-    // Clear current event
-    await this.repository.clearCurrentEvent(data.player_id);
-
-    return {
-      victory,
-      message,
-      player_power: playerPower,
-      opponent_power: opponentPower,
-      reward,
-      penalty,
-      can_continue: true,
-    };
-  }
-
-  /**
    * Leave merchant event
-   * Clears the current merchant event and allows player to continue
    */
   async leaveMerchant(playerId: string): Promise<LeaveMerchantResult> {
-    // Get current event
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "merchant") {
       throw new BadRequestError("No active merchant event");
@@ -970,13 +1167,11 @@ export class EventService {
       throw new NotFoundError("Merchant event");
     }
 
-    // Update merchant record
     await this.merchantRepo.updateResolution(merchant.id, {
       status: "completed",
       resolved_at: new Date(),
     });
 
-    // Clear current event
     await this.repository.clearCurrentEvent(playerId);
 
     return {
