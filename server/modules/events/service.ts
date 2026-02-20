@@ -857,32 +857,62 @@ export class EventService {
           );
           const targetElemental = downgradableElementals[randomIndex];
 
-          // Find the previous evolution
-          const [previousEvolution] = await db("elemental_evolutions")
-            .where({ evolves_to: targetElemental.elemental_id })
+          // Find the evolution recipe that produced this elemental
+          const [evolution] = await db("elemental_evolutions")
+            .where({ result_elemental_id: targetElemental.id })
             .limit(1);
 
-          if (previousEvolution) {
-            // Downgrade the elemental
-            const [baseElemental] = await db("elementals")
-              .where({ id: previousEvolution.base_elemental_id })
-              .limit(1);
+          if (evolution) {
+            // Derive what elemental to downgrade to based on evolution type:
+            // L1→L2: required_same_element → find L1 of that element
+            // L2→L3: required_element_1 → find L2 of that element
+            // L3→L4: required_elemental_ids → use first listed L3 elemental
+            let downgradeToId: string | null = null;
 
-            if (baseElemental) {
-              await db("player_elementals")
-                .where({ id: targetElemental.player_elemental_id })
-                .update({
-                  elemental_id: baseElemental.id,
-                  current_stats: baseElemental.base_stats,
-                });
+            if (evolution.required_same_element) {
+              const [base] = await db("elementals")
+                .where({ level: 1 })
+                .whereRaw("element_types @> ?::jsonb", [
+                  JSON.stringify([evolution.required_same_element]),
+                ])
+                .limit(1);
+              downgradeToId = base?.id ?? null;
+            } else if (evolution.required_element_1) {
+              const [base] = await db("elementals")
+                .where({ level: 2 })
+                .whereRaw("element_types @> ?::jsonb", [
+                  JSON.stringify([evolution.required_element_1]),
+                ])
+                .limit(1);
+              downgradeToId = base?.id ?? null;
+            } else if (evolution.required_elemental_ids) {
+              const ids = Array.isArray(evolution.required_elemental_ids)
+                ? evolution.required_elemental_ids
+                : JSON.parse(evolution.required_elemental_ids);
+              downgradeToId = ids[0] ?? null;
+            }
 
-              downgradedElementalId = targetElemental.player_elemental_id;
+            if (downgradeToId) {
+              const [baseElemental] = await db("elementals")
+                .where({ id: downgradeToId })
+                .limit(1);
 
-              penalty = {
-                downgraded_elemental: targetElemental.name,
-              };
+              if (baseElemental) {
+                await db("player_elementals")
+                  .where({ id: targetElemental.player_elemental_id })
+                  .update({
+                    elemental_id: baseElemental.id,
+                    current_stats: baseElemental.base_stats,
+                  });
 
-              message += ` Your ${targetElemental.name} was downgraded to ${baseElemental.name}.`;
+                downgradedElementalId = targetElemental.player_elemental_id;
+
+                penalty = {
+                  downgraded_elemental: targetElemental.name,
+                };
+
+                message += ` Your ${targetElemental.name} was downgraded to ${baseElemental.name}.`;
+              }
             }
           }
         }

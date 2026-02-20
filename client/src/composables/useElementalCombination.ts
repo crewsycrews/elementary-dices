@@ -26,6 +26,11 @@ export function useElementalCombination() {
     return slots.value.every(slot => slot.playerElemental !== null);
   });
 
+  // Computed: How many slots are filled
+  const filledSlotsCount = computed(() => {
+    return slots.value.filter(slot => slot.playerElemental !== null).length;
+  });
+
   // Computed: Get array of selected player elemental IDs
   const selectedElementalIds = computed(() => {
     return slots.value
@@ -40,9 +45,9 @@ export function useElementalCombination() {
       .map(slot => slot.elemental!);
   });
 
-  // Computed: Check if combination is valid
+  // Computed: Check if combination is valid (needs at least 2 filled slots)
   const isValidCombination = computed(() => {
-    if (!allSlotsFilled.value) return false;
+    if (filledSlotsCount.value < 2) return false;
 
     const validation = evolutionStore.validateCombination(selectedElementalIds.value);
     return validation.isValid;
@@ -50,7 +55,7 @@ export function useElementalCombination() {
 
   // Computed: Get validation errors
   const validationErrors = computed(() => {
-    if (!allSlotsFilled.value) return ['Please fill all 3 circles'];
+    if (filledSlotsCount.value < 2) return ['Please fill at least 2 circles'];
 
     const validation = evolutionStore.validateCombination(selectedElementalIds.value);
     return validation.errors;
@@ -189,12 +194,16 @@ export function useElementalCombination() {
         selectedElementalIds.value
       );
 
+      if (!result) {
+        return { success: false, error: 'No response from server' };
+      }
+
       if (result.success) {
         // Clear slots on success
         clearAllSlots();
       }
 
-      return result;
+      return { success: result.success, error: result.success ? undefined : result.message };
     } catch (error) {
       const errorMsg =
         error instanceof Error ? error.message : 'Combination failed';
@@ -238,6 +247,7 @@ export function useElementalCombination() {
     isProcessing,
     errorMessage,
     allSlotsFilled,
+    filledSlotsCount,
     selectedElementalIds,
     selectedElementals,
     isValidCombination,

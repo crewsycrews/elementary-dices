@@ -81,7 +81,7 @@ export async function seed(knex: Knex): Promise<void> {
       }),
       description: "A crackling bolt of pure energy. Devastating and fast.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/lightning.jpg",
+      image_url: "https://ink-empire.s3.cloud.ru/elems/1/thunder.jpg",
     },
   ]);
 }

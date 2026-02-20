@@ -17,6 +17,9 @@
     <p class="pt-4 text-xs md:text-sm text-muted-foreground text-center">
       {{ label }}
     </p>
+    <p class="text-xs text-muted-foreground text-center">
+      You can play with it!
+    </p>
   </div>
 </template>
 

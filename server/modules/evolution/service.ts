@@ -28,7 +28,7 @@ export class EvolutionService {
   async combineElementals(data: CombineElementalsData): Promise<CombineResult> {
     // Validate player owns all elementals
     const playerElementals = await db('player_elementals')
-      .whereIn('id', data.player_elemental_ids)
+      .whereIn('player_elementals.id', data.player_elemental_ids)
       .where('player_id', data.player_id)
       .leftJoin('elementals', 'player_elementals.elemental_id', 'elementals.id')
       .select(

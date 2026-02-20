@@ -89,8 +89,8 @@ export const useEvolutionStore = defineStore('evolution', () => {
     const { api, apiCall } = useApi()
 
     // Validation
-    if (playerElementalIds.length !== 3) {
-      throw new Error('Must select exactly 3 elementals to combine')
+    if (playerElementalIds.length < 2 || playerElementalIds.length > 3) {
+      throw new Error('Must select 2 or 3 elementals to combine')
     }
 
     try {
@@ -135,26 +135,22 @@ export const useEvolutionStore = defineStore('evolution', () => {
   }
 
   function validateCombination(playerElementalIds: string[]): {
-    valid: boolean
-    reason?: string
+    isValid: boolean
+    errors: string[]
   } {
-    if (playerElementalIds.length !== 3) {
-      return {
-        valid: false,
-        reason: 'Must select exactly 3 elementals',
-      }
+    const errors: string[] = []
+
+    if (playerElementalIds.length < 2 || playerElementalIds.length > 3) {
+      errors.push('Must select 2 or 3 elementals')
     }
 
     // Check for duplicates
     const uniqueIds = new Set(playerElementalIds)
     if (uniqueIds.size !== playerElementalIds.length) {
-      return {
-        valid: false,
-        reason: 'Cannot use the same elemental multiple times',
-      }
+      errors.push('Cannot use the same elemental multiple times')
     }
 
-    return { valid: true }
+    return { isValid: errors.length === 0, errors }
   }
 
   function clearLastResult() {

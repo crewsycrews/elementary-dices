@@ -57,7 +57,7 @@
           :last-roll="lastRoll"
           :spinning="isRolling"
           :affinity="lastRollAffinity"
-          label="Your last roll"
+          :label="`Your last roll: ${lastRoll?.roll_value || 'None'}.`"
         />
       </div>
 
