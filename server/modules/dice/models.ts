@@ -1,4 +1,4 @@
-import { t } from 'elysia';
+import { t } from "elysia";
 import {
   DiceTypeSchema,
   CreateDiceTypeSchema,
@@ -8,7 +8,7 @@ import {
   type DiceType,
   type PlayerDice,
   type DiceRarityValue,
-} from '@elementary-dices/shared';
+} from "@elementary-dices/shared";
 
 // Re-export shared schemas for use in routes
 export const DiceTypeResponseDTO = DiceTypeSchema;
@@ -17,20 +17,22 @@ export const UpdateDiceTypeDTO = t.Partial(CreateDiceTypeSchema);
 
 // Player Dice DTOs
 export const PlayerDiceResponseDTO = t.Object({
-  id: t.String({ format: 'uuid' }),
-  player_id: t.String({ format: 'uuid' }),
-  dice_type_id: t.String({ format: 'uuid' }),
+  id: t.String({ format: "uuid" }),
+  player_id: t.String({ format: "uuid" }),
+  dice_type_id: t.String({ format: "uuid" }),
   is_equipped: t.Boolean(),
   dice_type: t.Optional(DiceTypeSchema),
 });
 
 export const AddPlayerDiceDTO = t.Object({
-  dice_type_id: t.String({ format: 'uuid' }),
+  dice_type_id: t.String({ format: "uuid" }),
   is_equipped: t.Optional(t.Boolean()),
+  dice_notation: t.Optional(t.String()), // Optional override for dice notation
 });
 
 export const UpdatePlayerDiceDTO = t.Object({
   is_equipped: t.Optional(t.Boolean()),
+  dice_notation: t.Optional(t.String()), // Optional override for dice notation
 });
 
 // Query filters

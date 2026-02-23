@@ -71,28 +71,28 @@ export class AuthRepository {
   async revokeRefreshToken(id: string): Promise<void> {
     await db('refresh_tokens')
       .where({ id })
-      .update({ revoked_at: db.fn.now() });
+      .update({ revoked_at: db.fn.now() as unknown as Date });
   }
 
   async revokeAllUserTokens(userId: string): Promise<void> {
     await db('refresh_tokens')
       .where({ user_id: userId })
       .whereNull('revoked_at')
-      .update({ revoked_at: db.fn.now() });
+      .update({ revoked_at: db.fn.now() as unknown as Date });
   }
 
   async revokeTokenFamily(tokenFamily: string): Promise<void> {
     await db('refresh_tokens')
       .where({ token_family: tokenFamily })
       .whereNull('revoked_at')
-      .update({ revoked_at: db.fn.now() });
+      .update({ revoked_at: db.fn.now() as unknown as Date });
   }
 
   async cleanExpiredTokens(): Promise<number> {
     return await db('refresh_tokens')
       .where('expires_at', '<', db.fn.now())
       .whereNull('revoked_at')
-      .update({ revoked_at: db.fn.now() });
+      .update({ revoked_at: db.fn.now() as unknown as Date });
   }
 
   // ===== User Updates =====
@@ -100,7 +100,7 @@ export class AuthRepository {
   async updateLastLogin(userId: string): Promise<void> {
     await db('users')
       .where({ id: userId })
-      .update({ last_login_at: db.fn.now() });
+      .update({ last_login_at: db.fn.now() as unknown as Date });
   }
 
   async verifyUserEmail(userId: string): Promise<void> {

@@ -107,7 +107,7 @@ export class UserRepository {
   }> {
     const [elementalStats] = await db('player_elementals')
       .where({ player_id: userId })
-      .select(
+      .select<{ total_elementals: string; active_elementals: string; backpack_elementals: string }[]>(
         db.raw('COUNT(*) as total_elementals'),
         db.raw('COUNT(*) FILTER (WHERE is_in_active_party = true) as active_elementals'),
         db.raw('COUNT(*) FILTER (WHERE is_in_active_party = false) as backpack_elementals')
@@ -115,11 +115,11 @@ export class UserRepository {
 
     const [diceStats] = await db('player_dice')
       .where({ player_id: userId })
-      .count('* as total_dice');
+      .count<{ total_dice: string }[]>('* as total_dice');
 
     const [itemStats] = await db('player_inventory')
       .where({ player_id: userId })
-      .sum('quantity as total_items');
+      .sum<{ total_items: string | null }[]>('quantity as total_items');
 
     return {
       total_elementals: Number(elementalStats?.total_elementals || 0),
