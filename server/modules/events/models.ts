@@ -12,7 +12,7 @@ export const EVENT_PROBABILITIES = {
   wild_encounter: 0.5, // 50%
   pvp_battle: 0.3, // 30%
   merchant: 0.2, // 20%
-} as const;
+};
 
 // Event Response DTO
 export const EventResponseDTO = t.Object({

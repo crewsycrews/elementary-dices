@@ -20,7 +20,7 @@ export async function seed(knex: Knex): Promise<void> {
       description:
         "A burning spirit of pure flame. Quick to anger and fierce in battle.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/fire.jpg",
+      image_url: "/assets/elementals-1/fire.jpg",
     },
     {
       id: knex.raw("uuid_generate_v7()"),
@@ -35,7 +35,7 @@ export async function seed(knex: Knex): Promise<void> {
       }),
       description: "A flowing entity of water. Adaptable and persistent.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/water.jpg",
+      image_url: "/assets/elementals-1/water.jpg",
     },
     {
       id: knex.raw("uuid_generate_v7()"),
@@ -51,7 +51,7 @@ export async function seed(knex: Knex): Promise<void> {
       description:
         "A solid mass of rock and soil. Slow but incredibly durable.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/earth.jpg",
+      image_url: "/assets/elementals-1/earth.jpg",
     },
     {
       id: knex.raw("uuid_generate_v7()"),
@@ -66,7 +66,7 @@ export async function seed(knex: Knex): Promise<void> {
       }),
       description: "A whirling vortex of wind. Swift and unpredictable.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/air.jpg",
+      image_url: "/assets/elementals-1/air.jpg",
     },
     {
       id: knex.raw("uuid_generate_v7()"),
@@ -81,7 +81,7 @@ export async function seed(knex: Knex): Promise<void> {
       }),
       description: "A crackling bolt of pure energy. Devastating and fast.",
       is_base_elemental: true,
-      image_url: "https://ink-empire.s3.cloud.ru/elems/1/thunder.jpg",
+      image_url: "/assets/elementals-1/lightning.jpg",
     },
   ]);
 }

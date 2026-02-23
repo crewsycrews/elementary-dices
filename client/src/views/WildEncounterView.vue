@@ -347,7 +347,6 @@ const handleCaptureAttempt = async () => {
     }, 450);
 
     // Save last roll to inventory store
-    const diceType = getDiceType(selectedDice.value);
     inventoryStore.updateLastRoll(diceRoll);
   } catch (error) {
     console.error("Failed to resolve capture:", error);

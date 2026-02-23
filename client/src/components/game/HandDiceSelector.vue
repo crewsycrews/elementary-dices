@@ -13,7 +13,7 @@
     <div class="relative w-full" style="aspect-ratio: 16/9">
       <!-- Hand SVG Illustration -->
       <img
-        src="https://ink-empire.s3.cloud.ru/hand.png"
+        src="/assets/hand.png"
         alt="Hand Illustration"
         class="w-full h-full object-contain"
       />
