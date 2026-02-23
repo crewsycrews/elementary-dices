@@ -407,6 +407,23 @@ bun run --filter @elementary-dices/server db:migrate:rollback
 - Never modify existing migrations after they've been deployed
 - Add indexes for foreign keys and frequently queried columns
 
+### Knex Type Maps
+
+All database table types live in `server/types/tables.ts`. This file augments `knex/types/tables` so that `db('table_name')` queries are fully type-checked.
+
+**Rule of thumb: whenever you write a migration that creates or alters a table, update `server/types/tables.ts` to match.**
+
+Each table uses `Knex.CompositeTableType<Base, Insert, Update>`:
+- `Base` — full row as returned by SELECT (use `Date` for timestamps, `| null` for nullable columns)
+- `Insert` — omit `id` and server-managed timestamps, make DB-defaulted fields optional
+- `Update` — `Partial<Omit<Base, 'id' | timestamps>>`
+
+JSONB columns get specific interfaces (e.g. `BaseStats`, `BattleState`, `RollModifiers`) rather than `unknown`.
+
+Enum columns use the shared union types (e.g. `EncounterStatusValue`, `DiceRarityValue`) so invalid string literals are caught at compile time.
+
+The file is automatically picked up by TypeScript — no explicit import needed.
+
 ### Testing
 
 Test controllers using Elysia's `.handle()` method:
