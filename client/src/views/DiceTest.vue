@@ -34,13 +34,14 @@
         {{ isRolling ? "Rolling..." : "Roll" }}
       </button>
       <label class="outcome-pick">
-        <span>Force outcome:</span>
-        <select v-model="forcedOutcome">
+        <span>Force element:</span>
+        <select v-model="forcedElement">
           <option value="">Random</option>
-          <option value="crit_success">Crit Success</option>
-          <option value="success">Success</option>
-          <option value="fail">Fail</option>
-          <option value="crit_fail">Crit Fail</option>
+          <option value="fire">Fire</option>
+          <option value="water">Water</option>
+          <option value="earth">Earth</option>
+          <option value="air">Air</option>
+          <option value="lightning">Lightning</option>
         </select>
       </label>
     </div>
@@ -60,8 +61,8 @@
       <div v-for="(entry, i) in rollLog" :key="i" class="log-entry">
         <span class="log-dice">{{ entry.dice }}</span>
         <span class="log-value">{{ entry.value }}</span>
-        <span class="log-outcome" :class="`outcome-${entry.outcome}`">{{
-          entry.outcome
+        <span class="log-outcome" :class="`outcome-${entry.result_element}`">{{
+          entry.result_element
         }}</span>
       </div>
     </div>
@@ -86,84 +87,35 @@ const affinities: { label: string; value: Affinity | undefined }[] = [
   { label: "🌬️ Air", value: "air" },
   { label: "⚡ Lightning", value: "lightning" },
 ];
-const outcomeThresholds: Record<DiceType, Record<DiceRollResult["outcome"], [number, number]>> = {
-  d4: {
-    crit_fail: [1, 1],
-    fail: [2, 2],
-    success: [3, 3],
-    crit_success: [4, 4],
-  },
-  d6: {
-    crit_fail: [1, 1],
-    fail: [2, 3],
-    success: [4, 5],
-    crit_success: [6, 6],
-  },
-  d10: {
-    crit_fail: [1, 2],
-    fail: [3, 5],
-    success: [6, 8],
-    crit_success: [9, 10],
-  },
-  d12: {
-    crit_fail: [1, 2],
-    fail: [3, 6],
-    success: [7, 10],
-    crit_success: [11, 12],
-  },
-  d20: {
-    crit_fail: [1, 3],
-    fail: [4, 10],
-    success: [11, 17],
-    crit_success: [18, 20],
-  },
-};
+const ELEMENTS: DiceRollResult["result_element"][] = ["fire", "water", "earth", "air", "lightning"];
+const DICE_MAX: Record<DiceType, number> = { d4: 4, d6: 6, d10: 10, d12: 12, d20: 20 };
 
 const selectedDice = ref<DiceType>("d6");
 const selectedAffinity = ref<Affinity | undefined>(undefined);
-const forcedOutcome = ref<string>("");
+const forcedElement = ref<string>("");
 const isRolling = ref(false);
 const currentResult = ref<DiceRollResult>();
 const vizRef = ref<InstanceType<typeof DiceRollVisualization> | null>(null);
 
-const rollLog = ref<Array<{ dice: string; value: number; outcome: string }>>(
+const rollLog = ref<Array<{ dice: string; value: number; result_element: string }>>(
   [],
 );
-
-function outcomeFromRoll(
-  value: number,
-  dice: DiceType,
-): DiceRollResult["outcome"] {
-  const ranges = outcomeThresholds[dice];
-  if (value <= ranges.crit_fail[1]) return "crit_fail";
-  if (value <= ranges.fail[1]) return "fail";
-  if (value <= ranges.success[1]) return "success";
-  return "crit_success";
-}
 
 async function rollDice() {
   if (isRolling.value) return;
   isRolling.value = true;
 
   const dice = selectedDice.value;
-  const ranges = outcomeThresholds[dice];
-  const max = ranges.crit_success[1];
+  const max = DICE_MAX[dice];
+  const rollValue = Math.floor(Math.random() * max) + 1;
 
-  let rollValue: number;
-  let outcome: DiceRollResult["outcome"];
-
-  if (forcedOutcome.value) {
-    outcome = forcedOutcome.value as DiceRollResult["outcome"];
-    const [min, hi] = ranges[outcome];
-    rollValue = Math.floor(Math.random() * (hi - min + 1)) + min;
-  } else {
-    rollValue = Math.floor(Math.random() * max) + 1;
-    outcome = outcomeFromRoll(rollValue, dice);
-  }
+  const result_element: DiceRollResult["result_element"] = forcedElement.value
+    ? (forcedElement.value as DiceRollResult["result_element"])
+    : ELEMENTS[Math.floor(Math.random() * ELEMENTS.length)];
 
   currentResult.value = {
     roll_value: rollValue,
-    outcome,
+    result_element,
   };
 
   await nextTick();
@@ -172,7 +124,7 @@ async function rollDice() {
   rollLog.value.unshift({
     dice: selectedDice.value.toUpperCase(),
     value: rollValue,
-    outcome,
+    result_element,
   });
 
   isRolling.value = false;
@@ -337,20 +289,24 @@ h1 {
   font-weight: 600;
 }
 
-.outcome-crit_success {
-  background: rgba(251, 191, 36, 0.2);
-  color: #fbbf24;
-}
-.outcome-success {
-  background: rgba(16, 185, 129, 0.2);
-  color: #10b981;
-}
-.outcome-fail {
+.outcome-fire {
   background: rgba(239, 68, 68, 0.2);
   color: #ef4444;
 }
-.outcome-crit_fail {
-  background: rgba(124, 58, 237, 0.2);
-  color: #7c3aed;
+.outcome-water {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+}
+.outcome-earth {
+  background: rgba(217, 119, 6, 0.2);
+  color: #d97706;
+}
+.outcome-air {
+  background: rgba(6, 182, 212, 0.2);
+  color: #06b6d4;
+}
+.outcome-lightning {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
 }
 </style>

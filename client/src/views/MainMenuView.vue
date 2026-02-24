@@ -56,7 +56,7 @@
         <CentralDiceDisplay
           :last-roll="lastRoll"
           :spinning="isRolling"
-          :affinity="lastRollAffinity"
+          :element-faces="lastRollFaces"
           :label="`Your last roll: ${lastRoll?.roll_value || 'None'}.`"
         />
       </div>
@@ -119,14 +119,17 @@ const isRolling = ref(false);
 
 const lastRoll = computed(() => inventoryStore.lastRoll);
 
-// Derive affinity from the dice used for the last roll
-const lastRollAffinity = computed(() => {
-  if (!lastRoll.value) return "water";
-  const dice = inventoryStore.playerDice.find(
+// Derive faces from the dice used for the last roll
+const lastRollDice = computed(() => {
+  if (!lastRoll.value) return null;
+  return inventoryStore.playerDice.find(
     (d) => d.dice_type_id === lastRoll.value!.dice_type_id,
-  );
-  return dice?.dice_type?.stat_bonuses?.element_affinity;
+  ) ?? null;
 });
+
+const lastRollFaces = computed(
+  () => (lastRollDice.value?.dice_type as any)?.faces as string[] | undefined,
+);
 
 // Handle onboarding completion
 const handleOnboardingComplete = () => {

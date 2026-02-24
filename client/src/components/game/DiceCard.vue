@@ -20,7 +20,8 @@
           :value="maxValue"
           :scale="0.42"
           :show-shadow="false"
-          :affinity="affinity ?? undefined"
+          :affinity="primaryElement ?? undefined"
+          :element-faces="faces"
         />
       </div>
 
@@ -42,18 +43,14 @@
           >
         </div>
 
-        <!-- Stats row -->
-        <div class="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+        <!-- Faces row -->
+        <div class="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
           <span
-            ><span class="font-semibold text-foreground"
-              >{{ multiplier }}x</span
-            >
-            mult</span
-          >
-          <span v-if="affinity" class="capitalize">
-            <span class="font-semibold text-foreground">{{ affinity }}</span>
-            affinity
-          </span>
+            v-for="(count, element) in faceDistribution"
+            :key="element"
+            class="font-semibold text-foreground"
+            :title="`${element} x${count}`"
+          >{{ ELEMENT_EMOJI[element as string] || element }}x{{ count }}</span>
         </div>
       </div>
     </div>
@@ -81,16 +78,21 @@ import { computed } from "vue";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry";
 
+const ELEMENT_EMOJI: Record<string, string> = {
+  fire: '\uD83D\uDD25',
+  water: '\uD83C\uDF0A',
+  air: '\uD83D\uDCA8',
+  earth: '\u26F0\uFE0F',
+  lightning: '\u26A1',
+};
+
 interface DiceTypeData {
   id: string;
   dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
   rarity: "green" | "blue" | "purple" | "gold";
   name: string;
   description?: string;
-  stat_bonuses?: {
-    bonus_multiplier?: number;
-    element_affinity?: "fire" | "water" | "earth" | "lightning" | "air";
-  };
+  faces?: ("fire" | "water" | "earth" | "lightning" | "air")[];
 }
 
 interface PlayerDice {
@@ -119,13 +121,21 @@ const maxValue = computed(() => {
   return map[props.dice.dice_type?.dice_notation ?? "d6"] ?? 6;
 });
 
-const multiplier = computed(
-  () => props.dice.dice_type?.stat_bonuses?.bonus_multiplier ?? 1,
+const faces = computed(
+  () => props.dice.dice_type?.faces ?? [],
 );
 
-const affinity = computed(
-  () => props.dice.dice_type?.stat_bonuses?.element_affinity ?? null,
+const primaryElement = computed(
+  () => faces.value[0] ?? null,
 );
+
+const faceDistribution = computed(() => {
+  const counts: Record<string, number> = {};
+  for (const face of faces.value) {
+    counts[face] = (counts[face] || 0) + 1;
+  }
+  return counts;
+});
 
 const rarityClass = computed(() => {
   switch (props.dice.dice_type?.rarity) {

@@ -43,8 +43,7 @@ export class DiceRepository {
     const [diceType] = await db(this.diceTypesTable)
       .insert({
         ...data,
-        stat_bonuses: JSON.stringify(data.stat_bonuses),
-        outcome_thresholds: JSON.stringify(data.outcome_thresholds),
+        faces: JSON.stringify(data.faces),
       })
       .returning('*');
     return diceType;
@@ -53,12 +52,8 @@ export class DiceRepository {
   async updateDiceType(id: string, data: UpdateDiceTypeData): Promise<DiceType | null> {
     const updateData: any = { ...data };
 
-    if (data.stat_bonuses) {
-      updateData.stat_bonuses = JSON.stringify(data.stat_bonuses);
-    }
-
-    if (data.outcome_thresholds) {
-      updateData.outcome_thresholds = JSON.stringify(data.outcome_thresholds);
+    if (data.faces) {
+      updateData.faces = JSON.stringify(data.faces);
     }
 
     const [diceType] = await db(this.diceTypesTable)
@@ -91,8 +86,7 @@ export class DiceRepository {
             'dice_notation', ${this.diceTypesTable}.dice_notation,
             'rarity', ${this.diceTypesTable}.rarity,
             'name', ${this.diceTypesTable}.name,
-            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
-            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'faces', ${this.diceTypesTable}.faces,
             'price', ${this.diceTypesTable}.price,
             'description', ${this.diceTypesTable}.description
           ) as dice_type
@@ -117,8 +111,7 @@ export class DiceRepository {
             'dice_notation', ${this.diceTypesTable}.dice_notation,
             'rarity', ${this.diceTypesTable}.rarity,
             'name', ${this.diceTypesTable}.name,
-            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
-            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'faces', ${this.diceTypesTable}.faces,
             'price', ${this.diceTypesTable}.price,
             'description', ${this.diceTypesTable}.description
           ) as dice_type
@@ -145,8 +138,7 @@ export class DiceRepository {
             'dice_notation', ${this.diceTypesTable}.dice_notation,
             'rarity', ${this.diceTypesTable}.rarity,
             'name', ${this.diceTypesTable}.name,
-            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
-            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'faces', ${this.diceTypesTable}.faces,
             'price', ${this.diceTypesTable}.price,
             'description', ${this.diceTypesTable}.description
           ) as dice_type
@@ -173,8 +165,7 @@ export class DiceRepository {
             'dice_notation', ${this.diceTypesTable}.dice_notation,
             'rarity', ${this.diceTypesTable}.rarity,
             'name', ${this.diceTypesTable}.name,
-            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
-            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'faces', ${this.diceTypesTable}.faces,
             'price', ${this.diceTypesTable}.price,
             'description', ${this.diceTypesTable}.description
           ) as dice_type
@@ -206,8 +197,7 @@ export class DiceRepository {
             'dice_notation', ${this.diceTypesTable}.dice_notation,
             'rarity', ${this.diceTypesTable}.rarity,
             'name', ${this.diceTypesTable}.name,
-            'stat_bonuses', ${this.diceTypesTable}.stat_bonuses,
-            'outcome_thresholds', ${this.diceTypesTable}.outcome_thresholds,
+            'faces', ${this.diceTypesTable}.faces,
             'price', ${this.diceTypesTable}.price,
             'description', ${this.diceTypesTable}.description
           ) as dice_type

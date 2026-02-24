@@ -25,8 +25,7 @@ type MerchantData = {
     price: number
     rarity: string
     dice_notation: string
-    bonus_multiplier: number
-    element_affinity?: string
+    faces: string[]
   }>
 }
 
@@ -46,7 +45,7 @@ export type BattleRollRecord = {
   side: 'player' | 'opponent'
   dice_type_id?: string
   dice_element: string
-  outcome: string
+  result_element: string
   bonus_applied: number
   affected_element: string
   roll_value?: number

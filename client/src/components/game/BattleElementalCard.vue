@@ -41,10 +41,8 @@
     <!-- Target Arrow Indicator -->
     <div v-if="showTarget && targetName" class="mt-2 pt-2 border-t border-border">
       <div class="flex items-center gap-1 text-xs text-muted-foreground">
-        <span>{{ hasAdvantage ? '⚔️' : '→' }}</span>
-        <span :class="hasAdvantage ? 'text-green-400 font-bold' : ''">
-          {{ targetName }}
-        </span>
+        <span>→</span>
+        <span>{{ targetName }}</span>
       </div>
     </div>
   </div>
@@ -60,7 +58,6 @@ const props = defineProps<{
   isTargeted?: boolean
   showTarget?: boolean
   targetName?: string
-  hasAdvantage?: boolean
 }>()
 
 const ELEMENT_CONFIG: Record<string, { emoji: string; borderColor: string }> = {

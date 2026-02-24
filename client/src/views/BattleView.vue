@@ -144,15 +144,11 @@
             :result="rollResult"
             @roll-complete="handlePlayerRollComplete"
             :affinity="selectedDiceAffinity"
+            :element-faces="selectedDiceFaces"
           />
           <!-- Player Roll Effect Description -->
           <div v-if="battle.lastPlayerRoll.value" class="text-center mt-2">
-            <p
-              class="text-sm"
-              :class="
-                battle.getOutcomeColor(battle.lastPlayerRoll.value.outcome)
-              "
-            >
+            <p class="text-sm">
               {{ battle.getRollDescription(battle.lastPlayerRoll.value) }}
             </p>
           </div>
@@ -178,15 +174,13 @@
                   ).emoji
                 }}
               </span>
-              <span
-                class="font-bold ml-2"
-                :class="
-                  battle.getOutcomeColor(battle.lastOpponentRoll.value.outcome)
-                "
-              >
+              <span class="font-bold ml-2">
                 {{
-                  battle.getOutcomeLabel(battle.lastOpponentRoll.value.outcome)
+                  battle.getElementConfig(
+                    battle.lastOpponentRoll.value.result_element,
+                  ).emoji
                 }}
+                {{ battle.lastOpponentRoll.value.result_element }}
               </span>
             </div>
             <p class="text-sm text-muted-foreground">
@@ -330,13 +324,16 @@ const selectedPlayerDice = computed(() =>
 );
 const selectedDiceAffinity = computed(
   () =>
-    selectedPlayerDice.value?.dice_type?.stat_bonuses?.element_affinity as
+    (selectedPlayerDice.value?.dice_type as any)?.faces?.[0] as
       | "fire"
       | "water"
       | "earth"
       | "air"
       | "lightning"
       | undefined,
+);
+const selectedDiceFaces = computed(
+  () => (selectedPlayerDice.value?.dice_type as any)?.faces as string[] | undefined,
 );
 
 // Get dice type notation from dice ID
@@ -401,7 +398,7 @@ const handleRoll = async () => {
       if (response.result.player_roll) {
         rollResult.value = {
           roll_value: response.result.player_roll.roll_value,
-          outcome: response.result.player_roll.outcome,
+          result_element: response.result.player_roll.result_element,
         };
       }
 
@@ -419,7 +416,7 @@ const handleRoll = async () => {
         player_id: userStore.userId!,
         context: "combat",
         id: "temp-roll-id", // Temporary ID since this isn't saved in DB
-        outcome: (response.result.player_roll?.outcome as any) || "success",
+        result_element: response.result.player_roll?.result_element || "fire",
       });
     }
   } catch (error) {

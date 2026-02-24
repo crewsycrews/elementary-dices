@@ -49,9 +49,8 @@ export const MerchantDataDTO = t.Object({
       name: t.String(),
       price: t.Number(),
       rarity: t.String(),
-      dice_notation: t.String(), // e.g., 'd6', 'd20'
-      bonus_multiplier: t.Number(),
-      element_affinity: t.Optional(t.String()), // fire, water, earth, air, lightning
+      dice_notation: t.String(),
+      faces: t.Array(t.String()),
     }),
   ),
 });
@@ -85,9 +84,9 @@ export const BattleRollRecordDTO = t.Object({
   side: t.String(), // "player" | "opponent"
   dice_type_id: t.Optional(t.String()),
   dice_element: t.String(),
-  outcome: t.String(),
+  result_element: t.String(),
   bonus_applied: t.Number(),
-  affected_element: t.String(), // element name or "all_others"
+  affected_element: t.String(), // element name
   roll_value: t.Optional(t.Number()),
 });
 

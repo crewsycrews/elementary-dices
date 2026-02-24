@@ -89,10 +89,7 @@
                   :dice-type="getDiceType(selectedDice)"
                   :result="rollResult"
                   @roll-complete="handleRollComplete"
-                  :affinity="
-                    selectedPlayerDice?.dice_type?.stat_bonuses
-                      ?.element_affinity
-                  "
+                  :element-faces="(selectedPlayerDice?.dice_type as any)?.faces"
                 />
               </div>
             </Transition>
@@ -145,9 +142,7 @@
             :dice-type="getDiceType(selectedDice)"
             :result="rollResult"
             @roll-complete="handleRollComplete"
-            :affinity="
-              selectedPlayerDice?.dice_type?.stat_bonuses?.element_affinity
-            "
+            :element-faces="(selectedPlayerDice?.dice_type as any)?.faces"
           />
           <div
             class="p-6 rounded-lg"
@@ -191,18 +186,16 @@
                 Your roll:
                 <span class="font-bold">{{ rollResult?.roll_value }}</span>
                 <span
-                  class="ml-2 px-2 py-1 rounded text-xs"
-                  :class="
-                    rollResult?.outcome === 'critical_success'
-                      ? 'bg-green-500/20 text-green-600'
-                      : rollResult?.outcome === 'success'
-                        ? 'bg-blue-500/20 text-blue-600'
-                        : rollResult?.outcome === 'failure'
-                          ? 'bg-yellow-500/20 text-yellow-600'
-                          : 'bg-red-500/20 text-red-600'
-                  "
+                  class="ml-2 px-2 py-1 rounded text-xs capitalize"
+                  :class="{
+                    'bg-red-500/20 text-red-600': rollResult?.result_element === 'fire',
+                    'bg-blue-500/20 text-blue-600': rollResult?.result_element === 'water',
+                    'bg-amber-500/20 text-amber-600': rollResult?.result_element === 'earth',
+                    'bg-cyan-500/20 text-cyan-600': rollResult?.result_element === 'air',
+                    'bg-yellow-500/20 text-yellow-600': rollResult?.result_element === 'lightning',
+                  }"
                 >
-                  {{ rollResult?.outcome?.replace("_", " ").toUpperCase() }}
+                  {{ rollResult?.result_element }}
                 </span>
               </p>
             </div>
@@ -338,7 +331,7 @@ const handleCaptureAttempt = async () => {
     // Set roll result for visualization
     rollResult.value = {
       roll_value: diceRoll.roll_value,
-      outcome: diceRoll.outcome,
+      result_element: diceRoll.result_element,
     };
     setTimeout(() => {
       nextTick(() => {

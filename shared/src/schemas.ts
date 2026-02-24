@@ -55,14 +55,6 @@ export const BattleOutcome = t.Union([
   t.Literal("draw"),
 ]);
 
-// Dice roll outcome
-export const DiceRollOutcome = t.Union([
-  t.Literal("crit_success"),
-  t.Literal("success"),
-  t.Literal("fail"),
-  t.Literal("crit_fail"),
-]);
-
 // Dice roll context
 export const DiceRollContext = t.Union([
   t.Literal("capture_attempt"),
@@ -199,16 +191,7 @@ export const DiceTypeSchema = t.Object({
   dice_notation: t.String(),
   rarity: DiceRarity,
   name: t.String(),
-  stat_bonuses: t.Object({
-    bonus_multiplier: t.Number({ minimum: 1 }),
-    element_affinity: t.Optional(ElementType),
-  }),
-  outcome_thresholds: t.Object({
-    crit_success_range: t.Tuple([t.Integer(), t.Integer()]),
-    success_range: t.Tuple([t.Integer(), t.Integer()]),
-    fail_range: t.Tuple([t.Integer(), t.Integer()]),
-    crit_fail_range: t.Tuple([t.Integer(), t.Integer()]),
-  }),
+  faces: t.Array(ElementType),
   price: t.Integer({ minimum: 0 }),
   description: t.String(),
 });
@@ -217,16 +200,7 @@ export const CreateDiceTypeSchema = t.Object({
   dice_notation: t.String(),
   rarity: DiceRarity,
   name: t.String(),
-  stat_bonuses: t.Object({
-    bonus_multiplier: t.Number({ minimum: 1 }),
-    element_affinity: t.Optional(ElementType),
-  }),
-  outcome_thresholds: t.Object({
-    crit_success_range: t.Tuple([t.Integer(), t.Integer()]),
-    success_range: t.Tuple([t.Integer(), t.Integer()]),
-    fail_range: t.Tuple([t.Integer(), t.Integer()]),
-    crit_fail_range: t.Tuple([t.Integer(), t.Integer()]),
-  }),
+  faces: t.Array(ElementType),
   price: t.Integer({ minimum: 0 }),
   description: t.String(),
 });
@@ -385,7 +359,7 @@ export const BattleRollRecordSchema = t.Object({
   side: t.Union([t.Literal("player"), t.Literal("opponent")]),
   dice_type_id: t.Optional(t.String({ format: "uuid" })),
   dice_element: ElementType,
-  outcome: DiceRollOutcome,
+  result_element: ElementType,
   bonus_applied: t.Number(),
   affected_element: t.String(), // element name or "all_others"
   roll_value: t.Optional(t.Integer()),
@@ -452,26 +426,18 @@ export const CreateBattleSchema = t.Object({
 
 export const DiceRollSchema = t.Object({
   id: t.String({ format: "uuid" }),
-  battle_id: t.Optional(t.String({ format: "uuid" })),
   player_id: t.String({ format: "uuid" }),
   dice_type_id: t.String({ format: "uuid" }),
   dice_notation: t.Optional(t.String()), // Added from dice_types join
   roll_value: t.Integer(),
-  outcome: DiceRollOutcome,
+  result_element: ElementType,
   context: DiceRollContext,
-  modifiers: t.Optional(
-    t.Object({
-      element_bonus: t.Optional(t.Integer()),
-      item_bonus: t.Optional(t.Integer()),
-      total_bonus: t.Optional(t.Integer()),
-    }),
-  ),
 });
 
 export const CreateDiceRollSchema = t.Object({
-  battle_id: t.Optional(t.String({ format: "uuid" })),
   player_id: t.String({ format: "uuid" }),
   dice_type_id: t.String({ format: "uuid" }),
+  result_element: ElementType,
   context: DiceRollContext,
 });
 
@@ -502,7 +468,6 @@ export const schemas = {
   BattleType: EncounterType,
   BattleStatus: EncounterStatus,
   BattleOutcome,
-  DiceRollOutcome,
   DiceRollContext,
   ItemType,
 

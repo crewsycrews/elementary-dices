@@ -36,13 +36,8 @@
         <!-- Dice element -->
         <span class="shrink-0">{{ getElementEmoji(roll.dice_element) }}</span>
 
-        <!-- Outcome -->
-        <span
-          class="font-bold shrink-0"
-          :class="getOutcomeColor(roll.outcome)"
-        >
-          {{ getOutcomeShort(roll.outcome) }}
-        </span>
+        <!-- Result element -->
+        <span class="shrink-0">{{ getElementEmoji(roll.result_element) }}</span>
 
         <!-- Effect -->
         <span class="text-muted-foreground">
@@ -74,26 +69,6 @@ const ELEMENT_EMOJIS: Record<string, string> = {
 
 function getElementEmoji(element: string): string {
   return ELEMENT_EMOJIS[element] ?? '❓'
-}
-
-function getOutcomeColor(outcome: string): string {
-  switch (outcome) {
-    case 'crit_success': return 'text-green-400'
-    case 'success': return 'text-blue-400'
-    case 'fail': return 'text-yellow-500'
-    case 'crit_fail': return 'text-red-500'
-    default: return 'text-gray-400'
-  }
-}
-
-function getOutcomeShort(outcome: string): string {
-  switch (outcome) {
-    case 'crit_success': return 'CRIT!'
-    case 'success': return 'HIT'
-    case 'fail': return 'MISS'
-    case 'crit_fail': return 'FAIL!'
-    default: return '???'
-  }
 }
 
 // Auto-scroll to bottom when new rolls are added

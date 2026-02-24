@@ -10,14 +10,6 @@ const ELEMENT_CONFIG: Record<string, { emoji: string; color: string; bgColor: st
   lightning: { emoji: '⚡', color: 'text-yellow-400', bgColor: 'bg-yellow-400/20' },
 }
 
-// Weakness cycle: W -> F -> A -> E -> W
-const ELEMENT_BEATS: Record<string, string> = {
-  water: 'fire',
-  fire: 'air',
-  air: 'earth',
-  earth: 'water',
-}
-
 export function useBattle() {
   // State
   const battleState = ref<BattleState | null>(null)
@@ -49,55 +41,26 @@ export function useBattle() {
   const targetLines = computed(() => {
     return playerParty.value.map((member, index) => {
       const target = opponentParty.value[member.target_index]
-      const hasAdvantage = target ? elementBeats(member.element, target.element) : false
       return {
         fromIndex: index,
         toIndex: member.target_index,
-        hasAdvantage,
         attackerElement: member.element,
         defenderElement: target?.element ?? '',
       }
     })
   })
 
-  // Helpers
-  function elementBeats(attacker: string, defender: string): boolean {
-    return ELEMENT_BEATS[attacker] === defender
-  }
-
   function getElementConfig(element: string) {
     return ELEMENT_CONFIG[element] ?? ELEMENT_CONFIG.fire
-  }
-
-  function getOutcomeLabel(outcome: string): string {
-    switch (outcome) {
-      case 'crit_success': return 'CRIT SUCCESS'
-      case 'success': return 'SUCCESS'
-      case 'fail': return 'FAIL'
-      case 'crit_fail': return 'CRIT FAIL'
-      default: return outcome.toUpperCase()
-    }
-  }
-
-  function getOutcomeColor(outcome: string): string {
-    switch (outcome) {
-      case 'crit_success': return 'text-green-400'
-      case 'success': return 'text-blue-400'
-      case 'fail': return 'text-yellow-500'
-      case 'crit_fail': return 'text-red-500'
-      default: return 'text-gray-400'
-    }
   }
 
   function getRollDescription(roll: BattleRollRecord): string {
     const sideLabel = roll.side === 'player' ? 'You' : 'Opponent'
     const elementEmoji = getElementConfig(roll.dice_element).emoji
-    const outcomeLabel = getOutcomeLabel(roll.outcome)
-    const affectedEmoji = roll.affected_element === 'all_others'
-      ? '🌍 all non-lightning'
-      : getElementConfig(roll.affected_element).emoji
+    const resultEmoji = getElementConfig(roll.result_element).emoji
+    const affectedEmoji = getElementConfig(roll.affected_element).emoji
 
-    return `${sideLabel} rolled ${elementEmoji} dice - ${outcomeLabel}! +${roll.bonus_applied.toFixed(1)} power to ${affectedEmoji} elementals`
+    return `${sideLabel} rolled ${elementEmoji} dice - got ${resultEmoji}! +${roll.bonus_applied.toFixed(1)} power to ${affectedEmoji} elementals`
   }
 
   // Actions
@@ -163,10 +126,7 @@ export function useBattle() {
     totalOpponentPower,
     targetLines,
     // Helpers
-    elementBeats,
     getElementConfig,
-    getOutcomeLabel,
-    getOutcomeColor,
     getRollDescription,
     // Actions
     initFromState,

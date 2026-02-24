@@ -5,6 +5,7 @@
       ref="dice3DRef"
       :dice-type="diceType"
       :affinity="affinity"
+      :element-faces="elementFaces"
       :is-rolling="isRolling"
       @roll-completed="handleRollComplete"
       :value="result?.roll_value"
@@ -19,19 +20,10 @@
     <div
       v-if="showResult && result"
       class="result-display"
-      :class="`result-${result.outcome}`"
+      :class="`result-${result.result_element}`"
     >
       <div class="outcome-badge">
-        {{ getOutcomeLabel(result.outcome) }}
-      </div>
-      <div v-if="result.modifiers" class="modifiers">
-        <span
-          v-for="(mod, index) in result.modifiers"
-          :key="index"
-          class="modifier"
-        >
-          {{ mod.source }}: {{ mod.value > 0 ? "+" : "" }}{{ mod.value }}
-        </span>
+        {{ getElementLabel(result.result_element) }}
       </div>
     </div>
   </div>
@@ -43,16 +35,21 @@ import Dice3D from "./Dice3D.vue";
 
 export interface DiceRollResult {
   roll_value: number;
-  outcome: "crit_success" | "success" | "fail" | "crit_fail";
-  modifiers?: Array<{
-    source: string;
-    value: number;
-  }>;
+  result_element: "fire" | "water" | "earth" | "air" | "lightning";
 }
+
+const ELEMENT_EMOJI: Record<string, string> = {
+  fire: '\uD83D\uDD25',
+  water: '\uD83C\uDF0A',
+  air: '\uD83D\uDCA8',
+  earth: '\u26F0\uFE0F',
+  lightning: '\u26A1',
+};
 
 const props = defineProps<{
   diceType: "d4" | "d6" | "d10" | "d12" | "d20";
   affinity?: "fire" | "water" | "earth" | "air" | "lightning";
+  elementFaces?: string[];
   autoRoll?: boolean;
   result?: DiceRollResult;
 }>();
@@ -88,20 +85,10 @@ const handleRollComplete = () => {
   emit("rollComplete");
 };
 
-// Get outcome label with emoji
-const getOutcomeLabel = (outcome: string): string => {
-  switch (outcome) {
-    case "crit_success":
-      return "🌟 Critical Success!";
-    case "success":
-      return "✅ Success";
-    case "fail":
-      return "❌ Fail";
-    case "crit_fail":
-      return "💀 Critical Fail!";
-    default:
-      return outcome;
-  }
+// Get element label with emoji
+const getElementLabel = (element: string): string => {
+  const emoji = ELEMENT_EMOJI[element] ?? '';
+  return `${emoji} ${element.charAt(0).toUpperCase() + element.slice(1)}`;
 };
 
 // onMounted(() => {
@@ -161,43 +148,33 @@ defineExpose({
   white-space: nowrap;
 }
 
-.result-crit_success .outcome-badge {
-  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
-}
-
-.result-success .outcome-badge {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  color: white;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
-}
-
-.result-fail .outcome-badge {
+.result-fire .outcome-badge {
   background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
   color: white;
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
-.result-crit_fail .outcome-badge {
-  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+.result-water .outcome-badge {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(124, 58, 237, 0.4);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-.modifiers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
+.result-earth .outcome-badge {
+  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
 }
 
-.modifier {
-  padding: 0.25rem 0.75rem;
-  background: hsl(var(--muted));
-  color: hsl(var(--muted-foreground));
-  border-radius: 0.375rem;
-  font-size: 0.75rem;
-  font-weight: 500;
+.result-air .outcome-badge {
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+}
+
+.result-lightning .outcome-badge {
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
 }
 </style>

@@ -167,25 +167,28 @@ export class UserService {
     return `hashed_${password}`;
   }
 
-  // Give new players 5 dice (one per notation - d4, d6, d10, d12, d20)
+  // Give new players 5 dice (one random green per notation - d4, d6, d10, d12, d20)
   async giveStarterDice(playerId: string): Promise<void> {
     // Get all green (starter) dice types
     const starterDiceTypes = await this.diceRepository.findDiceTypesByRarity('green');
 
-    // Get ONE dice per notation (5 total)
-    const diceByNotation = new Map<string, typeof starterDiceTypes[0]>();
+    // Group by notation, then pick a random one from each group
+    const byNotation = new Map<string, typeof starterDiceTypes>();
     for (const diceType of starterDiceTypes) {
-      if (!diceByNotation.has(diceType.dice_notation)) {
-        diceByNotation.set(diceType.dice_notation, diceType);
-      }
+      const group = byNotation.get(diceType.dice_notation) ?? [];
+      group.push(diceType);
+      byNotation.set(diceType.dice_notation, group);
     }
 
-    // Create 5 dice, all equipped
-    const diceToAdd = Array.from(diceByNotation.values()).map((diceType) => ({
-      dice_type_id: diceType.id,
-      dice_notation: diceType.dice_notation,
-      is_equipped: true,
-    }));
+    // Pick one random dice per notation
+    const diceToAdd = Array.from(byNotation.entries()).map(([notation, group]) => {
+      const randomDice = group[Math.floor(Math.random() * group.length)];
+      return {
+        dice_type_id: randomDice.id,
+        dice_notation: notation,
+        is_equipped: true,
+      };
+    });
 
     // Batch insert all starter dice at once
     await this.diceRepository.addMultiplePlayerDice(playerId, diceToAdd);

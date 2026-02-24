@@ -29,27 +29,9 @@
             :class="`dice-face-${diceType}`"
             :style="faceStyles[face.value]"
           >
-            <!-- D4 faces show 3 values (all except the bottom face) -->
-            <template v-if="diceType === 'd4'">
-              <span
-                class="face-value face-value-d4-left"
-                :style="faceValueStyle"
-                >{{ getD4Values(face.value)[0] }}</span
-              >
-              <span
-                class="face-value face-value-d4-center"
-                :style="faceValueStyle"
-                >{{ getD4Values(face.value)[1] }}</span
-              >
-              <span
-                class="face-value face-value-d4-right"
-                :style="faceValueStyle"
-                >{{ getD4Values(face.value)[2] }}</span
-              >
-            </template>
-            <!-- Other dice types show single value -->
-            <span v-else class="face-value" :style="faceValueStyle">{{
-              face.value
+            <!-- Elemental faces: show element emoji -->
+            <span class="face-value face-value-emoji">{{
+              ELEMENT_EMOJI[getFaceElement(face.value) ?? ""] ?? face.value
             }}</span>
           </div>
         </div>
@@ -60,7 +42,12 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from "vue";
-import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
+import {
+  getGeometry,
+  type DiceType,
+  createTransform,
+  ELEMENT_EMOJI,
+} from "./dice-geometry";
 import airTexture from "../../../assets/dice-affinities/air.gif";
 import fireTexture from "../../../assets/dice-affinities/fire.gif";
 import waterTexture from "../../../assets/dice-affinities/water.gif";
@@ -87,8 +74,12 @@ interface Props {
   /** The type of dice to render (d4, d6, d10, d12, d20) */
   diceType: DiceType;
 
-  /** Element affinity to use as face texture */
+  /** Element affinity to use as face texture (legacy — uses single texture for all faces) */
   affinity?: "fire" | "water" | "earth" | "air" | "lightning";
+
+  /** Elemental faces array from dice type data. When provided, each face renders its element emoji
+   *  and gets a per-face texture based on its element. Takes priority over `affinity`. */
+  elementFaces?: string[];
 
   /** The current face value to display (1-N) */
   value?: number;
@@ -116,6 +107,7 @@ const props = withDefaults(defineProps<Props>(), {
   showShadow: true,
   animationSpeed: 0.6,
   affinity: undefined,
+  elementFaces: undefined,
   spinning: false,
 });
 
@@ -161,21 +153,24 @@ const faceStyles = computed(() => {
     const style: Record<string, string> = { transform: face.transform };
     if (face.clipPath) style.clipPath = face.clipPath;
     if (props.diceType === "d12") style.transformOrigin = "center bottom";
-    if (props.affinity && affinityTextures[props.affinity]) {
+
+    // Per-face element texture when elementFaces is provided
+    const faceElement = props.elementFaces?.[face.value - 1];
+    if (faceElement && affinityTextures[faceElement]) {
+      style.background = `url(${affinityTextures[faceElement]}) center / cover`;
+    } else if (props.affinity && affinityTextures[props.affinity]) {
       style.background = `url(${affinityTextures[props.affinity]}) center / cover`;
     }
+
     styles[face.value] = style;
   }
   return styles;
 });
 
-const faceValueStyle = computed(() => {
-  const style: Record<string, string> = {};
-  if (props.affinity && affinityTextColors[props.affinity]) {
-    style.color = affinityTextColors[props.affinity] || "white";
-  }
-  return style;
-});
+/** Get the element for a specific face (1-based index) */
+function getFaceElement(faceValue: number): string | undefined {
+  return props.elementFaces?.[faceValue - 1];
+}
 
 /**
  * Get the 3 values displayed on a d4 face

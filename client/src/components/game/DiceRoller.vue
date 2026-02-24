@@ -28,26 +28,13 @@
       </div>
     </div>
 
-    <!-- Outcome Display -->
-    <div v-if="lastOutcome" class="text-center">
+    <!-- Result Element Display -->
+    <div v-if="lastResultElement" class="text-center">
       <div
         class="outcome-badge px-4 py-2 rounded-lg font-bold animate-pulse"
         :class="outcomeBadgeClass"
       >
         {{ outcomeText }}
-      </div>
-    </div>
-
-    <!-- Modifiers Display -->
-    <div v-if="modifiers && Object.keys(modifiers).length > 0" class="text-xs space-y-1">
-      <div v-if="modifiers.element_bonus" class="text-green-600">
-        Element Bonus: +{{ modifiers.element_bonus }}
-      </div>
-      <div v-if="modifiers.item_bonus" class="text-blue-600">
-        Item Bonus: +{{ modifiers.item_bonus }}
-      </div>
-      <div v-if="modifiers.total_bonus" class="font-bold">
-        Total Bonus: +{{ modifiers.total_bonus }}
       </div>
     </div>
 
@@ -65,14 +52,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import type { DiceTypeSchema, DiceRollOutcome } from '@elementary-dices/shared/schemas';
+import type { DiceTypeSchema } from '@elementary-dices/shared/schemas';
 import { useDiceRoll } from '@/composables/useDiceRoll';
 
 interface Props {
   diceType: typeof DiceTypeSchema.static;
   autoRoll?: boolean; // Automatically roll on mount
   disabled?: boolean;
-  elementTypes?: string[]; // For element affinity bonus calculation
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -81,15 +67,14 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const emit = defineEmits<{
-  roll: [result: { value: number; outcome: typeof DiceRollOutcome.static; modifiers?: any }];
+  roll: [result: { value: number; result_element: string }];
 }>();
 
 const { rollDice, isRolling } = useDiceRoll();
 
 const displayValue = ref<string>('?');
 const lastRollValue = ref<number | null>(null);
-const lastOutcome = ref<typeof DiceRollOutcome.static | null>(null);
-const modifiers = ref<any>(null);
+const lastResultElement = ref<string | null>(null);
 
 const diceName = computed(() => props.diceType.name);
 const diceNotation = computed(() => props.diceType.dice_notation);
@@ -117,40 +102,45 @@ const rarityBadgeClass = computed(() => {
   return colors[props.diceType.rarity] || 'bg-gray-500/20 text-gray-700';
 });
 
-// Outcome badge styling
+// Element emoji map
+const ELEMENT_EMOJI: Record<string, string> = {
+  fire: '\uD83D\uDD25',
+  water: '\uD83C\uDF0A',
+  air: '\uD83D\uDCA8',
+  earth: '\u26F0\uFE0F',
+  lightning: '\u26A1',
+};
+
+// Result element badge styling
 const outcomeBadgeClass = computed(() => {
   const colors: Record<string, string> = {
-    crit_success: 'bg-green-600 text-white',
-    success: 'bg-blue-600 text-white',
-    fail: 'bg-orange-600 text-white',
-    crit_fail: 'bg-red-600 text-white',
+    fire: 'bg-red-600 text-white',
+    water: 'bg-blue-600 text-white',
+    earth: 'bg-amber-600 text-white',
+    air: 'bg-cyan-600 text-white',
+    lightning: 'bg-yellow-600 text-white',
   };
-  return lastOutcome.value ? colors[lastOutcome.value] : '';
+  return lastResultElement.value ? colors[lastResultElement.value] ?? '' : '';
 });
 
-// Outcome text
+// Result element text
 const outcomeText = computed(() => {
-  const text: Record<string, string> = {
-    crit_success: '🌟 Critical Success!',
-    success: '✓ Success',
-    fail: '✗ Failure',
-    crit_fail: '💀 Critical Failure!',
-  };
-  return lastOutcome.value ? text[lastOutcome.value] : '';
+  if (!lastResultElement.value) return '';
+  const emoji = ELEMENT_EMOJI[lastResultElement.value] ?? '';
+  return `${emoji} ${lastResultElement.value.charAt(0).toUpperCase() + lastResultElement.value.slice(1)}`;
 });
 
 // Roll the dice
 const roll = async () => {
   if (isRolling.value || props.disabled) return;
 
-  const result = await rollDice(props.diceType, props.elementTypes);
+  const rawResult = await rollDice(props.diceType);
 
-  lastRollValue.value = result.value;
-  lastOutcome.value = result.outcome;
-  modifiers.value = result.modifiers;
-  displayValue.value = result.value.toString();
+  lastRollValue.value = rawResult.faceIndex + 1;
+  lastResultElement.value = rawResult.resultElement;
+  displayValue.value = (rawResult.faceIndex + 1).toString();
 
-  emit('roll', result);
+  emit('roll', { value: rawResult.faceIndex + 1, result_element: rawResult.resultElement });
 };
 
 // Auto-roll on mount if enabled

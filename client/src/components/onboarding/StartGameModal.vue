@@ -193,7 +193,7 @@ const startRoll = async () => {
       // Prepare roll result for visualization
       rollResult.value = {
         roll_value: data.dice_roll.roll_value,
-        outcome: "crit_success" as const, // First roll is always special!
+        result_element: data.dice_roll.result_element ?? "fire", // Use the result element from the roll
       };
 
       // Store result immediately

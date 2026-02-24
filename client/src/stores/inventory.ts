@@ -39,16 +39,7 @@ type DiceType = {
   dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
   rarity: "green" | "blue" | "purple" | "gold";
   name: string;
-  stat_bonuses: {
-    bonus_multiplier: number;
-    element_affinity?: "fire" | "water" | "earth" | "air" | "lightning";
-  };
-  outcome_thresholds: {
-    crit_success_range: [number, number];
-    success_range: [number, number];
-    fail_range: [number, number];
-    crit_fail_range: [number, number];
-  };
+  faces: ("fire" | "water" | "earth" | "air" | "lightning")[];
   price: number;
   description: string;
 };

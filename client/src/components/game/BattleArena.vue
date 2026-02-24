@@ -18,7 +18,6 @@
             :is-buffed="isElementBuffed(member.element)"
             :show-target="showTargets"
             :target-name="getTargetName(member, 'player')"
-            :has-advantage="hasAdvantageOver(member, 'player')"
           />
         </div>
       </div>
@@ -31,9 +30,7 @@
         <div v-if="showTargets" class="mt-4 text-xs text-muted-foreground text-center">
           <div v-for="line in targetLines" :key="line.fromIndex" class="flex items-center gap-1 mb-1">
             <span>{{ playerParty[line.fromIndex]?.name }}</span>
-            <span :class="line.hasAdvantage ? 'text-green-400' : 'text-muted-foreground'">
-              {{ line.hasAdvantage ? '⚔️→' : '→' }}
-            </span>
+            <span class="text-muted-foreground">→</span>
             <span>{{ opponentParty[line.toIndex]?.name }}</span>
           </div>
         </div>
@@ -55,7 +52,6 @@
             :is-buffed="isElementBuffed(member.element)"
             :show-target="showTargets"
             :target-name="getTargetName(member, 'opponent')"
-            :has-advantage="hasAdvantageOver(member, 'opponent')"
           />
         </div>
       </div>
@@ -68,13 +64,6 @@ import { computed } from 'vue'
 import BattleElementalCard from './BattleElementalCard.vue'
 import type { BattlePartyMember } from '@/stores/event'
 
-const ELEMENT_BEATS: Record<string, string> = {
-  water: 'fire',
-  fire: 'air',
-  air: 'earth',
-  earth: 'water',
-}
-
 const props = defineProps<{
   playerParty: BattlePartyMember[]
   opponentParty: BattlePartyMember[]
@@ -84,7 +73,6 @@ const props = defineProps<{
   targetLines?: Array<{
     fromIndex: number
     toIndex: number
-    hasAdvantage: boolean
     attackerElement: string
     defenderElement: string
   }>
@@ -108,13 +96,5 @@ function getTargetName(member: BattlePartyMember, side: 'player' | 'opponent'): 
   if (member.target_index < 0) return ''
   const targets = side === 'player' ? props.opponentParty : props.playerParty
   return targets[member.target_index]?.name ?? ''
-}
-
-function hasAdvantageOver(member: BattlePartyMember, side: 'player' | 'opponent'): boolean {
-  if (member.target_index < 0) return false
-  const targets = side === 'player' ? props.opponentParty : props.playerParty
-  const target = targets[member.target_index]
-  if (!target) return false
-  return ELEMENT_BEATS[member.element] === target.element
 }
 </script>

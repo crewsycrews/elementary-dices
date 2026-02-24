@@ -18,7 +18,6 @@ import {
   ElementType,
   DiceRarity,
   ItemRarity,
-  DiceRollOutcome,
   DiceRollContext,
   EncounterType,
   EncounterStatus,
@@ -43,7 +42,6 @@ export type BaseStats = Static<typeof StatsSchema>;
 export type ElementTypeValue = Static<typeof ElementType>;
 export type DiceRarityValue = Static<typeof DiceRarity>;
 export type ItemRarityValue = Static<typeof ItemRarity>;
-export type DiceRollOutcomeValue = Static<typeof DiceRollOutcome>;
 export type DiceRollContextValue = Static<typeof DiceRollContext>;
 export type EncounterTypeValue = Static<typeof EncounterType>;
 export type EncounterStatusValue = Static<typeof EncounterStatus>;

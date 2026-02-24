@@ -19,16 +19,11 @@ import {
   BattleEventRepository,
   MerchantEventRepository,
 } from "./repository";
-import type { DiceRollOutcome } from "../dice-rolls/models";
 import { DiceRollService } from "../dice-rolls/service";
 import {
   buildPartyMember,
   computeTargetAssignments,
-  applyAdvantageBonuses,
-  applyDiceRollEffect,
   determineBattleWinner,
-  pickOpponentDiceElement,
-  simulateAiRollOutcome,
   type BattleState,
   type BattlePartyMember,
   type ElementType,
@@ -262,17 +257,14 @@ export class EventService {
     const opponentName = this.generateOpponentName();
     const opponentPowerLevel = opponentParty.reduce((sum, m) => sum + m.base_power, 0);
 
-    // Compute target assignments (Phase 1)
+    // Compute target assignments (random, no element advantages)
     const assigned = computeTargetAssignments(playerParty, opponentParty);
-
-    // Apply advantage bonuses (+10% for advantage matchups)
-    const withBonuses = applyAdvantageBonuses(assigned.playerParty, assigned.opponentParty);
 
     // Build initial battle state
     const battleState: BattleState = {
       phase: "targeting",
-      player_party: withBonuses.playerParty,
-      opponent_party: withBonuses.opponentParty,
+      player_party: assigned.playerParty,
+      opponent_party: assigned.opponentParty,
       rolls: [],
       current_turn: 1,
       player_rolls_done: 0,
@@ -285,8 +277,8 @@ export class EventService {
       opponent_name: opponentName,
       opponent_power_level: opponentPowerLevel,
       potential_reward: potentialReward,
-      opponent_party: withBonuses.opponentParty,
-      player_party: withBonuses.playerParty,
+      opponent_party: assigned.opponentParty,
+      player_party: assigned.playerParty,
       battle_state: battleState,
     };
 
@@ -299,7 +291,7 @@ export class EventService {
       opponent_name: opponentName,
       opponent_power_level: opponentPowerLevel,
       battleState,
-      opponentPartyData: withBonuses.opponentParty,
+      opponentPartyData: assigned.opponentParty,
     };
   }
 
@@ -402,6 +394,9 @@ export class EventService {
   /**
    * Player rolls a dice in battle. After player roll, AI auto-rolls.
    * Returns updated battle state and both roll results.
+   *
+   * NOTE: This is a simplified Phase 1 version. Phase 2 replaces this
+   * with full Farkle mechanics (throw 5 dice, combinations, etc.)
    */
   async rollBattleDice(
     playerId: string,
@@ -430,79 +425,64 @@ export class EventService {
       throw new BadRequestError("All player rolls have been made");
     }
 
-    // Verify it's player's turn (player goes first each turn)
     if (battleState.player_rolls_done > battleState.opponent_rolls_done) {
       throw new BadRequestError("Waiting for opponent's roll");
     }
 
-    // Get the dice type
-    const [diceType] = await db("dice_types")
-      .where({ id: diceTypeId })
-      .limit(1);
-    if (!diceType) {
-      throw new NotFoundError("Dice type");
-    }
-
-    // Perform the player's dice roll
+    // Perform the player's dice roll (now returns result_element)
     const rollResult = await this.diceRollService.performRoll({
       player_id: playerId,
       dice_type_id: diceTypeId,
       context: "combat",
     });
 
-    const diceElement = (diceType.stat_bonuses?.element_affinity ?? "fire") as ElementType;
-    const bonusMultiplier = diceType.stat_bonuses?.bonus_multiplier ?? 1;
-    const outcome = rollResult.roll.outcome as "crit_success" | "success" | "fail" | "crit_fail";
+    const resultElement = rollResult.details.result_element as ElementType;
 
-    // Apply player roll effect
-    const playerEffect = applyDiceRollEffect(
-      battleState,
-      diceElement,
-      outcome,
-      bonusMultiplier,
-    );
-    battleState = playerEffect.state;
+    // Simple Phase 1 buff: +5 power to matching elementals on player's side
+    const bonusAmount = 5;
+    battleState.player_party = battleState.player_party.map((member) => {
+      if (member.element === resultElement) {
+        return { ...member, current_power: member.current_power + bonusAmount };
+      }
+      return { ...member };
+    });
 
-    // Record player roll
     const playerRoll = {
       turn: battleState.player_rolls_done + 1,
       side: "player" as const,
       dice_type_id: diceTypeId,
-      dice_element: diceElement,
-      outcome,
-      bonus_applied: playerEffect.bonusApplied,
-      affected_element: playerEffect.affectedElement,
+      dice_element: resultElement,
+      result_element: resultElement,
+      bonus_applied: bonusAmount,
+      affected_element: resultElement as string,
       roll_value: rollResult.roll.roll_value,
     };
     battleState.rolls.push(playerRoll);
     battleState.player_rolls_done += 1;
 
-    // AI auto-roll
-    const aiDiceElement = pickOpponentDiceElement(battleState);
-    const aiOutcome = simulateAiRollOutcome();
-    // AI uses a virtual bonus multiplier based on the average of dice in the game
-    const aiBonusMultiplier = 1.5; // balanced default for AI
+    // AI auto-roll: random element buff
+    const elements: ElementType[] = ["fire", "water", "earth", "air", "lightning"];
+    const aiElement = elements[Math.floor(Math.random() * elements.length)];
+    const aiBonusAmount = 5;
 
-    const aiEffect = applyDiceRollEffect(
-      battleState,
-      aiDiceElement,
-      aiOutcome,
-      aiBonusMultiplier,
-    );
-    battleState = aiEffect.state;
+    battleState.opponent_party = battleState.opponent_party.map((member) => {
+      if (member.element === aiElement) {
+        return { ...member, current_power: member.current_power + aiBonusAmount };
+      }
+      return { ...member };
+    });
 
     const opponentRoll = {
       turn: battleState.opponent_rolls_done + 1,
       side: "opponent" as const,
-      dice_element: aiDiceElement,
-      outcome: aiOutcome,
-      bonus_applied: aiEffect.bonusApplied,
-      affected_element: aiEffect.affectedElement,
+      dice_element: aiElement,
+      result_element: aiElement,
+      bonus_applied: aiBonusAmount,
+      affected_element: aiElement as string,
     };
     battleState.rolls.push(opponentRoll);
     battleState.opponent_rolls_done += 1;
 
-    // Update current turn
     battleState.current_turn = battleState.player_rolls_done + 1;
 
     // Check if battle is resolved (both sides made 3 rolls)
@@ -518,7 +498,7 @@ export class EventService {
       battleState.player_total_power = playerTotal;
       battleState.opponent_total_power = opponentTotal;
 
-      const victory = winner === "player" || winner === "draw"; // draw counts as player win
+      const victory = winner === "player" || winner === "draw";
       result = await this.resolveBattleOutcome(
         playerId,
         battle.id,
@@ -530,7 +510,6 @@ export class EventService {
       );
     }
 
-    // Persist updated battle state
     await this.battleRepo.updateBattleState(battle.id, battleState);
 
     return {
@@ -715,7 +694,7 @@ export class EventService {
       "price",
       "rarity",
       "dice_notation",
-      "stat_bonuses",
+      "faces",
     );
 
     const upgradeDice = allDice.filter((die) => {
@@ -733,8 +712,7 @@ export class EventService {
         price: die.price,
         rarity: die.rarity,
         dice_notation: die.dice_notation,
-        bonus_multiplier: die.stat_bonuses?.bonus_multiplier ?? 1,
-        element_affinity: die.stat_bonuses?.element_affinity,
+        faces: die.faces,
       }),
     );
 
@@ -889,7 +867,7 @@ export class EventService {
           throw new NotFoundError("Merchant event");
         }
 
-        const inventory = await db("merchant_inventory")
+        const inventory: any[] = await db("merchant_inventory")
           .where({ merchant_event_id: merchant.id })
           .leftJoin("items", "merchant_inventory.item_id", "items.id")
           .leftJoin(
@@ -904,7 +882,7 @@ export class EventService {
             "dice_types.name as dice_name",
             "dice_types.rarity as dice_rarity",
             "dice_types.dice_notation as dice_notation",
-            "dice_types.stat_bonuses as dice_stat_bonuses",
+            "dice_types.faces as dice_faces",
           );
 
         const availableItems = inventory
@@ -924,8 +902,7 @@ export class EventService {
             price: item.price,
             rarity: item.dice_rarity,
             dice_notation: item.dice_notation,
-            bonus_multiplier: item.dice_stat_bonuses?.bonus_multiplier ?? 1,
-            element_affinity: item.dice_stat_bonuses?.element_affinity,
+            faces: item.dice_faces ?? [],
           }));
 
         const data: MerchantData = {
@@ -1024,22 +1001,17 @@ export class EventService {
       }
     }
 
-    const outcome: DiceRollOutcome = diceRoll.outcome;
-    const difficulty =
-      elemental.level === 1
-        ? "easy"
-        : elemental.level === 2
-          ? "medium"
-          : "hard";
+    // Capture logic: if dice result_element matches the wild elemental's element → success
+    // Capture bonus from items makes it easier (any element succeeds with high enough bonus)
+    const resultElement = diceRoll.result_element;
+    const wildElement = elemental.element_types?.[0] ?? "fire";
 
     let success = false;
-    if (outcome === "crit_success") {
+    if (resultElement === wildElement) {
       success = true;
-    } else if (outcome === "success") {
-      success =
-        difficulty === "easy" || (difficulty === "medium" && captureBonus > 0);
-    } else if (outcome === "fail") {
-      success = difficulty === "easy" && captureBonus >= 5;
+    } else if (captureBonus >= 5) {
+      // High capture bonus allows capture regardless of element
+      success = true;
     }
 
     let elementalCaught:
@@ -1054,6 +1026,7 @@ export class EventService {
           elemental_id: elemental.id,
           current_stats: elemental.base_stats,
           is_in_active_party: false,
+          party_position: null,
         })
         .returning("*");
 

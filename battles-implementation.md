@@ -23,3 +23,35 @@ Again these power changes as well as thrown dices should be reflected in the UI 
 
 ### Phase 3
 Battle resolution. Once all the multipliers are applied we sum up power of each elemental and calculate Total party power number. Which one is bigger is the winner party.
+
+
+# Battles implementation V2.0
+## Dices
+We are changing dices to a new faces. Instead of numbers we'll start to use elemental signs on them - 🌊, 🔥, 💨, ⛰️, ⚡.
+We still want to have same notations maintained so the distribution will be like this:
+- d20 - basically flat 5 + 5 + 5 + 5. So we simply repeat each element 4 times. The better quality dice will be the 1 that is including 1 and then 2 elements repeated more then 4 times(5-6). 
+- d12 - Again it's 5 + 5 and then 11 and 12 can be any other element. This dice will always be of 1 rarity since the advantage will be varying depending on the player's setup
+- d10 - flat 5 + 5. Second tier rarity dice can have 1 of the element to be repeated thrice(and not more).
+- d6 - 5 + 1 that can be any element. Rarity is always the same. 
+- d4 - All 4 is a different combination of 5 elements. Rarity is always the same. 
+
+## Battle rules
+These rules are highly developed on top of Farkle - classic dice game where you throw 6 dices and trying to achieve as high score as possible. Here we are doing the same, but player is trying to roll for a specific element as well.
+Battle turn:
+0. Choose 1 element that can be "set aside"(see 3.) no matter if it was in the combination or not. This element's dice will solely give elementals 10% bonus.
+1. At the beginning of each turn, the player throws all **five** dice at once.
+2. After first throw, player can choose to reroll **ONCE** from 1 to 5 dices to achieve some combination
+3. One or more dice combination can be set aside. 
+4. The player may then either end their turn or roll again the least dices(only after "set aside" action).
+5. Combinations that already set aside can be regrouped with rethrown ones.
+6. If all 5 dices are participating in a combination - it's a DICE RASH - The player can throw all 5 dices again to accumulate even more bonuses. (start from 1 step saving current bonuses)
+7. If no combination in the roll - and you already rerolled once(2 step) - you lose all the bonuses.
+
+Bonuses are applied only to your elementals!
+
+## Dices combinations
+- Triplet - 3 dices are showing the same element. +30% to power
+- Quartet - 4 dices are showing the same element. +40%
+- All-For-One - 5 dices are showing the same element. +50%
+- One-For-All - All 5 dices are different from each other - +30% to a chosen element. 
+- Full House - Triplet + 2 dices of the same but different from triplet element. +25% for 2 and + 35% for 3 to a respective element.

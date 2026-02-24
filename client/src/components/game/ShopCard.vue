@@ -206,11 +206,9 @@ const effects = computed(() => {
     }
   }
 
-  if (props.diceType?.stat_bonuses) {
-    const bonus = props.diceType.stat_bonuses.bonus_multiplier;
-    if (bonus > 1) {
-      effectList.push(`${Math.round((bonus - 1) * 100)}% stat bonus`);
-    }
+  if (props.diceType?.faces && props.diceType.faces.length > 0) {
+    const uniqueElements = [...new Set(props.diceType.faces)];
+    effectList.push(`Elements: ${uniqueElements.join(', ')}`);
   }
 
   return effectList;

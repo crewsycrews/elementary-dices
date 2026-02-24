@@ -44,6 +44,7 @@
             :scale="selectedDiceType === diceType.type ? 0.4 : 0.3"
             :show-shadow="true"
             :affinity="diceAffinities[diceType.type] as any"
+            :element-faces="diceFaces[diceType.type]"
           />
         </div>
       </div>
@@ -100,11 +101,21 @@ const groupedDice = computed(() => {
   return grouped;
 });
 
-// Get the affinity of the first equipped dice for each type
+// Get the primary face element of the first equipped dice for each type
 const diceAffinities = computed(() => {
   const result: Record<string, string | undefined> = {};
   for (const [type, dice] of Object.entries(groupedDice.value)) {
-    result[type] = (dice[0] as any)?.dice_type?.stat_bonuses?.element_affinity;
+    const faces = (dice[0] as any)?.dice_type?.faces as string[] | undefined;
+    result[type] = faces?.[0];
+  }
+  return result;
+});
+
+// Get all element faces for the first equipped dice of each type
+const diceFaces = computed(() => {
+  const result: Record<string, string[] | undefined> = {};
+  for (const [type, dice] of Object.entries(groupedDice.value)) {
+    result[type] = (dice[0] as any)?.dice_type?.faces as string[] | undefined;
   }
   return result;
 });

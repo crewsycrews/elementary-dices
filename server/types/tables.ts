@@ -5,7 +5,6 @@ import type {
   BattleState,
   DiceRarityValue,
   DiceRollContextValue,
-  DiceRollOutcomeValue,
   ElementTypeValue,
   EncounterStatusValue,
   ItemRarityValue,
@@ -16,28 +15,10 @@ import type {
 // JSONB shape interfaces
 // ============================================================
 
-interface DiceStatBonuses {
-  bonus_multiplier: number;
-  element_affinity?: ElementTypeValue;
-}
-
-interface DiceOutcomeThresholds {
-  crit_success_range: [number, number];
-  success_range: [number, number];
-  fail_range: [number, number];
-  crit_fail_range: [number, number];
-}
-
 interface ItemEffect {
   capture_bonus?: number;
   stat_modifier?: unknown;
   duration?: number;
-}
-
-interface RollModifiers {
-  element_bonus?: number;
-  item_bonus?: number;
-  total_bonus?: number;
 }
 
 // ============================================================
@@ -93,8 +74,7 @@ interface DiceTypeRow {
   dice_notation: string;
   rarity: DiceRarityValue;
   name: string;
-  stat_bonuses: DiceStatBonuses;
-  outcome_thresholds: DiceOutcomeThresholds;
+  faces: ElementTypeValue[];
   price: number;
   description: string;
 }
@@ -130,9 +110,8 @@ interface DiceRollRow {
   player_id: string;
   dice_type_id: string;
   roll_value: number;
-  outcome: DiceRollOutcomeValue;
+  result_element: ElementTypeValue;
   context: DiceRollContextValue;
-  modifiers: RollModifiers | null;
 }
 
 interface EventsBattleRow {
@@ -348,7 +327,7 @@ declare module 'knex/types/tables' {
     // ----------------------------------------------------------
     dice_rolls: Knex.CompositeTableType<
       DiceRollRow,
-      Omit<DiceRollRow, 'id'> & { id?: string; modifiers?: RollModifiers | null },
+      Omit<DiceRollRow, 'id'> & { id?: string },
       Partial<Omit<DiceRollRow, 'id'>>
     >;
 

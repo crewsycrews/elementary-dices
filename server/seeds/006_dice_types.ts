@@ -1,96 +1,244 @@
 import type { Knex } from "knex";
+import type { DiceRarityValue, ElementTypeValue } from "@elementary-dices/shared";
 
-export async function seed(knex: Knex): Promise<void> {
-  // Clear existing dice types
-  await knex("dice_types").del();
+const ELEMENTS = ["fire", "water", "earth", "air", "lightning"] as const;
+type Element = (typeof ELEMENTS)[number];
 
-  // Dice notations with element affinities
-  const diceNotations = ["d4", "d6", "d10", "d12", "d20"];
+interface DiceSeedEntry {
+  dice_notation: string;
+  rarity: DiceRarityValue;
+  name: string;
+  faces: ElementTypeValue[];
+  price: number;
+  description: string;
+}
 
-  // Element affinity mapping
-  const elementAffinities: Record<string, string> = {
-    d4: "fire",
-    d6: "water",
-    d10: "air",
-    d12: "earth",
-    d20: "lightning",
-  };
+/**
+ * Elemental faces dice seed data.
+ *
+ * d4  (green only, 5 variants) — 4 of 5 elements, each variant missing one
+ * d6  (green only, 5 variants) — all 5 elements + 1 duplicate
+ * d10 (green: 1 flat, blue: 5)  — green = 2 each, blue = one element at 3
+ * d12 (green only, 5 variants)  — 2 each + 2 extras on one element
+ * d20 (green: 1, blue: 5, purple: 5) — green = 4 each, blue = one at 5, purple = one at 6
+ */
 
-  // Rarities with stat multipliers
-  const rarities = [
-    { rarity: "green", multiplier: 1.2, priceBase: 50 },
-    { rarity: "blue", multiplier: 1.3, priceBase: 150 },
-    { rarity: "purple", multiplier: 1.5, priceBase: 400 },
-    { rarity: "gold", multiplier: 1.8, priceBase: 1000 },
-  ];
+function repeat(el: Element, n: number): Element[] {
+  return Array(n).fill(el);
+}
 
-  // Thresholds for each dice type (normalized to 4 outcomes)
-  const thresholds: Record<string, any> = {
-    d4: {
-      crit_fail_range: [1, 1],
-      fail_range: [2, 2],
-      success_range: [3, 3],
-      crit_success_range: [4, 4],
-    },
-    d6: {
-      crit_fail_range: [1, 1],
-      fail_range: [2, 3],
-      success_range: [4, 5],
-      crit_success_range: [6, 6],
-    },
-    d10: {
-      crit_fail_range: [1, 2],
-      fail_range: [3, 5],
-      success_range: [6, 8],
-      crit_success_range: [9, 10],
-    },
-    d12: {
-      crit_fail_range: [1, 2],
-      fail_range: [3, 6],
-      success_range: [7, 10],
-      crit_success_range: [11, 12],
-    },
-    d20: {
-      crit_fail_range: [1, 3],
-      fail_range: [4, 10],
-      success_range: [11, 17],
-      crit_success_range: [18, 20],
-    },
-  };
+/**
+ * Shuffles faces so no two identical elements are adjacent.
+ * Uses a greedy approach: at each position pick the most-frequent
+ * remaining element that differs from the previous face.
+ */
+function shuffleNoAdjacent(faces: Element[]): Element[] {
+  // Count frequencies
+  const freq = new Map<Element, number>();
+  for (const el of faces) freq.set(el, (freq.get(el) ?? 0) + 1);
 
-  const diceTypes = [];
+  const result: Element[] = [];
+  let prev: Element | null = null;
 
-  for (const dice of diceNotations) {
-    for (const { rarity, multiplier, priceBase } of rarities) {
-      diceTypes.push({
-        id: knex.raw("uuid_generate_v7()"),
-        dice_notation: dice,
-        rarity,
-        name: `${rarity.charAt(0).toUpperCase() + rarity.slice(1)} ${dice.toUpperCase()}`,
-        stat_bonuses: JSON.stringify({
-          bonus_multiplier: multiplier,
-          element_affinity: elementAffinities[dice],
-        }),
-        outcome_thresholds: JSON.stringify(thresholds[dice]),
-        price:
-          priceBase *
-          (dice === "d4"
-            ? 1
-            : dice === "d6"
-              ? 1.2
-              : dice === "d10"
-                ? 1.5
-                : dice === "d12"
-                  ? 1.8
-                  : 2.5),
-        description: `A ${rarity} quality ${dice} die with ${elementAffinities[dice]} affinity. ${
-          multiplier > 1
-            ? `Provides ${((multiplier - 1) * 100).toFixed(0)}% bonus to rolls.`
-            : "Standard quality."
-        }`,
-      });
+  for (let i = 0; i < faces.length; i++) {
+    // Candidates: any element that isn't the previous face and still has count > 0
+    const candidates = ([...freq.entries()] as [Element, number][])
+      .filter(([el, count]) => el !== prev && count > 0)
+      .sort((a, b) => b[1] - a[1]); // highest frequency first
+
+    if (candidates.length === 0) {
+      // Fallback: same as prev (unavoidable with this distribution — just append remaining)
+      const remaining = ([...freq.entries()] as [Element, number][]).find(([, c]) => c > 0)!;
+      result.push(remaining[0]);
+      freq.set(remaining[0], remaining[1] - 1);
+      prev = remaining[0];
+    } else {
+      const [el, count] = candidates[0];
+      result.push(el);
+      freq.set(el, count - 1);
+      prev = el;
     }
   }
+
+  return result;
+}
+
+function flatDistribution(countPerElement: number): Element[] {
+  return shuffleNoAdjacent(ELEMENTS.flatMap((el) => repeat(el, countPerElement)));
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// ─── d4 (green × 5) ────────────────────────────────────────────────
+function generateD4Variants(): DiceSeedEntry[] {
+  return ELEMENTS.map((missing) => {
+    const faces = shuffleNoAdjacent(ELEMENTS.filter((el) => el !== missing));
+    return {
+      dice_notation: "d4",
+      rarity: "green",
+      name: `D4 No-${capitalize(missing)}`,
+      faces,
+      price: 50,
+      description: `A four-sided die with ${faces.map(capitalize).join(", ")} faces.`,
+    };
+  });
+}
+
+// ─── d6 (green × 5) ────────────────────────────────────────────────
+function generateD6Variants(): DiceSeedEntry[] {
+  return ELEMENTS.map((doubled) => {
+    const faces: Element[] = shuffleNoAdjacent([...ELEMENTS, doubled]);
+    return {
+      dice_notation: "d6",
+      rarity: "green",
+      name: `D6 ${capitalize(doubled)}+`,
+      faces,
+      price: 60,
+      description: `A six-sided die with all elements and an extra ${doubled} face.`,
+    };
+  });
+}
+
+// ─── d10 (green × 1, blue × 5) ─────────────────────────────────────
+function generateD10Variants(): DiceSeedEntry[] {
+  const variants: DiceSeedEntry[] = [];
+
+  // Green: flat 2 of each
+  variants.push({
+    dice_notation: "d10",
+    rarity: "green",
+    name: "D10 Balanced",
+    faces: flatDistribution(2),
+    price: 75,
+    description: "A ten-sided die with 2 of each element.",
+  });
+
+  // Blue: one element at 3, another drops to 1
+  for (const boosted of ELEMENTS) {
+    const reducedIndex = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
+    const reduced = ELEMENTS[reducedIndex];
+
+    const faces: Element[] = [];
+    for (const el of ELEMENTS) {
+      if (el === boosted) faces.push(...repeat(el, 3));
+      else if (el === reduced) faces.push(el);
+      else faces.push(...repeat(el, 2));
+    }
+    variants.push({
+      dice_notation: "d10",
+      rarity: "blue",
+      name: `D10 ${capitalize(boosted)} Focus`,
+      faces: shuffleNoAdjacent(faces),
+      price: 225,
+      description: `A ten-sided die favoring ${boosted} (3 faces).`,
+    });
+  }
+
+  return variants;
+}
+
+// ─── d12 (green × 5) ───────────────────────────────────────────────
+function generateD12Variants(): DiceSeedEntry[] {
+  // Base: 2 of each = 10 faces, + 2 extras on the boosted element
+  return ELEMENTS.map((boosted) => {
+    const faces: Element[] = [];
+    for (const el of ELEMENTS) {
+      faces.push(...repeat(el, el === boosted ? 4 : 2));
+    }
+    return {
+      dice_notation: "d12",
+      rarity: "green",
+      name: `D12 ${capitalize(boosted)}+`,
+      faces: shuffleNoAdjacent(faces),
+      price: 90,
+      description: `A twelve-sided die with extra ${boosted} faces.`,
+    };
+  });
+}
+
+// ─── d20 (green × 1, blue × 5, purple × 5) ────────────────────────
+function generateD20Variants(): DiceSeedEntry[] {
+  const variants: DiceSeedEntry[] = [];
+
+  // Green: flat 4 of each
+  variants.push({
+    dice_notation: "d20",
+    rarity: "green",
+    name: "D20 Balanced",
+    faces: flatDistribution(4),
+    price: 125,
+    description: "A twenty-sided die with 4 of each element.",
+  });
+
+  // Blue: one element at 5 faces (6+3+4+4+3 would be wrong, let's do 5+3+4+4+4=20)
+  for (const boosted of ELEMENTS) {
+    const reducedIndex = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
+    const reduced = ELEMENTS[reducedIndex];
+
+    const faces: Element[] = [];
+    for (const el of ELEMENTS) {
+      if (el === boosted) faces.push(...repeat(el, 5));
+      else if (el === reduced) faces.push(...repeat(el, 3));
+      else faces.push(...repeat(el, 4));
+    }
+    variants.push({
+      dice_notation: "d20",
+      rarity: "blue",
+      name: `D20 ${capitalize(boosted)} Focus`,
+      faces: shuffleNoAdjacent(faces),
+      price: 375,
+      description: `A twenty-sided die favoring ${boosted} (5 faces).`,
+    });
+  }
+
+  // Purple: one element at 6 faces (6+3+3+4+4=20)
+  for (const boosted of ELEMENTS) {
+    const reducedIndex1 = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
+    const reducedIndex2 = (ELEMENTS.indexOf(boosted) + 2) % ELEMENTS.length;
+    const reduced1 = ELEMENTS[reducedIndex1];
+    const reduced2 = ELEMENTS[reducedIndex2];
+
+    const faces: Element[] = [];
+    for (const el of ELEMENTS) {
+      if (el === boosted) faces.push(...repeat(el, 6));
+      else if (el === reduced1 || el === reduced2) faces.push(...repeat(el, 3));
+      else faces.push(...repeat(el, 4));
+    }
+    variants.push({
+      dice_notation: "d20",
+      rarity: "purple",
+      name: `D20 ${capitalize(boosted)} Mastery`,
+      faces: shuffleNoAdjacent(faces),
+      price: 1000,
+      description: `A twenty-sided die with ${boosted} mastery (6 faces).`,
+    });
+  }
+
+  return variants;
+}
+
+export async function seed(knex: Knex): Promise<void> {
+  await knex("dice_types").del();
+
+  const allDice = [
+    ...generateD4Variants(),
+    ...generateD6Variants(),
+    ...generateD10Variants(),
+    ...generateD12Variants(),
+    ...generateD20Variants(),
+  ];
+
+  const diceTypes = allDice.map((d) => ({
+    id: knex.raw("uuid_generate_v7()") as unknown as string,
+    dice_notation: d.dice_notation,
+    rarity: d.rarity,
+    name: d.name,
+    faces: JSON.stringify(d.faces) as unknown as ElementTypeValue[],
+    price: d.price,
+    description: d.description,
+  }));
 
   await knex("dice_types").insert(diceTypes);
 }

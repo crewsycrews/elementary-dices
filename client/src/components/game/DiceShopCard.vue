@@ -24,7 +24,8 @@
           :value="1"
           :scale="0.7"
           :show-shadow="false"
-          :affinity="dice.element_affinity"
+          :affinity="dice.faces?.[0]"
+          :element-faces="dice.faces"
         />
       </div>
     </div>
@@ -36,16 +37,12 @@
         <h3 class="font-bold text-lg truncate">{{ dice.name }}</h3>
       </div>
 
-      <!-- Stats -->
+      <!-- Faces -->
       <div class="space-y-1 text-sm">
         <div class="flex justify-between">
-          <span class="text-muted-foreground">Bonus:</span>
-          <span class="font-bold">{{ dice.bonus_multiplier }}x</span>
-        </div>
-        <div v-if="dice.element_affinity" class="flex justify-between">
-          <span class="text-muted-foreground">Element:</span>
-          <span class="font-bold capitalize" :class="elementColorClass">
-            {{ dice.element_affinity }}
+          <span class="text-muted-foreground">Faces:</span>
+          <span class="font-bold">
+            <span v-for="(face, idx) in dice.faces" :key="idx" :title="face">{{ ELEMENT_EMOJI[face] || face }}</span>
           </span>
         </div>
       </div>
@@ -91,14 +88,21 @@ import { computed } from "vue";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry";
 
+const ELEMENT_EMOJI: Record<string, string> = {
+  fire: '\uD83D\uDD25',
+  water: '\uD83C\uDF0A',
+  air: '\uD83D\uDCA8',
+  earth: '\u26F0\uFE0F',
+  lightning: '\u26A1',
+};
+
 interface SimplifiedDice {
   id: string;
   name: string;
   price: number;
   rarity: string;
   dice_notation: DiceType;
-  bonus_multiplier: number;
-  element_affinity?: "fire" | "water" | "earth" | "air" | "lightning";
+  faces: ("fire" | "water" | "earth" | "air" | "lightning")[];
 }
 
 interface Props {
@@ -146,17 +150,6 @@ const backgroundClass = computed(() => {
   };
 
   return rarityBgs[props.dice.rarity] || "bg-muted/10";
-});
-
-const elementColorClass = computed(() => {
-  const colors: Record<string, string> = {
-    fire: "text-red-500",
-    water: "text-blue-400",
-    earth: "text-amber-600",
-    air: "text-cyan-300",
-    lightning: "text-yellow-400",
-  };
-  return colors[props.dice.element_affinity ?? ""] ?? "";
 });
 
 const rarityBadgeClass = computed(() => {

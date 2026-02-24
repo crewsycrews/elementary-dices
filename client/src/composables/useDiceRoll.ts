@@ -1,186 +1,102 @@
 import { ref } from 'vue';
-import type { DiceTypeSchema, DiceRollOutcome } from '@elementary-dices/shared/schemas';
+import type { DiceType, ElementTypeValue } from '@elementary-dices/shared';
 
 export function useDiceRoll() {
   const isRolling = ref(false);
 
   /**
-   * Parse dice notation (e.g., "1d6", "1d20") and generate a random roll
-   */
-  const parseDiceNotation = (notation: string): number => {
-    const match = notation.match(/(\d+)d(\d+)/i);
-    if (!match) {
-      throw new Error(`Invalid dice notation: ${notation}`);
-    }
-
-    const numDice = parseInt(match[1], 10);
-    const numSides = parseInt(match[2], 10);
-
-    let total = 0;
-    for (let i = 0; i < numDice; i++) {
-      total += Math.floor(Math.random() * numSides) + 1;
-    }
-
-    return total;
-  };
-
-  /**
-   * Determine the outcome based on roll value and thresholds
-   */
-  const determineOutcome = (
-    rollValue: number,
-    thresholds: typeof DiceTypeSchema.static['outcome_thresholds']
-  ): typeof DiceRollOutcome.static => {
-    if (
-      rollValue >= thresholds.crit_success_range[0] &&
-      rollValue <= thresholds.crit_success_range[1]
-    ) {
-      return 'crit_success';
-    }
-    if (
-      rollValue >= thresholds.success_range[0] &&
-      rollValue <= thresholds.success_range[1]
-    ) {
-      return 'success';
-    }
-    if (
-      rollValue >= thresholds.fail_range[0] &&
-      rollValue <= thresholds.fail_range[1]
-    ) {
-      return 'fail';
-    }
-    if (
-      rollValue >= thresholds.crit_fail_range[0] &&
-      rollValue <= thresholds.crit_fail_range[1]
-    ) {
-      return 'crit_fail';
-    }
-
-    // Default to fail if no range matches
-    return 'fail';
-  };
-
-  /**
-   * Calculate modifiers based on element affinity and bonuses
-   */
-  const calculateModifiers = (
-    diceType: typeof DiceTypeSchema.static,
-    elementTypes?: string[]
-  ) => {
-    let elementBonus = 0;
-
-    // Check if any of the elemental's types match the dice's element affinity
-    if (elementTypes && diceType.stat_bonuses.element_affinity) {
-      const hasAffinity = elementTypes.some(type =>
-        diceType.stat_bonuses.element_affinity?.includes(type as any)
-      );
-
-      if (hasAffinity) {
-        // Apply bonus multiplier (e.g., 1.2x means +20% bonus)
-        const bonusPercent = (diceType.stat_bonuses.bonus_multiplier - 1) * 100;
-        elementBonus = Math.floor(bonusPercent);
-      }
-    }
-
-    return {
-      element_bonus: elementBonus || undefined,
-      item_bonus: undefined, // Can be added later for item effects
-      total_bonus: elementBonus,
-    };
-  };
-
-  /**
-   * Roll the dice with animation delay
+   * Roll an elemental dice — selects a random face and returns the element.
    */
   const rollDice = async (
-    diceType: typeof DiceTypeSchema.static,
-    elementTypes?: string[]
+    diceType: DiceType
   ): Promise<{
-    value: number;
-    outcome: typeof DiceRollOutcome.static;
-    modifiers?: any;
+    faceIndex: number;
+    resultElement: ElementTypeValue;
+    faceCount: number;
   }> => {
     isRolling.value = true;
 
     // Simulate rolling animation delay
     await new Promise(resolve => setTimeout(resolve, 600));
 
-    // Roll the dice
-    const rawValue = parseDiceNotation(diceType.dice_notation);
-
-    // Calculate modifiers
-    const modifiers = calculateModifiers(diceType, elementTypes);
-
-    // Apply modifiers to final value (optional: for display purposes)
-    const finalValue = rawValue + (modifiers.total_bonus || 0);
-
-    // Determine outcome
-    const outcome = determineOutcome(rawValue, diceType.outcome_thresholds);
+    const faces = diceType.faces;
+    const faceIndex = Math.floor(Math.random() * faces.length);
+    const resultElement = faces[faceIndex];
 
     isRolling.value = false;
 
     return {
-      value: finalValue,
-      outcome,
-      modifiers: modifiers.total_bonus ? modifiers : undefined,
+      faceIndex,
+      resultElement,
+      faceCount: faces.length,
     };
   };
 
   /**
-   * Roll multiple dice (for battle scenarios)
+   * Roll multiple dice (for Farkle battle scenarios)
    */
   const rollMultipleDice = async (
-    diceTypes: typeof DiceTypeSchema.static[],
-    elementTypes?: string[]
-  ) => {
-    const results = await Promise.all(
-      diceTypes.map(diceType => rollDice(diceType, elementTypes))
-    );
+    diceTypes: DiceType[]
+  ): Promise<Array<{
+    faceIndex: number;
+    resultElement: ElementTypeValue;
+    faceCount: number;
+    diceType: DiceType;
+  }>> => {
+    isRolling.value = true;
+
+    await new Promise(resolve => setTimeout(resolve, 600));
+
+    const results = diceTypes.map(diceType => {
+      const faces = diceType.faces;
+      const faceIndex = Math.floor(Math.random() * faces.length);
+      return {
+        faceIndex,
+        resultElement: faces[faceIndex],
+        faceCount: faces.length,
+        diceType,
+      };
+    });
+
+    isRolling.value = false;
 
     return results;
   };
 
   /**
-   * Calculate success probability based on thresholds
+   * Calculate element distribution for a dice type
    */
-  const calculateSuccessProbability = (
-    diceType: typeof DiceTypeSchema.static
-  ): {
-    critSuccess: number;
-    success: number;
-    fail: number;
-    critFail: number;
-  } => {
-    const notation = diceType.dice_notation;
-    const match = notation.match(/(\d+)d(\d+)/i);
-
-    if (!match) {
-      return { critSuccess: 0, success: 0, fail: 0, critFail: 0 };
+  const getElementDistribution = (
+    diceType: DiceType
+  ): Record<string, number> => {
+    const counts: Record<string, number> = {};
+    for (const face of diceType.faces) {
+      counts[face] = (counts[face] || 0) + 1;
     }
+    return counts;
+  };
 
-    const numSides = parseInt(match[2], 10);
-    const thresholds = diceType.outcome_thresholds;
-
-    const calcRange = (range: [number, number]) => {
-      const min = Math.max(range[0], 1);
-      const max = Math.min(range[1], numSides);
-      return ((max - min + 1) / numSides) * 100;
-    };
-
-    return {
-      critSuccess: calcRange(thresholds.crit_success_range),
-      success: calcRange(thresholds.success_range),
-      fail: calcRange(thresholds.fail_range),
-      critFail: calcRange(thresholds.crit_fail_range),
-    };
+  /**
+   * Get the dominant element (most frequent) on a dice
+   */
+  const getDominantElement = (diceType: DiceType): ElementTypeValue => {
+    const dist = getElementDistribution(diceType);
+    let maxCount = 0;
+    let dominant: ElementTypeValue = diceType.faces[0];
+    for (const [element, count] of Object.entries(dist)) {
+      if (count > maxCount) {
+        maxCount = count;
+        dominant = element as ElementTypeValue;
+      }
+    }
+    return dominant;
   };
 
   return {
     isRolling,
     rollDice,
     rollMultipleDice,
-    calculateSuccessProbability,
-    parseDiceNotation,
-    determineOutcome,
+    getElementDistribution,
+    getDominantElement,
   };
 }

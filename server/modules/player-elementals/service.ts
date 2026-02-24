@@ -129,8 +129,8 @@ export class PlayerElementalsService {
   }
 
   /**
-   * Start game - Roll d4 to get first elemental
-   * Randomly picks from 5 base elementals
+   * Start game - Roll d10 to get first elemental
+   * Result element determines the starter's element type
    */
   async startGame(data: StartGameData): Promise<StartGameResult> {
     // Check if player already has elementals
@@ -153,9 +153,19 @@ export class PlayerElementalsService {
       );
     }
 
-    // Roll d4 (0-3) and pick from first 5 base elementals
-    const rollValue = Math.floor(Math.random() * 4);
-    const selectedElemental = baseElementals[rollValue];
+    // Roll d10: pick a random element from the 10 faces (flat distribution = 2 of each)
+    const elements = ["fire", "water", "earth", "air", "lightning"];
+    const rollValue = Math.floor(Math.random() * 10); // 0-9
+    const resultElement = elements[Math.floor(rollValue / 2)]; // 0-1=fire, 2-3=water, etc.
+
+    // Find a base elemental matching the rolled element
+    const matchingElementals = baseElementals.filter(
+      (e: any) => e.element_types?.[0] === resultElement,
+    );
+    const selectedElemental =
+      matchingElementals.length > 0
+        ? matchingElementals[Math.floor(Math.random() * matchingElementals.length)]
+        : baseElementals[Math.floor(Math.random() * baseElementals.length)];
 
     // Add elemental to player's active party at position 1
     const playerElemental = await this.repository.add({
@@ -170,10 +180,10 @@ export class PlayerElementalsService {
 
     return {
       success: true,
-      message: `Welcome to Elementary Dices! You rolled a ${rollValue + 1} and received ${selectedElemental.name}!`,
+      message: `Welcome to Elementary Dices! You rolled ${resultElement} and received ${selectedElemental.name}!`,
       first_elemental: playerElemental,
       dice_roll: {
-        roll_value: rollValue + 1, // 1-4 for display
+        roll_value: rollValue + 1, // 1-10 for display
         selected_index: rollValue,
       },
     };

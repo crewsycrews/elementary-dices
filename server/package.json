@@ -6,11 +6,11 @@
   "scripts": {
     "dev": "bun run --elide-lines=0 --watch index.ts",
     "build": "tsc",
-    "db:migrate": "knex migrate:latest --knexfile ./knexfile.ts",
-    "db:migrate:make": "knex migrate:make --knexfile ./knexfile.ts",
-    "db:migrate:rollback": "knex migrate:rollback --knexfile ./knexfile.ts",
-    "db:seed": "knex seed:run --knexfile ./knexfile.ts",
-    "db:seed:make": "knex seed:make --knexfile ./knexfile.ts"
+    "db:migrate": "tsx node_modules/.bin/knex migrate:latest --knexfile ./knexfile.ts",
+    "db:migrate:make": "tsx node_modules/.bin/knex migrate:make --knexfile ./knexfile.ts",
+    "db:migrate:rollback": "tsx node_modules/.bin/knex migrate:rollback --knexfile ./knexfile.ts",
+    "db:seed": "tsx node_modules/.bin/knex seed:run --knexfile ./knexfile.ts",
+    "db:seed:make": "tsx node_modules/.bin/knex seed:make --knexfile ./knexfile.ts"
   },
   "dependencies": {
     "@elementary-dices/shared": "workspace:*",

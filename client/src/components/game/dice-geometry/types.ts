@@ -10,7 +10,7 @@
  * Represents a single face of a die
  */
 export interface DiceFace {
-  /** The numeric value displayed on this face (1-N where N is max for dice type) */
+  /** 1-based face index (positional — element is assigned at render time from dice type data) */
   value: number;
 
   /** CSS transform string for positioning this face in 3D space */
@@ -19,6 +19,17 @@ export interface DiceFace {
   /** Optional CSS clip-path for non-rectangular faces (triangles, pentagons) */
   clipPath?: string;
 }
+
+/**
+ * Element emoji mapping for rendering elemental faces
+ */
+export const ELEMENT_EMOJI: Record<string, string> = {
+  fire: '🔥',
+  water: '🌊',
+  air: '💨',
+  earth: '⛰️',
+  lightning: '⚡',
+};
 
 /**
  * 3D rotation angles in degrees

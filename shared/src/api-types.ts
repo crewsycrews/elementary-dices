@@ -10,7 +10,7 @@ import type {
   DiceRoll,
   Battle,
   ElementalEvolution,
-  DiceRollOutcomeValue,
+  ElementTypeValue,
   BaseStats,
   PlayerElemental,
 } from './types'
@@ -100,15 +100,12 @@ export type ApiEventResponse = {
 }
 
 export type ApiDiceRollResponse = {
-  roll: DiceRoll & {
-    outcome: DiceRollOutcomeValue
-    roll_value: number
-  }
+  roll: DiceRoll
   details?: {
     dice_notation: string
-    base_roll: number
-    modifiers_applied: number
-    final_value: number
+    dice_name: string
+    face_index: number
+    result_element: ElementTypeValue
   }
 }
 

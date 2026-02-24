@@ -21,6 +21,7 @@ const config: Knex.Config = {
     directory: "./seeds",
     extension: "ts",
     loadExtensions: [".ts"],
+    specific: "006_dice_types.ts",
   },
   pool: {
     min: 2,

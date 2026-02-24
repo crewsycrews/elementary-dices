@@ -8,6 +8,7 @@
         :dice-type="diceType"
         :value="lastRoll?.roll_value"
         :affinity="affinity"
+        :element-faces="elementFaces"
         :spinning="spinning"
         @click="handleToyRoll"
       />
@@ -33,6 +34,7 @@ interface Props {
   lastRoll?: DiceRoll | null;
   label?: string;
   affinity?: "fire" | "water" | "earth" | "air" | "lightning";
+  elementFaces?: string[];
   spinning?: boolean;
 }
 
@@ -40,6 +42,7 @@ const props = withDefaults(defineProps<Props>(), {
   lastRoll: null,
   label: "Your last roll",
   affinity: undefined,
+  elementFaces: undefined,
   spinning: false,
 });
 
