@@ -2,6 +2,7 @@ import { t } from "elysia";
 import {
   EncounterType,
   type EncounterTypeValue,
+  ElementType,
 } from "@elementary-dices/shared";
 
 // Event types (alias for EncounterType)
@@ -180,6 +181,102 @@ export const LeaveMerchantResultDTO = t.Object({
   can_continue: t.Boolean(),
 });
 
+// ======================================================================
+// Farkle Battle DTOs (v2)
+// ======================================================================
+
+export const ChooseElementDTO = t.Object({
+  player_id: t.String(),
+  element: ElementType,
+});
+
+export const FarkleRollResultDieDTO = t.Object({
+  player_dice_id: t.String(),
+  dice_type_id: t.String(),
+  dice_notation: t.String(),
+  faces: t.Array(t.String()),
+  current_result: t.String(),
+  is_set_aside: t.Boolean(),
+});
+
+export const FarkleCombinationDTO = t.Object({
+  type: t.String(),
+  elements: t.Array(t.String()),
+  dice_indices: t.Array(t.Number()),
+  bonuses: t.Record(t.String(), t.Number()),
+});
+
+export const FarkleTurnStateDTO = t.Object({
+  phase: t.String(),
+  dice: t.Array(FarkleRollResultDieDTO),
+  has_used_reroll: t.Boolean(),
+  active_combinations: t.Array(FarkleCombinationDTO),
+  set_aside_element_bonus: t.Nullable(t.String()),
+  is_dice_rush: t.Boolean(),
+  busted: t.Boolean(),
+});
+
+export const FarkleBattleStateDTO = t.Object({
+  phase: t.String(),
+  player_party: t.Array(BattlePartyMemberDTO),
+  opponent_party: t.Array(BattlePartyMemberDTO),
+  set_aside_element: t.Nullable(t.String()),
+  opponent_set_aside_element: t.Nullable(t.String()),
+  current_turn: t.Number(),
+  player_turns_done: t.Number(),
+  opponent_turns_done: t.Number(),
+  player_turn: t.Nullable(FarkleTurnStateDTO),
+  opponent_turn_result: t.Nullable(t.Any()),
+  player_bonuses_total: t.Record(t.String(), t.Number()),
+  opponent_bonuses_total: t.Record(t.String(), t.Number()),
+  winner: t.Optional(t.String()),
+  player_total_power: t.Optional(t.Number()),
+  opponent_total_power: t.Optional(t.Number()),
+});
+
+export const FarkleTurnResultDTO = t.Object({
+  battle_state: FarkleBattleStateDTO,
+  detected_combinations: t.Array(FarkleCombinationDTO),
+  is_busted: t.Boolean(),
+  is_dice_rush: t.Boolean(),
+  is_resolved: t.Optional(t.Boolean()),
+  result: t.Optional(
+    t.Object({
+      victory: t.Boolean(),
+      message: t.String(),
+      player_total_power: t.Number(),
+      opponent_total_power: t.Number(),
+      reward: t.Optional(t.Number()),
+      penalty: t.Optional(
+        t.Object({
+          downgraded_elemental: t.Optional(t.String()),
+        }),
+      ),
+      can_continue: t.Boolean(),
+    }),
+  ),
+});
+
+export const FarkleRerollDTO = t.Object({
+  player_id: t.String(),
+  dice_indices_to_reroll: t.Array(t.Number()),
+});
+
+export const FarkleSetAsideDTO = t.Object({
+  player_id: t.String(),
+  dice_indices: t.Array(t.Number()),
+  combination_type: t.Optional(t.String()),
+  one_for_all_element: t.Optional(t.String()), // chosen element for One-For-All bonus
+});
+
+export const FarkleContinueDTO = t.Object({
+  player_id: t.String(),
+});
+
+export const FarkleEndTurnDTO = t.Object({
+  player_id: t.String(),
+});
+
 // Extract TypeScript types
 export type EventResponse = typeof EventResponseDTO.static;
 export type TriggerEventData = typeof TriggerEventDTO.static;
@@ -198,3 +295,8 @@ export type SkipWildEncounterData = typeof SkipWildEncounterDTO.static;
 export type SkipWildEncounterResult = typeof SkipWildEncounterResultDTO.static;
 export type LeaveMerchantData = typeof LeaveMerchantDTO.static;
 export type LeaveMerchantResult = typeof LeaveMerchantResultDTO.static;
+export type ChooseElementData = typeof ChooseElementDTO.static;
+export type FarkleRerollData = typeof FarkleRerollDTO.static;
+export type FarkleSetAsideData = typeof FarkleSetAsideDTO.static;
+export type FarkleContinueData = typeof FarkleContinueDTO.static;
+export type FarkleEndTurnData = typeof FarkleEndTurnDTO.static;

@@ -41,7 +41,7 @@ Battle turn:
 0. Choose 1 element that can be "set aside"(see 3.) no matter if it was in the combination or not. This element's dice will solely give elementals 10% bonus.
 1. At the beginning of each turn, the player throws all **five** dice at once.
 2. After first throw, player can choose to reroll **ONCE** from 1 to 5 dices to achieve some combination
-3. One or more dice combination can be set aside. 
+3. One or more dice combination should be set aside. 
 4. The player may then either end their turn or roll again the least dices(only after "set aside" action).
 5. Combinations that already set aside can be regrouped with rethrown ones.
 6. If all 5 dices are participating in a combination - it's a DICE RASH - The player can throw all 5 dices again to accumulate even more bonuses. (start from 1 step saving current bonuses)

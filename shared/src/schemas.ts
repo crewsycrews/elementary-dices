@@ -62,6 +62,7 @@ export const DiceRollContext = t.Union([
   t.Literal("penalty_roll"),
   t.Literal("event_trigger"),
   t.Literal("initial_roll"),
+  t.Literal("farkle_battle"),
 ]);
 
 // Item type
@@ -459,6 +460,88 @@ export const PlayerProgressSchema = t.Object({
   updated_at: t.String({ format: "date-time" }),
 });
 
+// ========================================
+// Farkle Battle System Schemas (v2)
+// ========================================
+
+export const CombinationType = t.Union([
+  t.Literal("triplet"),
+  t.Literal("quartet"),
+  t.Literal("all_for_one"),
+  t.Literal("one_for_all"),
+  t.Literal("full_house"),
+]);
+
+export const CombinationSchema = t.Object({
+  type: CombinationType,
+  elements: t.Array(ElementType),
+  dice_indices: t.Array(t.Integer()),
+  bonuses: t.Record(t.String(), t.Number()),
+});
+
+export const FarkleDieSchema = t.Object({
+  player_dice_id: t.String(),
+  dice_type_id: t.String({ format: "uuid" }),
+  dice_notation: t.String(),
+  faces: t.Array(ElementType),
+  current_result: ElementType,
+  is_set_aside: t.Boolean(),
+});
+
+export const FarkleTurnPhase = t.Union([
+  t.Literal("initial_roll"),
+  t.Literal("can_reroll"),
+  t.Literal("set_aside"),
+  t.Literal("rolling_remaining"),
+  t.Literal("done"),
+]);
+
+export const FarkleTurnStateSchema = t.Object({
+  phase: FarkleTurnPhase,
+  dice: t.Array(FarkleDieSchema),
+  has_used_reroll: t.Boolean(),
+  active_combinations: t.Array(CombinationSchema),
+  set_aside_element_bonus: t.Nullable(ElementType),
+  is_dice_rush: t.Boolean(),
+  busted: t.Boolean(),
+});
+
+export const OpponentTurnResultSchema = t.Object({
+  dice: t.Array(FarkleDieSchema),
+  combination: t.Nullable(CombinationSchema),
+  set_aside_element_used: t.Boolean(),
+  bonuses_applied: t.Record(t.String(), t.Number()),
+  busted: t.Boolean(),
+});
+
+export const FarkleBattlePhase = t.Union([
+  t.Literal("targeting"),
+  t.Literal("choose_element"),
+  t.Literal("player_turn"),
+  t.Literal("opponent_turn"),
+  t.Literal("resolved"),
+]);
+
+export const FarkleBattleStateSchema = t.Object({
+  phase: FarkleBattlePhase,
+  player_party: t.Array(BattlePartyMemberSchema),
+  opponent_party: t.Array(BattlePartyMemberSchema),
+  set_aside_element: t.Nullable(ElementType),
+  opponent_set_aside_element: t.Nullable(ElementType),
+  current_turn: t.Integer({ minimum: 1, maximum: 3 }),
+  player_turns_done: t.Integer({ minimum: 0, maximum: 3 }),
+  opponent_turns_done: t.Integer({ minimum: 0, maximum: 3 }),
+  player_turn: t.Nullable(FarkleTurnStateSchema),
+  opponent_turn_result: t.Nullable(OpponentTurnResultSchema),
+  player_bonuses_total: t.Record(t.String(), t.Number()),
+  opponent_bonuses_total: t.Record(t.String(), t.Number()),
+  winner: t.Optional(
+    t.Union([t.Literal("player"), t.Literal("opponent"), t.Literal("draw")]),
+  ),
+  player_total_power: t.Optional(t.Number()),
+  opponent_total_power: t.Optional(t.Number()),
+});
+
 // Export all schemas for convenience
 export const schemas = {
   // Enums
@@ -524,4 +607,14 @@ export const schemas = {
   BattleRollRecordSchema,
   BattlePhase,
   BattleStateSchema,
+
+  // Farkle Battle System (v2)
+  CombinationType,
+  CombinationSchema,
+  FarkleDieSchema,
+  FarkleTurnPhase,
+  FarkleTurnStateSchema,
+  OpponentTurnResultSchema,
+  FarkleBattlePhase,
+  FarkleBattleStateSchema,
 };

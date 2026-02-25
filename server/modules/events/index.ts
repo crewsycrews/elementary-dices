@@ -5,8 +5,12 @@ import {
   ResolveWildEncounterDTO,
   SkipWildEncounterDTO,
   BattleStartDTO,
-  BattleRollDTO,
   LeaveMerchantDTO,
+  ChooseElementDTO,
+  FarkleRerollDTO,
+  FarkleSetAsideDTO,
+  FarkleContinueDTO,
+  FarkleEndTurnDTO,
 } from "./models";
 import { requireAuth } from "../auth/middleware";
 import { UnauthorizedError } from "../../shared/errors";
@@ -86,7 +90,7 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       body: SkipWildEncounterDTO,
     },
   )
-  // Start PvP battle (transition from targeting to rolling phase)
+  // Start PvP battle (transition from targeting to choose_element phase)
   .post(
     "/pvp-battle/start",
     async (context) => {
@@ -103,7 +107,27 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       body: BattleStartDTO,
     },
   )
-  // Roll dice in PvP battle (player rolls, AI auto-rolls)
+  // Choose set-aside element (once, before turn 1)
+  .post(
+    "/pvp-battle/choose-element",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only choose for your own battles");
+      }
+      const battleState = await eventService.chooseSetAsideElement(
+        body.player_id,
+        body.element as any,
+      );
+      return { battle_state: battleState };
+    },
+    {
+      body: ChooseElementDTO,
+    },
+  )
+  // Initial Farkle roll (all 5 dice)
   .post(
     "/pvp-battle/roll",
     async (context) => {
@@ -113,14 +137,86 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only roll in your own battles");
       }
-      const result = await eventService.rollBattleDice(
+      const result = await eventService.farkleInitialRoll(body.player_id);
+      return { result };
+    },
+    {
+      body: FarkleContinueDTO,
+    },
+  )
+  // Free reroll (1-5 dice, once per turn)
+  .post(
+    "/pvp-battle/reroll",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only reroll in your own battles");
+      }
+      const result = await eventService.farkleReroll(
         body.player_id,
-        body.dice_type_id,
+        body.dice_indices_to_reroll,
       );
       return { result };
     },
     {
-      body: BattleRollDTO,
+      body: FarkleRerollDTO,
+    },
+  )
+  // Set aside a combination (or chosen-element die)
+  .post(
+    "/pvp-battle/set-aside",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only set aside in your own battles");
+      }
+      const result = await eventService.farkleSetAside(
+        body.player_id,
+        body.dice_indices,
+        body.one_for_all_element,
+      );
+      return { result };
+    },
+    {
+      body: FarkleSetAsideDTO,
+    },
+  )
+  // Roll remaining (non-set-aside) dice
+  .post(
+    "/pvp-battle/continue",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only continue in your own battles");
+      }
+      const result = await eventService.farkleContinue(body.player_id);
+      return { result };
+    },
+    {
+      body: FarkleContinueDTO,
+    },
+  )
+  // End player turn (apply bonuses, run opponent AI, advance turn counter)
+  .post(
+    "/pvp-battle/end-turn",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only end your own turn");
+      }
+      const result = await eventService.farkleEndTurn(body.player_id);
+      return { result };
+    },
+    {
+      body: FarkleEndTurnDTO,
     },
   )
   // Leave merchant

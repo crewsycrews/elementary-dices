@@ -40,6 +40,60 @@ export type BattlePartyMember = {
   target_index: number
 }
 
+// Farkle Battle types
+export type FarkleDie = {
+  player_dice_id: string
+  dice_type_id: string
+  dice_notation: string
+  faces: string[]
+  current_result: string
+  is_set_aside: boolean
+}
+
+export type Combination = {
+  type: 'triplet' | 'quartet' | 'all_for_one' | 'one_for_all' | 'full_house'
+  elements: string[]
+  dice_indices: number[]
+  bonuses: Record<string, number>
+}
+
+export type FarkleTurnState = {
+  phase: 'initial_roll' | 'can_reroll' | 'set_aside' | 'rolling_remaining' | 'done'
+  dice: FarkleDie[]
+  has_used_reroll: boolean
+  active_combinations: Combination[]
+  set_aside_element_bonus: string | null
+  is_dice_rush: boolean
+  busted: boolean
+}
+
+export type OpponentTurnResult = {
+  dice: FarkleDie[]
+  combination: Combination | null
+  set_aside_element_used: boolean
+  bonuses_applied: Record<string, number>
+  busted: boolean
+}
+
+export type FarkleBattleState = {
+  phase: 'targeting' | 'choose_element' | 'player_turn' | 'opponent_turn' | 'resolved'
+  player_party: BattlePartyMember[]
+  opponent_party: BattlePartyMember[]
+  set_aside_element: string | null
+  opponent_set_aside_element: string | null
+  current_turn: number
+  player_turns_done: number
+  opponent_turns_done: number
+  player_turn: FarkleTurnState | null
+  opponent_turn_result: OpponentTurnResult | null
+  player_bonuses_total: Record<string, number>
+  opponent_bonuses_total: Record<string, number>
+  winner?: 'player' | 'opponent' | 'draw'
+  player_total_power?: number
+  opponent_total_power?: number
+}
+
+// Legacy type kept for backward compatibility
 export type BattleRollRecord = {
   turn: number
   side: 'player' | 'opponent'
@@ -51,19 +105,6 @@ export type BattleRollRecord = {
   roll_value?: number
 }
 
-export type BattleState = {
-  phase: 'targeting' | 'rolling' | 'resolved'
-  player_party: BattlePartyMember[]
-  opponent_party: BattlePartyMember[]
-  rolls: BattleRollRecord[]
-  current_turn: number
-  player_rolls_done: number
-  opponent_rolls_done: number
-  winner?: 'player' | 'opponent' | 'draw'
-  player_total_power?: number
-  opponent_total_power?: number
-}
-
 type PvPData = {
   opponent_id?: string
   opponent_name: string
@@ -71,7 +112,7 @@ type PvPData = {
   potential_reward: number
   opponent_party: BattlePartyMember[]
   player_party: BattlePartyMember[]
-  battle_state?: BattleState
+  battle_state?: FarkleBattleState
 }
 
 export type BattleResult = {
@@ -84,6 +125,15 @@ export type BattleResult = {
     downgraded_elemental?: string
   }
   can_continue: boolean
+}
+
+export type FarkleTurnResult = {
+  battle_state: FarkleBattleState
+  detected_combinations: Combination[]
+  is_busted: boolean
+  is_dice_rush: boolean
+  is_resolved?: boolean
+  result?: BattleResult
 }
 
 type EventData = WildEncounterData | MerchantData | PvPData
@@ -193,7 +243,7 @@ export const useEventStore = defineStore('event', () => {
 
       if (response.data?.battle_state && currentEvent.value) {
         const data = currentEvent.value.data as PvPData
-        data.battle_state = response.data.battle_state as BattleState
+        data.battle_state = response.data.battle_state as FarkleBattleState
       }
 
       return response.data
@@ -203,26 +253,148 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
-  async function rollBattleDice(playerId: string, diceTypeId: string) {
+  async function chooseSetAsideElement(playerId: string, element: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        (api.api.events['pvp-battle'] as any)['choose-element'].post({
+          player_id: playerId,
+          element,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.battle_state as FarkleBattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to choose element:', error)
+      throw error
+    }
+  }
+
+  async function farkleRoll(playerId: string) {
     const { api, apiCall } = useApi()
 
     try {
       const response = await apiCall(
         api.api.events['pvp-battle'].roll.post({
           player_id: playerId,
-          dice_type_id: diceTypeId,
         }),
         { silent: true }
       )
 
-      if (response.data?.result && currentEvent.value) {
+      if (response.data?.result?.battle_state && currentEvent.value) {
         const data = currentEvent.value.data as PvPData
-        data.battle_state = response.data.result.battle_state as BattleState
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
       }
 
       return response.data
     } catch (error) {
-      console.error('Failed to roll battle dice:', error)
+      console.error('Failed to roll Farkle dice:', error)
+      throw error
+    }
+  }
+
+  async function farkleReroll(playerId: string, diceIndicesToReroll: number[]) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        (api.api.events['pvp-battle'] as any).reroll.post({
+          player_id: playerId,
+          dice_indices_to_reroll: diceIndicesToReroll,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to reroll:', error)
+      throw error
+    }
+  }
+
+  async function farkleSetAside(
+    playerId: string,
+    diceIndices: number[],
+    oneForAllElement?: string
+  ) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        (api.api.events['pvp-battle'] as any)['set-aside'].post({
+          player_id: playerId,
+          dice_indices: diceIndices,
+          one_for_all_element: oneForAllElement,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to set aside:', error)
+      throw error
+    }
+  }
+
+  async function farkleContinue(playerId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        (api.api.events['pvp-battle'] as any).continue.post({
+          player_id: playerId,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to continue:', error)
+      throw error
+    }
+  }
+
+  async function farkleEndTurn(playerId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        (api.api.events['pvp-battle'] as any)['end-turn'].post({
+          player_id: playerId,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed to end turn:', error)
       throw error
     }
   }
@@ -332,7 +504,12 @@ export const useEventStore = defineStore('event', () => {
     triggerEvent,
     resolveWildEncounter,
     startBattle,
-    rollBattleDice,
+    chooseSetAsideElement,
+    farkleRoll,
+    farkleReroll,
+    farkleSetAside,
+    farkleContinue,
+    farkleEndTurn,
     skipWildEncounter,
     leaveMerchant,
     getEventProbabilities,

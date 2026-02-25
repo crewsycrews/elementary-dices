@@ -1,5 +1,10 @@
 import { ref, computed } from 'vue'
-import type { BattlePartyMember, BattleRollRecord, BattleState, BattleResult } from '@/stores/event'
+import type {
+  FarkleBattleState,
+  FarkleDie,
+  Combination,
+  BattleResult,
+} from '@/stores/event'
 
 // Element display config
 const ELEMENT_CONFIG: Record<string, { emoji: string; color: string; bgColor: string }> = {
@@ -10,25 +15,72 @@ const ELEMENT_CONFIG: Record<string, { emoji: string; color: string; bgColor: st
   lightning: { emoji: '⚡', color: 'text-yellow-400', bgColor: 'bg-yellow-400/20' },
 }
 
+const ALL_ELEMENTS = ['fire', 'water', 'earth', 'air', 'lightning'] as const
+
+const COMBINATION_LABELS: Record<string, string> = {
+  triplet: 'Triplet',
+  quartet: 'Quartet',
+  all_for_one: 'All-For-One',
+  one_for_all: 'One-For-All',
+  full_house: 'Full House',
+}
+
 export function useBattle() {
   // State
-  const battleState = ref<BattleState | null>(null)
+  const battleState = ref<FarkleBattleState | null>(null)
   const battleResult = ref<BattleResult | null>(null)
-  const lastPlayerRoll = ref<BattleRollRecord | null>(null)
-  const lastOpponentRoll = ref<BattleRollRecord | null>(null)
+  const detectedCombinations = ref<Combination[]>([])
   const isRolling = ref(false)
-  const showingAiRoll = ref(false)
-  const recentlyBuffedElement = ref<string | null>(null)
+  const showingOpponentTurn = ref(false)
+  const selectedDiceIndices = ref<number[]>([]) // for reroll selection
 
-  // Computed
+  // Computed from battle state
   const battlePhase = computed(() => battleState.value?.phase ?? null)
   const playerParty = computed(() => battleState.value?.player_party ?? [])
   const opponentParty = computed(() => battleState.value?.opponent_party ?? [])
-  const rollHistory = computed(() => battleState.value?.rolls ?? [])
   const currentTurn = computed(() => battleState.value?.current_turn ?? 1)
-  const playerRollsDone = computed(() => battleState.value?.player_rolls_done ?? 0)
-  const opponentRollsDone = computed(() => battleState.value?.opponent_rolls_done ?? 0)
-  const isPlayerTurn = computed(() => playerRollsDone.value <= opponentRollsDone.value && playerRollsDone.value < 3)
+  const playerTurnsDone = computed(() => battleState.value?.player_turns_done ?? 0)
+  const opponentTurnsDone = computed(() => battleState.value?.opponent_turns_done ?? 0)
+  const setAsideElement = computed(() => battleState.value?.set_aside_element ?? null)
+  const playerBonusesTotal = computed(() => battleState.value?.player_bonuses_total ?? {})
+  const opponentBonusesTotal = computed(() => battleState.value?.opponent_bonuses_total ?? {})
+  const opponentTurnResult = computed(() => battleState.value?.opponent_turn_result ?? null)
+
+  // Farkle turn state
+  const farkleTurnState = computed(() => battleState.value?.player_turn ?? null)
+  const farkleDice = computed(() => farkleTurnState.value?.dice ?? [])
+  const hasUsedReroll = computed(() => farkleTurnState.value?.has_used_reroll ?? false)
+  const activeCombinations = computed(() => farkleTurnState.value?.active_combinations ?? [])
+  const isDiceRush = computed(() => farkleTurnState.value?.is_dice_rush ?? false)
+  const isBusted = computed(() => farkleTurnState.value?.busted ?? false)
+
+  const turnPhase = computed(() => farkleTurnState.value?.phase ?? null)
+
+  const canRoll = computed(() =>
+    battlePhase.value === 'player_turn' &&
+    (turnPhase.value === 'initial_roll' || farkleTurnState.value === null)
+  )
+
+  const canReroll = computed(() =>
+    turnPhase.value === 'can_reroll' && !hasUsedReroll.value
+  )
+
+  const canSetAside = computed(() =>
+    (turnPhase.value === 'can_reroll' || turnPhase.value === 'set_aside') &&
+    detectedCombinations.value.length > 0
+  )
+
+  const canContinue = computed(() =>
+    turnPhase.value === 'rolling_remaining'
+  )
+
+  const canEndTurn = computed(() =>
+    battlePhase.value === 'player_turn' &&
+    farkleTurnState.value !== null &&
+    (activeCombinations.value.length > 0 ||
+      farkleTurnState.value.set_aside_element_bonus !== null ||
+      isBusted.value)
+  )
 
   const totalPlayerPower = computed(() =>
     playerParty.value.reduce((sum, m) => sum + m.current_power, 0)
@@ -38,6 +90,7 @@ export function useBattle() {
     opponentParty.value.reduce((sum, m) => sum + m.current_power, 0)
   )
 
+  // Target lines (from targeting phase)
   const targetLines = computed(() => {
     return playerParty.value.map((member, index) => {
       const target = opponentParty.value[member.target_index]
@@ -50,89 +103,128 @@ export function useBattle() {
     })
   })
 
+  // Helpers
   function getElementConfig(element: string) {
     return ELEMENT_CONFIG[element] ?? ELEMENT_CONFIG.fire
   }
 
-  function getRollDescription(roll: BattleRollRecord): string {
-    const sideLabel = roll.side === 'player' ? 'You' : 'Opponent'
-    const elementEmoji = getElementConfig(roll.dice_element).emoji
-    const resultEmoji = getElementConfig(roll.result_element).emoji
-    const affectedEmoji = getElementConfig(roll.affected_element).emoji
+  function getDieEmoji(die: FarkleDie): string {
+    return getElementConfig(die.current_result).emoji
+  }
 
-    return `${sideLabel} rolled ${elementEmoji} dice - got ${resultEmoji}! +${roll.bonus_applied.toFixed(1)} power to ${affectedEmoji} elementals`
+  function getCombinationLabel(combo: Combination): string {
+    return COMBINATION_LABELS[combo.type] ?? combo.type
+  }
+
+  function getCombinationBonusDescription(combo: Combination): string {
+    const parts = Object.entries(combo.bonuses)
+      .filter(([, pct]) => pct > 0)
+      .map(([el, pct]) => `${getElementConfig(el).emoji} +${Math.round(pct * 100)}%`)
+    return parts.join(' | ')
+  }
+
+  function getTotalBonusForElement(element: string): number {
+    return playerBonusesTotal.value[element] ?? 0
+  }
+
+  function getPartyElementsPresent(): string[] {
+    const elements = new Set(playerParty.value.map((m) => m.element))
+    return ALL_ELEMENTS.filter((e) => elements.has(e))
+  }
+
+  // Toggle dice index selection (for reroll)
+  function toggleDiceSelection(index: number) {
+    const i = selectedDiceIndices.value.indexOf(index)
+    if (i >= 0) {
+      selectedDiceIndices.value.splice(i, 1)
+    } else {
+      selectedDiceIndices.value.push(index)
+    }
+  }
+
+  function clearDiceSelection() {
+    selectedDiceIndices.value = []
   }
 
   // Actions
-  function initFromState(state: BattleState) {
+  function initFromState(state: FarkleBattleState) {
     battleState.value = state
   }
 
-  function updateFromRollResult(data: {
-    battle_state: BattleState
-    player_roll?: BattleRollRecord | null
-    opponent_roll?: BattleRollRecord | null
-    is_resolved: boolean
+  function updateFromTurnResult(data: {
+    battle_state: FarkleBattleState
+    detected_combinations: Combination[]
+    is_busted: boolean
+    is_dice_rush: boolean
+    is_resolved?: boolean
     result?: BattleResult | null
   }) {
     battleState.value = data.battle_state
-    lastPlayerRoll.value = data.player_roll ?? null
-    lastOpponentRoll.value = data.opponent_roll ?? null
+    detectedCombinations.value = data.detected_combinations ?? []
 
     if (data.is_resolved && data.result) {
       battleResult.value = data.result
-    }
-
-    // Track recently buffed element for animation
-    if (data.player_roll) {
-      recentlyBuffedElement.value = data.player_roll.affected_element
-      setTimeout(() => {
-        if (recentlyBuffedElement.value === data.player_roll?.affected_element) {
-          recentlyBuffedElement.value = null
-        }
-      }, 1500)
     }
   }
 
   function reset() {
     battleState.value = null
     battleResult.value = null
-    lastPlayerRoll.value = null
-    lastOpponentRoll.value = null
+    detectedCombinations.value = []
     isRolling.value = false
-    showingAiRoll.value = false
-    recentlyBuffedElement.value = null
+    showingOpponentTurn.value = false
+    selectedDiceIndices.value = []
   }
 
   return {
     // State
     battleState,
     battleResult,
-    lastPlayerRoll,
-    lastOpponentRoll,
+    detectedCombinations,
     isRolling,
-    showingAiRoll,
-    recentlyBuffedElement,
+    showingOpponentTurn,
+    selectedDiceIndices,
     // Computed
     battlePhase,
     playerParty,
     opponentParty,
-    rollHistory,
     currentTurn,
-    playerRollsDone,
-    opponentRollsDone,
-    isPlayerTurn,
+    playerTurnsDone,
+    opponentTurnsDone,
+    setAsideElement,
+    playerBonusesTotal,
+    opponentBonusesTotal,
+    opponentTurnResult,
+    farkleTurnState,
+    farkleDice,
+    hasUsedReroll,
+    activeCombinations,
+    isDiceRush,
+    isBusted,
+    turnPhase,
+    canRoll,
+    canReroll,
+    canSetAside,
+    canContinue,
+    canEndTurn,
     totalPlayerPower,
     totalOpponentPower,
     targetLines,
     // Helpers
     getElementConfig,
-    getRollDescription,
+    getDieEmoji,
+    getCombinationLabel,
+    getCombinationBonusDescription,
+    getTotalBonusForElement,
+    getPartyElementsPresent,
+    toggleDiceSelection,
+    clearDiceSelection,
     // Actions
     initFromState,
-    updateFromRollResult,
+    updateFromTurnResult,
     reset,
     // Constants
     ELEMENT_CONFIG,
+    ALL_ELEMENTS,
   }
 }

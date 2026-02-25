@@ -47,13 +47,10 @@
       <template v-if="battle.battlePhase.value === 'targeting'">
         <div class="text-center mb-4">
           <div class="inline-block px-4 py-2 bg-primary/10 rounded-lg">
-            <span class="text-sm font-bold text-primary"
-              >Phase 1: Target Assignment</span
-            >
+            <span class="text-sm font-bold text-primary">Phase 1: Target Assignment</span>
           </div>
           <p class="text-sm text-muted-foreground mt-2">
-            Your elementals have chosen their targets. Green arrows indicate
-            element advantage (+10% power).
+            Your elementals have chosen their targets.
           </p>
         </div>
 
@@ -71,134 +68,236 @@
             :disabled="isStarting"
             class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
           >
-            {{ isStarting ? "Starting..." : "Start Battle!" }}
+            {{ isStarting ? 'Starting...' : 'Start Battle!' }}
           </button>
         </div>
       </template>
 
-      <!-- ==================== PHASE 2: DICE ROLLING ==================== -->
-      <template v-if="battle.battlePhase.value === 'rolling'">
-        <!-- Turn Indicator -->
+      <!-- ==================== PHASE: CHOOSE ELEMENT ==================== -->
+      <template v-if="battle.battlePhase.value === 'choose_element'">
         <div class="text-center mb-4">
-          <div
-            class="inline-block px-4 py-2 rounded-lg"
-            :class="
-              battle.isPlayerTurn.value ? 'bg-blue-500/10' : 'bg-red-500/10'
-            "
-          >
-            <span
-              class="text-sm font-bold"
-              :class="
-                battle.isPlayerTurn.value ? 'text-blue-400' : 'text-red-400'
-              "
-            >
-              Phase 2:
-              {{ battle.isPlayerTurn.value ? "Your Turn" : "Opponent's Turn" }}
-            </span>
-            <span class="text-xs text-muted-foreground ml-2">
-              Round {{ battle.playerRollsDone.value + 1 }} of 3
-            </span>
+          <div class="inline-block px-4 py-2 bg-yellow-500/10 rounded-lg">
+            <span class="text-sm font-bold text-yellow-400">Choose Your Set-Aside Element</span>
           </div>
+          <p class="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            Pick one element. Dice showing this element can always be set aside for a
+            <strong>+10% power bonus</strong>, even without a combination.
+          </p>
         </div>
 
-        <!-- Arena (no target lines during rolling) -->
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
-          :buffed-element="battle.recentlyBuffedElement.value"
         />
 
-        <!-- Dice Selection + Roll (only when it's player's turn) -->
+        <div class="flex justify-center gap-3 flex-wrap">
+          <button
+            v-for="el in battle.getPartyElementsPresent()"
+            :key="el"
+            @click="handleChooseElement(el)"
+            :disabled="isChoosing"
+            class="flex flex-col items-center gap-1 px-5 py-3 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
+          >
+            <span class="text-3xl">{{ battle.getElementConfig(el).emoji }}</span>
+            <span class="text-sm font-semibold capitalize">{{ el }}</span>
+            <span class="text-xs text-muted-foreground">
+              {{ getPartyCountForElement(el) }} in party
+            </span>
+          </button>
+        </div>
+      </template>
+
+      <!-- ==================== PHASE: PLAYER TURN ==================== -->
+      <template v-if="battle.battlePhase.value === 'player_turn'">
+        <!-- Bonus Tracker -->
+        <FarkleBonusTracker
+          :current-turn="battle.currentTurn.value"
+          :bonuses-total="battle.playerBonusesTotal.value"
+          :set-aside-element="battle.setAsideElement.value"
+        />
+
+        <!-- Battle Arena -->
+        <BattleArena
+          :player-party="battle.playerParty.value"
+          :opponent-party="battle.opponentParty.value"
+          :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
+        />
+
+        <!-- DICE RUSH Banner -->
         <div
-          v-if="
-            battle.isPlayerTurn.value &&
-            !battle.isRolling.value &&
-            !showDiceRoll
-          "
-          class="space-y-4"
+          v-if="battle.isDiceRush.value"
+          class="text-center py-3 bg-purple-500/20 rounded-xl border border-purple-500 animate-pulse"
         >
-          <HandDiceSelector
-            :selected-dice-type="selectedDiceType"
-            :disabled="battle.isRolling.value"
-            @select="handleDiceTypeSelect"
+          <p class="text-lg font-bold text-purple-300">&#x1F3B2; DICE RUSH! All 5 dice used — roll again!</p>
+        </div>
+
+        <!-- BUST Banner -->
+        <div
+          v-if="battle.isBusted.value"
+          class="text-center py-3 bg-red-500/20 rounded-xl border border-red-500"
+        >
+          <p class="text-lg font-bold text-red-400">&#x1F4A5; BUST! No combinations — all turn bonuses lost.</p>
+          <p class="text-sm text-muted-foreground mt-1">End your turn to continue.</p>
+        </div>
+
+        <!-- Dice Row (shown after initial roll) -->
+        <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
+          <FarkleDiceRow
+            :dice="battle.farkleDice.value"
+            :selected-indices="battle.selectedDiceIndices.value"
+            @toggle-select="battle.toggleDiceSelection($event)"
           />
 
-          <div class="flex justify-center">
+          <!-- Combinations detected -->
+          <CombinationDisplay
+            :combinations="battle.detectedCombinations.value"
+            :selectable="false"
+            :show-empty="true"
+          />
+
+          <!-- Currently set-aside combos -->
+          <div v-if="battle.activeCombinations.value.length > 0" class="space-y-1">
+            <p class="text-xs font-bold text-muted-foreground uppercase tracking-wide">Set aside:</p>
+            <CombinationDisplay
+              :combinations="battle.activeCombinations.value"
+              :selectable="false"
+            />
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="space-y-3">
+          <!-- Roll all 5 dice (initial roll or Dice Rush re-roll) -->
+          <div class="flex justify-center" v-if="battle.canRoll.value">
             <button
-              @click="handleRoll"
-              :disabled="!selectedDice || battle.isRolling.value"
-              class="px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+              @click="handleFarkleRoll"
+              :disabled="isActing"
+              class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
             >
-              Roll the dice!
+              {{ isActing ? 'Rolling...' : '&#x1F3B2; Roll all dice!' }}
+            </button>
+          </div>
+
+          <!-- Action row: Reroll / Set Aside / Continue / End Turn -->
+          <div
+            v-if="battle.farkleDice.value.length > 0 && !battle.isBusted.value"
+            class="flex flex-wrap justify-center gap-3"
+          >
+            <!-- Free Reroll -->
+            <button
+              v-if="battle.canReroll.value"
+              @click="handleFarkleReroll"
+              :disabled="isActing || battle.selectedDiceIndices.value.length === 0"
+              class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
+            >
+              ↺ Reroll selected ({{ battle.selectedDiceIndices.value.length }})
+            </button>
+
+            <!-- Set Aside best combination -->
+            <button
+              v-if="battle.detectedCombinations.value.length > 0"
+              @click="handleSetAside"
+              :disabled="isActing"
+              class="px-4 py-2 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
+            >
+              ✓ Set aside best combo
+            </button>
+
+            <!-- Set Aside chosen element die -->
+            <button
+              v-if="canSetAsideChosenElement"
+              @click="handleSetAsideChosenElement"
+              :disabled="isActing"
+              class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
+            >
+              {{ battle.getElementConfig(battle.setAsideElement.value!).emoji }} Set aside chosen element (+10%)
+            </button>
+
+            <!-- Roll Remaining -->
+            <button
+              v-if="battle.canContinue.value"
+              @click="handleFarkleContinue"
+              :disabled="isActing"
+              class="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50"
+            >
+              &#x1F3B2; Roll remaining dice
+            </button>
+
+            <!-- End Turn -->
+            <button
+              v-if="battle.canEndTurn.value || battle.farkleTurnState.value !== null"
+              @click="handleFarkleEndTurn"
+              :disabled="isActing || !canEndTurn"
+              class="px-4 py-2 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50"
+            >
+              End Turn →
+            </button>
+          </div>
+
+          <!-- End Turn for bust -->
+          <div v-if="battle.isBusted.value" class="flex justify-center">
+            <button
+              @click="handleFarkleEndTurn"
+              :disabled="isActing"
+              class="px-6 py-3 bg-card border border-border rounded-lg font-bold hover:bg-card/80 transition-all disabled:opacity-50"
+            >
+              End Turn (no bonuses)
             </button>
           </div>
         </div>
-
-        <!-- Player Dice Roll Visualization -->
-        <div v-if="showDiceRoll && !battle.showingAiRoll.value" class="mt-4">
-          <DiceRollVisualization
-            ref="diceVisualizationRef"
-            :dice-type="getDiceType(selectedDice)"
-            :auto-roll="true"
-            :result="rollResult"
-            @roll-complete="handlePlayerRollComplete"
-            :affinity="selectedDiceAffinity"
-            :element-faces="selectedDiceFaces"
-          />
-          <!-- Player Roll Effect Description -->
-          <div v-if="battle.lastPlayerRoll.value" class="text-center mt-2">
-            <p class="text-sm">
-              {{ battle.getRollDescription(battle.lastPlayerRoll.value) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- AI Roll Display -->
-        <div
-          v-if="battle.showingAiRoll.value"
-          class="text-center space-y-4 py-6"
-        >
-          <div class="text-lg font-bold text-red-400 animate-pulse">
-            Opponent is rolling...
-          </div>
-          <div
-            v-if="showAiResult && battle.lastOpponentRoll.value"
-            class="space-y-2"
-          >
-            <div class="inline-block px-4 py-2 rounded-lg bg-red-500/10">
-              <span class="text-lg">
-                {{
-                  battle.getElementConfig(
-                    battle.lastOpponentRoll.value.dice_element,
-                  ).emoji
-                }}
-              </span>
-              <span class="font-bold ml-2">
-                {{
-                  battle.getElementConfig(
-                    battle.lastOpponentRoll.value.result_element,
-                  ).emoji
-                }}
-                {{ battle.lastOpponentRoll.value.result_element }}
-              </span>
-            </div>
-            <p class="text-sm text-muted-foreground">
-              {{ battle.getRollDescription(battle.lastOpponentRoll.value) }}
-            </p>
-          </div>
-        </div>
-
-        <!-- Roll Log -->
-        <BattleRollLog :rolls="battle.rollHistory.value" />
       </template>
 
-      <!-- ==================== PHASE 3: RESOLUTION ==================== -->
-      <template
-        v-if="
-          battle.battlePhase.value === 'resolved' || battle.battleResult.value
-        "
-      >
+      <!-- ==================== PHASE: OPPONENT TURN (display) ==================== -->
+      <template v-if="showOpponentTurnResult && battle.opponentTurnResult.value">
+        <div class="max-w-md mx-auto space-y-4">
+          <div class="text-center">
+            <div class="inline-block px-4 py-2 bg-red-500/10 rounded-lg">
+              <span class="text-sm font-bold text-red-400">Opponent's Turn</span>
+            </div>
+          </div>
+
+          <div class="p-4 rounded-xl border border-border bg-card/50 space-y-3">
+            <!-- Opponent dice results -->
+            <div class="flex justify-center gap-2">
+              <div
+                v-for="(die, i) in battle.opponentTurnResult.value.dice"
+                :key="i"
+                class="w-12 h-12 rounded-lg border border-border bg-card flex items-center justify-center text-2xl"
+              >
+                {{ getElementEmoji(die.current_result) }}
+              </div>
+            </div>
+
+            <!-- Result summary -->
+            <div class="text-center">
+              <div v-if="battle.opponentTurnResult.value.busted" class="text-red-400 font-bold">
+                Opponent busted! No bonuses.
+              </div>
+              <div v-else-if="battle.opponentTurnResult.value.combination" class="space-y-1">
+                <p class="font-bold text-sm">
+                  {{ getCombinationLabel(battle.opponentTurnResult.value.combination) }}!
+                </p>
+                <div class="flex justify-center gap-3 text-sm">
+                  <span
+                    v-for="(pct, el) in battle.opponentTurnResult.value.bonuses_applied"
+                    :key="el"
+                    class="text-red-300"
+                  >
+                    {{ getElementEmoji(el) }} +{{ Math.round(Number(pct) * 100) }}%
+                  </span>
+                </div>
+              </div>
+              <div v-else-if="battle.opponentTurnResult.value.set_aside_element_used" class="text-yellow-400 text-sm">
+                Opponent used their set-aside element (+10%)
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <!-- ==================== PHASE: RESOLVED ==================== -->
+      <template v-if="battle.battlePhase.value === 'resolved' || battle.battleResult.value">
         <div class="max-w-lg mx-auto text-center space-y-6">
           <!-- Victory/Defeat Banner -->
           <div
@@ -210,12 +309,10 @@
             "
           >
             <div class="text-7xl mb-4">
-              {{
-                battle.battleResult.value?.victory ? "&#x1F3C6;" : "&#x1F480;"
-              }}
+              {{ battle.battleResult.value?.victory ? '&#x1F3C6;' : '&#x1F480;' }}
             </div>
             <h2 class="text-3xl font-bold mb-2">
-              {{ battle.battleResult.value?.victory ? "Victory!" : "Defeat!" }}
+              {{ battle.battleResult.value?.victory ? 'Victory!' : 'Defeat!' }}
             </h2>
             <p class="text-lg text-muted-foreground">
               {{ battle.battleResult.value?.message }}
@@ -226,27 +323,36 @@
               <div class="p-4 bg-blue-500/10 rounded-lg">
                 <p class="text-sm text-muted-foreground mb-1">Your Power</p>
                 <p class="text-3xl font-bold text-blue-400">
-                  {{
-                    battle.battleResult.value?.player_total_power?.toFixed(1)
-                  }}
+                  {{ battle.battleResult.value?.player_total_power?.toFixed(1) }}
                 </p>
               </div>
               <div class="p-4 bg-red-500/10 rounded-lg">
                 <p class="text-sm text-muted-foreground mb-1">Opponent Power</p>
                 <p class="text-3xl font-bold text-red-400">
-                  {{
-                    battle.battleResult.value?.opponent_total_power?.toFixed(1)
-                  }}
+                  {{ battle.battleResult.value?.opponent_total_power?.toFixed(1) }}
                 </p>
+              </div>
+            </div>
+
+            <!-- Bonuses summary -->
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div>
+                <p class="font-bold mb-1">Your bonuses</p>
+                <div v-for="(pct, el) in battle.playerBonusesTotal.value" :key="el">
+                  <span v-if="Number(pct) > 0">{{ getElementEmoji(el) }} +{{ Math.round(Number(pct) * 100) }}%</span>
+                </div>
+              </div>
+              <div>
+                <p class="font-bold mb-1">Opponent bonuses</p>
+                <div v-for="(pct, el) in battle.opponentBonusesTotal.value" :key="el">
+                  <span v-if="Number(pct) > 0">{{ getElementEmoji(el) }} +{{ Math.round(Number(pct) * 100) }}%</span>
+                </div>
               </div>
             </div>
 
             <!-- Reward -->
             <div
-              v-if="
-                battle.battleResult.value?.victory &&
-                battle.battleResult.value?.reward
-              "
+              v-if="battle.battleResult.value?.victory && battle.battleResult.value?.reward"
               class="mt-4 p-3 bg-yellow-500/10 rounded-lg"
             >
               <p class="text-sm text-muted-foreground mb-1">Reward Earned</p>
@@ -257,21 +363,14 @@
 
             <!-- Penalty -->
             <div
-              v-if="
-                !battle.battleResult.value?.victory &&
-                battle.battleResult.value?.penalty?.downgraded_elemental
-              "
+              v-if="!battle.battleResult.value?.victory && battle.battleResult.value?.penalty?.downgraded_elemental"
               class="mt-4 p-3 bg-orange-500/10 rounded-lg"
             >
               <p class="text-sm text-orange-500">
-                {{ battle.battleResult.value.penalty.downgraded_elemental }} was
-                downgraded!
+                {{ battle.battleResult.value.penalty.downgraded_elemental }} was downgraded!
               </p>
             </div>
           </div>
-
-          <!-- Roll Log (final) -->
-          <BattleRollLog :rolls="battle.rollHistory.value" />
 
           <!-- Proceed Button -->
           <button
@@ -287,217 +386,274 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
-import { useRouter } from "vue-router";
-import { useEventStore } from "@/stores/event";
-import { useUserStore } from "@/stores/user";
-import { useElementalsStore } from "@/stores/elementals";
-import { useInventoryStore } from "@/stores/inventory";
-import { useBattle } from "@/composables/useBattle";
-import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
-import HandDiceSelector from "@/components/game/HandDiceSelector.vue";
-import BattleArena from "@/components/game/BattleArena.vue";
-import BattleRollLog from "@/components/game/BattleRollLog.vue";
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useEventStore } from '@/stores/event'
+import { useUserStore } from '@/stores/user'
+import { useElementalsStore } from '@/stores/elementals'
+import { useInventoryStore } from '@/stores/inventory'
+import { useBattle } from '@/composables/useBattle'
+import BattleArena from '@/components/game/BattleArena.vue'
+import FarkleDiceRow from '@/components/game/FarkleDiceRow.vue'
+import CombinationDisplay from '@/components/game/CombinationDisplay.vue'
+import FarkleBonusTracker from '@/components/game/FarkleBonusTracker.vue'
+import type { Combination } from '@/stores/event'
 
-const router = useRouter();
-const eventStore = useEventStore();
-const userStore = useUserStore();
-const elementalsStore = useElementalsStore();
-const inventoryStore = useInventoryStore();
-const battle = useBattle();
+const router = useRouter()
+const eventStore = useEventStore()
+const userStore = useUserStore()
+const elementalsStore = useElementalsStore()
+const inventoryStore = useInventoryStore()
+const battle = useBattle()
 
-const loading = ref(false);
-const isStarting = ref(false);
-const selectedDice = ref("");
-const selectedDiceType = ref<string | null>(null);
-const showDiceRoll = ref(false);
-const rollResult = ref<any>(null);
-const showAiResult = ref(false);
-const diceVisualizationRef = ref<InstanceType<
-  typeof DiceRollVisualization
-> | null>(null);
+const loading = ref(false)
+const isStarting = ref(false)
+const isChoosing = ref(false)
+const isActing = ref(false)
+const showOpponentTurnResult = ref(false)
 
-// Available dice from inventory
-const availableDice = computed(() => inventoryStore.playerDice);
-const selectedPlayerDice = computed(() =>
-  availableDice.value.find((d) => d.id === selectedDice.value),
-);
-const selectedDiceAffinity = computed(
-  () =>
-    (selectedPlayerDice.value?.dice_type as any)?.faces?.[0] as
-      | "fire"
-      | "water"
-      | "earth"
-      | "air"
-      | "lightning"
-      | undefined,
-);
-const selectedDiceFaces = computed(
-  () => (selectedPlayerDice.value?.dice_type as any)?.faces as string[] | undefined,
-);
+const ELEMENT_EMOJIS: Record<string, string> = {
+  fire: '🔥',
+  water: '💧',
+  earth: '🪨',
+  air: '💨',
+  lightning: '⚡',
+}
 
-// Get dice type notation from dice ID
-const getDiceType = (diceId: string): "d4" | "d6" | "d10" | "d12" | "d20" => {
-  const dice = availableDice.value.find((d) => d.id === diceId);
-  return (dice?.dice_type?.dice_notation || "d6") as
-    | "d4"
-    | "d6"
-    | "d10"
-    | "d12"
-    | "d20";
-};
+function getElementEmoji(element: string): string {
+  return ELEMENT_EMOJIS[element] ?? '?'
+}
 
-// Handle dice type selection
-const handleDiceTypeSelect = (diceType: string) => {
-  selectedDiceType.value = diceType;
-  const diceOfType = availableDice.value.find(
-    (d) => d.dice_type?.dice_notation === diceType,
-  );
-  if (diceOfType) {
-    selectedDice.value = diceOfType.id;
+function getCombinationLabel(combo: Combination): string {
+  const labels: Record<string, string> = {
+    triplet: 'Triplet',
+    quartet: 'Quartet',
+    all_for_one: 'All-For-One',
+    one_for_all: 'One-For-All',
+    full_house: 'Full House',
   }
-};
+  return labels[combo.type] ?? combo.type
+}
 
-// Phase 1 -> Phase 2: Start battle
+function getPartyCountForElement(el: string): number {
+  return battle.playerParty.value.filter((m) => m.element === el).length
+}
+
+// Whether the player can set aside the chosen element die solo
+const canSetAsideChosenElement = computed(() => {
+  const el = battle.setAsideElement.value
+  if (!el) return false
+  const turn = battle.farkleTurnState.value
+  if (!turn) return false
+  if (turn.phase !== 'can_reroll' && turn.phase !== 'set_aside') return false
+  // Check there's an active die with the chosen element
+  return turn.dice.some((d) => !d.is_set_aside && d.current_result === el)
+})
+
+// Can end turn when there's something set aside or busted
+const canEndTurn = computed(() => {
+  const turn = battle.farkleTurnState.value
+  if (!turn) return false
+  if (turn.busted) return true
+  return turn.active_combinations.length > 0 || turn.set_aside_element_bonus !== null
+})
+
+// Phase 1: Start battle
 const handleStartBattle = async () => {
-  if (!userStore.userId) return;
-  isStarting.value = true;
-
+  if (!userStore.userId) return
+  isStarting.value = true
   try {
-    const result = await eventStore.startBattle(userStore.userId);
+    const result = await eventStore.startBattle(userStore.userId)
     if (result?.battle_state) {
-      battle.initFromState(result.battle_state as any);
+      battle.initFromState(result.battle_state as any)
     }
   } catch (error) {
-    console.error("Failed to start battle:", error);
+    console.error('Failed to start battle:', error)
   } finally {
-    isStarting.value = false;
+    isStarting.value = false
   }
-};
+}
 
-// Phase 2: Player rolls a dice
-const handleRoll = async () => {
-  if (!selectedDice.value || !userStore.userId) return;
-
-  const playerDice = availableDice.value.find(
-    (d) => d.id === selectedDice.value,
-  );
-  if (!playerDice) return;
-
-  battle.isRolling.value = true;
-  showDiceRoll.value = true;
-
+// Choose set-aside element
+const handleChooseElement = async (element: string) => {
+  if (!userStore.userId) return
+  isChoosing.value = true
   try {
-    const response = await eventStore.rollBattleDice(
-      userStore.userId,
-      playerDice.dice_type_id,
-    );
-
-    if (response?.result) {
-      // Set roll result for dice visualization
-      if (response.result.player_roll) {
-        rollResult.value = {
-          roll_value: response.result.player_roll.roll_value,
-          result_element: response.result.player_roll.result_element,
-        };
-      }
-
-      // Update battle state with the full result
-      battle.updateFromRollResult(response.result as any);
-
-      nextTick(() => {
-        diceVisualizationRef.value?.roll();
-      });
-
-      inventoryStore.updateLastRoll?.({
-        roll_value: response.result.player_roll?.roll_value || 1,
-        dice_notation: playerDice.dice_type?.dice_notation || "1d6",
-        dice_type_id: playerDice.dice_type_id,
-        player_id: userStore.userId!,
-        context: "combat",
-        id: "temp-roll-id", // Temporary ID since this isn't saved in DB
-        result_element: response.result.player_roll?.result_element || "fire",
-      });
+    const result = await eventStore.chooseSetAsideElement(userStore.userId, element)
+    if (result?.battle_state) {
+      battle.initFromState(result.battle_state as any)
     }
   } catch (error) {
-    console.error("Failed to roll battle dice:", error);
-    showDiceRoll.value = false;
+    console.error('Failed to choose element:', error)
   } finally {
-    battle.isRolling.value = false;
+    isChoosing.value = false
   }
-};
+}
 
-// After player dice animation finishes, show AI roll
-const handlePlayerRollComplete = async () => {
-  showDiceRoll.value = false;
-
-  // Show AI rolling with animated delay
-  if (battle.lastOpponentRoll.value) {
-    battle.showingAiRoll.value = true;
-    showAiResult.value = false;
-
-    // Wait 1.5 seconds for suspense
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    showAiResult.value = true;
-
-    // Wait another 1.5 seconds to show the result
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    battle.showingAiRoll.value = false;
-
-    // Reset for next turn
-    rollResult.value = null;
-    selectedDiceType.value = null;
-    selectedDice.value = "";
+// Initial roll of all 5 dice
+const handleFarkleRoll = async () => {
+  if (!userStore.userId) return
+  isActing.value = true
+  try {
+    const response = await eventStore.farkleRoll(userStore.userId)
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+    }
+  } catch (error) {
+    console.error('Failed to roll:', error)
+  } finally {
+    isActing.value = false
   }
-};
+}
 
-// Go back to main menu after battle resolves
+// Free reroll of selected dice
+const handleFarkleReroll = async () => {
+  if (!userStore.userId || battle.selectedDiceIndices.value.length === 0) return
+  isActing.value = true
+  const indices = [...battle.selectedDiceIndices.value]
+  battle.clearDiceSelection()
+  try {
+    const response = await eventStore.farkleReroll(userStore.userId, indices)
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+    }
+  } catch (error) {
+    console.error('Failed to reroll:', error)
+  } finally {
+    isActing.value = false
+  }
+}
+
+// Set aside the best detected combination
+const handleSetAside = async () => {
+  if (!userStore.userId || battle.detectedCombinations.value.length === 0) return
+  isActing.value = true
+  const best = [...battle.detectedCombinations.value].sort(
+    (a, b) =>
+      Object.values(b.bonuses).reduce((s, v) => s + v, 0) -
+      Object.values(a.bonuses).reduce((s, v) => s + v, 0),
+  )[0]
+  try {
+    const response = await eventStore.farkleSetAside(
+      userStore.userId,
+      best.dice_indices,
+      best.type === 'one_for_all' ? battle.setAsideElement.value ?? undefined : undefined,
+    )
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+      battle.clearDiceSelection()
+    }
+  } catch (error) {
+    console.error('Failed to set aside:', error)
+  } finally {
+    isActing.value = false
+  }
+}
+
+// Set aside the chosen element die solo
+const handleSetAsideChosenElement = async () => {
+  if (!userStore.userId || !battle.setAsideElement.value) return
+  const turn = battle.farkleTurnState.value
+  if (!turn) return
+
+  // Find indices of non-set-aside dice showing the chosen element
+  const indices = turn.dice
+    .map((d, i) => ({ d, i }))
+    .filter(({ d }) => !d.is_set_aside && d.current_result === battle.setAsideElement.value)
+    .map(({ i }) => i)
+    .slice(0, 1) // take one die
+
+  if (indices.length === 0) return
+  isActing.value = true
+  try {
+    const response = await eventStore.farkleSetAside(userStore.userId, indices)
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+    }
+  } catch (error) {
+    console.error('Failed to set aside chosen element:', error)
+  } finally {
+    isActing.value = false
+  }
+}
+
+// Roll remaining (non-set-aside) dice
+const handleFarkleContinue = async () => {
+  if (!userStore.userId) return
+  isActing.value = true
+  try {
+    const response = await eventStore.farkleContinue(userStore.userId)
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+    }
+  } catch (error) {
+    console.error('Failed to continue:', error)
+  } finally {
+    isActing.value = false
+  }
+}
+
+// End player turn — show opponent turn result briefly
+const handleFarkleEndTurn = async () => {
+  if (!userStore.userId) return
+  isActing.value = true
+  try {
+    const response = await eventStore.farkleEndTurn(userStore.userId)
+    if (response?.result) {
+      battle.updateFromTurnResult(response.result as any)
+
+      // Show opponent turn result briefly
+      if (battle.opponentTurnResult.value) {
+        showOpponentTurnResult.value = true
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+        showOpponentTurnResult.value = false
+      }
+    }
+  } catch (error) {
+    console.error('Failed to end turn:', error)
+  } finally {
+    isActing.value = false
+  }
+}
+
+// Proceed after battle resolved
 const proceedToNext = async () => {
   if (!userStore.userId) {
-    eventStore.clearEvent();
-    router.push("/");
-    return;
+    eventStore.clearEvent()
+    router.push('/')
+    return
   }
-
   try {
-    await userStore.fetchUser(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
-    await elementalsStore.fetchPlayerElementals(userStore.userId);
+    await userStore.fetchUser(userStore.userId)
+    await inventoryStore.fetchPlayerItems(userStore.userId)
+    await elementalsStore.fetchPlayerElementals(userStore.userId)
   } catch (error) {
-    console.error("Failed to refresh user data:", error);
+    console.error('Failed to refresh user data:', error)
   } finally {
-    battle.reset();
-    eventStore.clearEvent();
-    router.push("/");
+    battle.reset()
+    eventStore.clearEvent()
+    router.push('/')
   }
-};
+}
 
-// Load event data and initialize battle state
 onMounted(async () => {
-  if (!userStore.userId) return;
-
-  loading.value = true;
-
+  if (!userStore.userId) return
+  loading.value = true
   try {
-    await elementalsStore.fetchAllElementals();
-    await elementalsStore.fetchPlayerElementals(userStore.userId);
-    await inventoryStore.fetchPlayerDice(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
+    await elementalsStore.fetchAllElementals()
+    await elementalsStore.fetchPlayerElementals(userStore.userId)
+    await inventoryStore.fetchPlayerDice(userStore.userId)
+    await inventoryStore.fetchPlayerItems(userStore.userId)
 
-    // Initialize battle state from event store
     if (eventStore.battleState) {
-      battle.initFromState(eventStore.battleState);
-    } else if (eventStore.pvpData) {
-      // If battle_state is embedded in pvp data
-      const pvp = eventStore.pvpData;
-      if (pvp.battle_state) {
-        battle.initFromState(pvp.battle_state);
-      }
+      battle.initFromState(eventStore.battleState as any)
+    } else if (eventStore.pvpData?.battle_state) {
+      battle.initFromState(eventStore.pvpData.battle_state as any)
     }
   } catch (error) {
-    console.error("Failed to load battle data:", error);
+    console.error('Failed to load battle data:', error)
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-});
+})
 </script>

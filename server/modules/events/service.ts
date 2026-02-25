@@ -23,11 +23,21 @@ import { DiceRollService } from "../dice-rolls/service";
 import {
   buildPartyMember,
   computeTargetAssignments,
-  determineBattleWinner,
-  type BattleState,
   type BattlePartyMember,
   type ElementType,
 } from "./battle-logic";
+import {
+  rollFarkleDice,
+  detectCombinations,
+  simulateOpponentTurn,
+  applyBonusesToParty,
+  mergeBonuses,
+  isDiceRush,
+  isBust,
+  type FarkleDie,
+  type FarkleBattleState,
+  type Combination,
+} from "./farkle-battle-logic";
 
 type DiceRarity = "green" | "blue" | "purple" | "gold";
 const RARITY_ORDER: DiceRarity[] = ["green", "blue", "purple", "gold"];
@@ -216,13 +226,13 @@ export class EventService {
   }
 
   /**
-   * Generate a PvP battle event with full 3-phase battle state.
+   * Generate a PvP battle event with Farkle battle state (v2).
    */
   private async generatePvPBattle(playerId: string): Promise<{
     response: EventResponse;
     opponent_name: string;
     opponent_power_level: number;
-    battleState: BattleState;
+    battleState: FarkleBattleState;
     opponentPartyData: BattlePartyMember[];
   }> {
     // Get player's active party with elemental details
@@ -257,18 +267,30 @@ export class EventService {
     const opponentName = this.generateOpponentName();
     const opponentPowerLevel = opponentParty.reduce((sum, m) => sum + m.base_power, 0);
 
-    // Compute target assignments (random, no element advantages)
+    // Compute target assignments (for targeting phase display)
     const assigned = computeTargetAssignments(playerParty, opponentParty);
 
-    // Build initial battle state
-    const battleState: BattleState = {
+    // Pick a random set-aside element for the opponent AI from its party elements
+    const opponentElements = [
+      ...new Set(assigned.opponentParty.map((m) => m.element)),
+    ] as ElementType[];
+    const opponentSetAsideElement =
+      opponentElements[Math.floor(Math.random() * opponentElements.length)] ?? "fire";
+
+    // Build initial Farkle battle state (starts in targeting phase)
+    const battleState: FarkleBattleState = {
       phase: "targeting",
       player_party: assigned.playerParty,
       opponent_party: assigned.opponentParty,
-      rolls: [],
+      set_aside_element: null,
+      opponent_set_aside_element: opponentSetAsideElement,
       current_turn: 1,
-      player_rolls_done: 0,
-      opponent_rolls_done: 0,
+      player_turns_done: 0,
+      opponent_turns_done: 0,
+      player_turn: null,
+      opponent_turn_result: null,
+      player_bonuses_total: {},
+      opponent_bonuses_total: {},
     };
 
     const potentialReward = Math.floor(opponentPowerLevel * 10);
@@ -279,7 +301,7 @@ export class EventService {
       potential_reward: potentialReward,
       opponent_party: assigned.opponentParty,
       player_party: assigned.playerParty,
-      battle_state: battleState,
+      battle_state: battleState as any,
     };
 
     return {
@@ -358,9 +380,9 @@ export class EventService {
   }
 
   /**
-   * Start a battle - transition from targeting phase to rolling phase.
+   * Start a battle - transition from targeting phase to choose_element phase.
    */
-  async startBattle(playerId: string): Promise<BattleState> {
+  async startBattle(playerId: string): Promise<FarkleBattleState> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
       throw new BadRequestError("No active PvP battle event");
@@ -375,7 +397,7 @@ export class EventService {
       throw new NotFoundError("Battle event");
     }
 
-    const battleState: BattleState = battle.battle_state;
+    const battleState = battle.battle_state as FarkleBattleState;
     if (!battleState) {
       throw new BadRequestError("Battle state not initialized");
     }
@@ -384,116 +406,468 @@ export class EventService {
       throw new BadRequestError("Battle already started");
     }
 
-    // Transition to rolling phase
-    battleState.phase = "rolling";
+    // Transition to choose_element phase
+    battleState.phase = "choose_element";
     await this.battleRepo.updateBattleState(battle.id, battleState);
 
     return battleState;
   }
 
-  /**
-   * Player rolls a dice in battle. After player roll, AI auto-rolls.
-   * Returns updated battle state and both roll results.
-   *
-   * NOTE: This is a simplified Phase 1 version. Phase 2 replaces this
-   * with full Farkle mechanics (throw 5 dice, combinations, etc.)
-   */
-  async rollBattleDice(
-    playerId: string,
-    diceTypeId: string,
-  ): Promise<BattleRollResult> {
+  // ======================================================================
+  // Farkle Battle Methods (v2)
+  // ======================================================================
+
+  private async getFarkleBattle(playerId: string): Promise<{
+    battle: NonNullable<Awaited<ReturnType<BattleEventRepository["findById"]>>>;
+    battleState: FarkleBattleState;
+  }> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
       throw new BadRequestError("No active PvP battle event");
     }
-
     if (!currentEvent.battle_id) {
       throw new BadRequestError("Invalid battle event");
     }
-
     const battle = await this.battleRepo.findById(currentEvent.battle_id);
     if (!battle) {
       throw new NotFoundError("Battle event");
     }
+    return { battle: battle!, battleState: battle!.battle_state as FarkleBattleState };
+  }
 
-    let battleState: BattleState = battle.battle_state;
-    if (!battleState || battleState.phase !== "rolling") {
-      throw new BadRequestError("Battle is not in rolling phase");
+  /**
+   * Player chooses their set-aside element for the battle (once, before turn 1).
+   */
+  async chooseSetAsideElement(
+    playerId: string,
+    element: ElementType,
+  ): Promise<FarkleBattleState> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
+
+    if (battleState.phase !== "choose_element") {
+      throw new BadRequestError("Not in element selection phase");
     }
 
-    if (battleState.player_rolls_done >= 3) {
-      throw new BadRequestError("All player rolls have been made");
+    // Validate the chosen element exists in player's party
+    const partyElements = battleState.player_party.map((m) => m.element);
+    if (!partyElements.includes(element)) {
+      throw new BadRequestError(
+        "Chosen element must be present in your party",
+      );
     }
 
-    if (battleState.player_rolls_done > battleState.opponent_rolls_done) {
-      throw new BadRequestError("Waiting for opponent's roll");
+    battleState.set_aside_element = element;
+    battleState.phase = "player_turn";
+
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+    return battleState;
+  }
+
+  /**
+   * Player rolls all 5 equipped dice (initial roll of a Farkle turn).
+   */
+  async farkleInitialRoll(playerId: string): Promise<{
+    battle_state: FarkleBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+  }> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
+
+    if (battleState.phase !== "player_turn") {
+      throw new BadRequestError("Not your turn");
     }
 
-    // Perform the player's dice roll (now returns result_element)
-    const rollResult = await this.diceRollService.performRoll({
-      player_id: playerId,
-      dice_type_id: diceTypeId,
-      context: "combat",
-    });
+    // If player_turn state exists and isn't at initial_roll, they already rolled
+    if (
+      battleState.player_turn &&
+      battleState.player_turn.phase !== "initial_roll"
+    ) {
+      throw new BadRequestError("Already rolled this turn. Use reroll or set-aside.");
+    }
 
-    const resultElement = rollResult.details.result_element as ElementType;
+    // Get player's 5 equipped dice
+    const equippedDice = await db("player_dice")
+      .where({ player_id: playerId, is_equipped: true })
+      .leftJoin("dice_types", "player_dice.dice_type_id", "dice_types.id")
+      .select(
+        "player_dice.id as player_dice_id",
+        "player_dice.dice_type_id",
+        "dice_types.dice_notation",
+        "dice_types.faces",
+      )
+      .limit(5);
 
-    // Simple Phase 1 buff: +5 power to matching elementals on player's side
-    const bonusAmount = 5;
-    battleState.player_party = battleState.player_party.map((member) => {
-      if (member.element === resultElement) {
-        return { ...member, current_power: member.current_power + bonusAmount };
-      }
-      return { ...member };
-    });
+    if (equippedDice.length === 0) {
+      throw new BadRequestError("No dice equipped. Please equip dice before battling.");
+    }
 
-    const playerRoll = {
-      turn: battleState.player_rolls_done + 1,
-      side: "player" as const,
-      dice_type_id: diceTypeId,
-      dice_element: resultElement,
-      result_element: resultElement,
-      bonus_applied: bonusAmount,
-      affected_element: resultElement as string,
-      roll_value: rollResult.roll.roll_value,
+    // Build FarkleDie objects and roll them
+    const farkleDice: FarkleDie[] = equippedDice.map((d: any) => ({
+      player_dice_id: d.player_dice_id,
+      dice_type_id: d.dice_type_id,
+      dice_notation: d.dice_notation ?? "d6",
+      faces: Array.isArray(d.faces) ? d.faces : JSON.parse(d.faces ?? "[]"),
+      current_result: "fire" as ElementType,
+      is_set_aside: false,
+    }));
+
+    const rolledDice = rollFarkleDice(farkleDice);
+
+    // Record each roll in dice_rolls table
+    for (const die of rolledDice) {
+      await this.diceRollService.performRoll({
+        player_id: playerId,
+        dice_type_id: die.dice_type_id,
+        context: "farkle_battle",
+      });
+      // Override the random roll with our Farkle result (performRoll re-rolls,
+      // but we only need it for persistence; the Farkle logic drives the actual result)
+    }
+
+    const detected = detectCombinations(rolledDice);
+
+    battleState.player_turn = {
+      phase: "can_reroll",
+      dice: rolledDice,
+      has_used_reroll: false,
+      active_combinations: [],
+      set_aside_element_bonus: null,
+      is_dice_rush: false,
+      busted: false,
     };
-    battleState.rolls.push(playerRoll);
-    battleState.player_rolls_done += 1;
 
-    // AI auto-roll: random element buff
-    const elements: ElementType[] = ["fire", "water", "earth", "air", "lightning"];
-    const aiElement = elements[Math.floor(Math.random() * elements.length)];
-    const aiBonusAmount = 5;
+    await this.battleRepo.updateBattleState(battle.id, battleState);
 
-    battleState.opponent_party = battleState.opponent_party.map((member) => {
-      if (member.element === aiElement) {
-        return { ...member, current_power: member.current_power + aiBonusAmount };
+    return {
+      battle_state: battleState,
+      detected_combinations: detected,
+      is_busted: false,
+      is_dice_rush: false,
+    };
+  }
+
+  /**
+   * Player uses the free reroll: re-rolls 1-5 dice (once per turn).
+   */
+  async farkleReroll(
+    playerId: string,
+    diceIndicesToReroll: number[],
+  ): Promise<{
+    battle_state: FarkleBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+  }> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
+
+    if (battleState.phase !== "player_turn" || !battleState.player_turn) {
+      throw new BadRequestError("Not in player turn");
+    }
+
+    const turn = battleState.player_turn;
+
+    if (turn.has_used_reroll) {
+      throw new BadRequestError("Free reroll already used this turn");
+    }
+
+    if (turn.phase !== "can_reroll") {
+      throw new BadRequestError("Cannot reroll at this stage");
+    }
+
+    if (diceIndicesToReroll.length === 0 || diceIndicesToReroll.length > 5) {
+      throw new BadRequestError("Must reroll between 1 and 5 dice");
+    }
+
+    // Re-roll specified dice
+    const updatedDice = turn.dice.map((die, i) => {
+      if (diceIndicesToReroll.includes(i) && !die.is_set_aside) {
+        const randomFace =
+          die.faces[Math.floor(Math.random() * die.faces.length)];
+        return { ...die, current_result: randomFace };
       }
-      return { ...member };
+      return die;
     });
 
-    const opponentRoll = {
-      turn: battleState.opponent_rolls_done + 1,
-      side: "opponent" as const,
-      dice_element: aiElement,
-      result_element: aiElement,
-      bonus_applied: aiBonusAmount,
-      affected_element: aiElement as string,
+    turn.dice = updatedDice;
+    turn.has_used_reroll = true;
+    turn.phase = "set_aside";
+
+    const detected = detectCombinations(updatedDice);
+
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+
+    return {
+      battle_state: battleState,
+      detected_combinations: detected,
+      is_busted: false,
+      is_dice_rush: false,
     };
-    battleState.rolls.push(opponentRoll);
-    battleState.opponent_rolls_done += 1;
+  }
 
-    battleState.current_turn = battleState.player_rolls_done + 1;
+  /**
+   * Player sets aside a combination (or chosen-element solo die).
+   * Checks for Dice Rush.
+   */
+  async farkleSetAside(
+    playerId: string,
+    diceIndices: number[],
+    oneForAllElement?: string,
+  ): Promise<{
+    battle_state: FarkleBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+  }> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
 
-    // Check if battle is resolved (both sides made 3 rolls)
-    let isResolved = false;
-    let result: BattleRollResult["result"] = undefined;
+    if (battleState.phase !== "player_turn" || !battleState.player_turn) {
+      throw new BadRequestError("Not in player turn");
+    }
 
-    if (battleState.player_rolls_done >= 3 && battleState.opponent_rolls_done >= 3) {
-      isResolved = true;
+    const turn = battleState.player_turn;
+
+    if (diceIndices.length === 0) {
+      throw new BadRequestError("Must select at least one die to set aside");
+    }
+
+    const selectedDice = diceIndices.map((i) => turn.dice[i]).filter(Boolean);
+    if (selectedDice.length !== diceIndices.length) {
+      throw new BadRequestError("Invalid dice indices");
+    }
+
+    // Validate: either selected dice form a valid combination OR all selected are the chosen element
+    const activeDice = turn.dice.map((d, i) => ({
+      ...d,
+      is_set_aside: turn.dice[i].is_set_aside || diceIndices.includes(i),
+    }));
+    const combos = detectCombinations(
+      activeDice.filter((_, i) => diceIndices.includes(i) || turn.dice[i].is_set_aside),
+    );
+
+    const isValidCombo = combos.some((c) =>
+      diceIndices.every((i) => c.dice_indices.includes(i)) ||
+      c.dice_indices.every((ci) => diceIndices.includes(ci))
+    );
+    const isChosenElementSolo =
+      battleState.set_aside_element !== null &&
+      selectedDice.every(
+        (d) => d.current_result === battleState.set_aside_element,
+      );
+
+    if (!isValidCombo && !isChosenElementSolo) {
+      throw new BadRequestError(
+        "Selected dice do not form a valid combination",
+      );
+    }
+
+    // Mark dice as set aside
+    diceIndices.forEach((i) => {
+      if (turn.dice[i]) {
+        turn.dice[i] = { ...turn.dice[i], is_set_aside: true };
+      }
+    });
+
+    if (isChosenElementSolo && !isValidCombo) {
+      // Solo chosen-element set-aside
+      turn.set_aside_element_bonus = battleState.set_aside_element;
+    } else {
+      // Recalculate combinations from all set-aside dice
+      const setAsideDice = turn.dice.filter((d) => d.is_set_aside);
+      const allCombos = detectCombinations(setAsideDice);
+      // Apply One-For-All override if specified
+      if (oneForAllElement) {
+        const oneForAll = allCombos.find((c) => c.type === "one_for_all");
+        if (oneForAll) {
+          oneForAll.bonuses = { [oneForAllElement]: 0.3 };
+        }
+      }
+      turn.active_combinations = allCombos;
+    }
+
+    const diceRush = isDiceRush(turn.dice);
+    turn.is_dice_rush = diceRush;
+
+    if (diceRush) {
+      // Dice Rush: reset all dice to unset-aside for the next roll
+      turn.dice = turn.dice.map((d) => ({ ...d, is_set_aside: false }));
+      turn.active_combinations = turn.active_combinations; // keep combos
+      turn.has_used_reroll = false; // fresh set of dice, fresh reroll
+      turn.phase = "initial_roll";
+    } else {
+      turn.phase = "rolling_remaining";
+    }
+
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+
+    const remainingDice = turn.dice.filter((d) => !d.is_set_aside);
+    const detectedRemaining = detectCombinations(remainingDice);
+
+    return {
+      battle_state: battleState,
+      detected_combinations: detectedRemaining,
+      is_busted: false,
+      is_dice_rush: diceRush,
+    };
+  }
+
+  /**
+   * Player continues: rolls remaining (non-set-aside) dice.
+   * If no combo found AND free reroll was used → bust.
+   */
+  async farkleContinue(playerId: string): Promise<{
+    battle_state: FarkleBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+  }> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
+
+    if (battleState.phase !== "player_turn" || !battleState.player_turn) {
+      throw new BadRequestError("Not in player turn");
+    }
+
+    const turn = battleState.player_turn;
+
+    if (turn.phase !== "rolling_remaining" && turn.phase !== "initial_roll") {
+      throw new BadRequestError("Cannot roll at this stage — set aside a combo first");
+    }
+
+    // Roll non-set-aside dice
+    const updatedDice = rollFarkleDice(turn.dice);
+    turn.dice = updatedDice;
+    turn.phase = "can_reroll";
+
+    const activeDice = updatedDice.filter((d) => !d.is_set_aside);
+    const detected = detectCombinations(activeDice);
+
+    // Bust check: no combos, no chosen-element die in active dice, and reroll already used
+    const busted = isBust(updatedDice, battleState.set_aside_element, turn.has_used_reroll);
+
+    if (busted) {
+      turn.busted = true;
+      turn.phase = "done";
+      // Will be finalized in farkleEndTurn with zeroed bonuses
+    }
+
+    await this.battleRepo.updateBattleState(battle.id, battleState);
+
+    return {
+      battle_state: battleState,
+      detected_combinations: detected,
+      is_busted: busted,
+      is_dice_rush: false,
+    };
+  }
+
+  /**
+   * Player ends their Farkle turn.
+   * Applies accumulated bonuses, runs opponent AI turn, advances turn counter.
+   * After turn 3 for both sides → auto-resolve battle.
+   */
+  async farkleEndTurn(playerId: string): Promise<{
+    battle_state: FarkleBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+    result?: NonNullable<BattleRollResult["result"]>;
+  }> {
+    const { battle, battleState } = await this.getFarkleBattle(playerId);
+
+    if (battleState.phase !== "player_turn") {
+      throw new BadRequestError("Not in player turn");
+    }
+
+    const turn = battleState.player_turn;
+
+    // Calculate turn bonuses from active combinations + solo set-aside element
+    let turnBonuses: Partial<Record<ElementType, number>> = {};
+
+    if (turn && !turn.busted) {
+      for (const combo of turn.active_combinations) {
+        for (const [el, pct] of Object.entries(combo.bonuses)) {
+          turnBonuses[el as ElementType] =
+            (turnBonuses[el as ElementType] ?? 0) + pct;
+        }
+      }
+
+      // Add solo set-aside element bonus (+10%)
+      if (turn.set_aside_element_bonus) {
+        turnBonuses[turn.set_aside_element_bonus] =
+          (turnBonuses[turn.set_aside_element_bonus] ?? 0) + 0.1;
+      }
+    }
+    // If busted: turnBonuses stays empty
+
+    // Merge into total accumulated bonuses
+    battleState.player_bonuses_total = mergeBonuses(
+      battleState.player_bonuses_total,
+      turnBonuses,
+    );
+
+    // Apply total accumulated bonuses to player party
+    battleState.player_party = applyBonusesToParty(
+      battleState.player_party,
+      battleState.player_bonuses_total,
+    );
+
+    battleState.player_turns_done += 1;
+    battleState.player_turn = null;
+
+    // Run opponent AI turn
+    const opponentEquippedDice = await this.getOpponentFarkleDice();
+    const opponentSetAsideEl =
+      (battleState.opponent_set_aside_element as ElementType) ?? "fire";
+    const opponentResult = simulateOpponentTurn(opponentEquippedDice, opponentSetAsideEl);
+
+    // Merge opponent bonuses
+    battleState.opponent_bonuses_total = mergeBonuses(
+      battleState.opponent_bonuses_total,
+      opponentResult.bonuses_applied as Partial<Record<ElementType, number>>,
+    );
+
+    // Also add chosen-element solo bonus if used
+    if (opponentResult.set_aside_element_used) {
+      battleState.opponent_bonuses_total = mergeBonuses(
+        battleState.opponent_bonuses_total,
+        { [opponentSetAsideEl]: 0.1 },
+      );
+    }
+
+    battleState.opponent_party = applyBonusesToParty(
+      battleState.opponent_party,
+      battleState.opponent_bonuses_total,
+    );
+
+    battleState.opponent_turn_result = opponentResult;
+    battleState.opponent_turns_done += 1;
+
+    // Check if we've completed all 3 turns
+    const isResolved =
+      battleState.player_turns_done >= 3 &&
+      battleState.opponent_turns_done >= 3;
+
+    let result: NonNullable<BattleRollResult["result"]> | undefined;
+
+    if (isResolved) {
       battleState.phase = "resolved";
 
-      const { winner, playerTotal, opponentTotal } = determineBattleWinner(battleState);
+      // Calculate final powers (already applied via bonuses)
+      const playerTotal = battleState.player_party.reduce(
+        (s, m) => s + m.current_power,
+        0,
+      );
+      const opponentTotal = battleState.opponent_party.reduce(
+        (s, m) => s + m.current_power,
+        0,
+      );
+
+      let winner: "player" | "opponent" | "draw";
+      if (playerTotal > opponentTotal) winner = "player";
+      else if (opponentTotal > playerTotal) winner = "opponent";
+      else winner = "draw";
+
       battleState.winner = winner;
       battleState.player_total_power = playerTotal;
       battleState.opponent_total_power = opponentTotal;
@@ -508,17 +882,38 @@ export class EventService {
         battle.opponent_name,
         battle.opponent_power_level,
       );
+    } else {
+      // Advance turn counter, go back to player_turn phase
+      battleState.current_turn = Math.min(3, battleState.player_turns_done + 1);
+      battleState.phase = "player_turn";
     }
 
     await this.battleRepo.updateBattleState(battle.id, battleState);
 
     return {
       battle_state: battleState,
-      player_roll: playerRoll,
-      opponent_roll: opponentRoll,
+      detected_combinations: [],
+      is_busted: turn?.busted ?? false,
+      is_dice_rush: false,
       is_resolved: isResolved,
       result,
     };
+  }
+
+  /**
+   * Generate 5 generic FarkleDie objects for the opponent AI
+   * (uses all-element faces to represent a balanced opponent).
+   */
+  private async getOpponentFarkleDice(): Promise<FarkleDie[]> {
+    const elements: ElementType[] = ["fire", "water", "earth", "air", "lightning"];
+    return Array.from({ length: 5 }, (_, i) => ({
+      player_dice_id: `opponent-${i}`,
+      dice_type_id: `opponent-${i}`,
+      dice_notation: "d6",
+      faces: elements,
+      current_result: elements[0],
+      is_set_aside: false,
+    }));
   }
 
   /**

@@ -9,6 +9,7 @@ import type {
   EncounterStatusValue,
   ItemRarityValue,
   ItemTypeValue,
+  FarkleBattleState,
 } from '@elementary-dices/shared';
 
 // ============================================================
@@ -129,7 +130,7 @@ interface EventsBattleRow {
   downgraded_elemental_id: string | null;
   created_at: Date;
   resolved_at: Date | null;
-  battle_state: BattleState | null;
+  battle_state: BattleState | FarkleBattleState | null;
   opponent_party_data: unknown;
 }
 
@@ -346,7 +347,7 @@ declare module 'knex/types/tables' {
         currency_reward?: number | null;
         downgraded_elemental_id?: string | null;
         resolved_at?: Date | null;
-        battle_state?: BattleState | null;
+        battle_state?: BattleState | FarkleBattleState | null;
         opponent_party_data?: unknown;
       },
       Partial<Omit<EventsBattleRow, 'id' | 'created_at'>>

@@ -23,6 +23,14 @@ import {
   EncounterStatus,
   BattleOutcome,
   ItemType,
+  CombinationType,
+  CombinationSchema,
+  FarkleDieSchema,
+  FarkleTurnPhase,
+  FarkleTurnStateSchema,
+  OpponentTurnResultSchema,
+  FarkleBattlePhase,
+  FarkleBattleStateSchema,
 } from "./schemas";
 
 // Extract static types from Elysia schemas
@@ -51,6 +59,16 @@ export type BattlePartyMember = Static<typeof BattlePartyMemberSchema>;
 export type BattleRollRecord = Static<typeof BattleRollRecordSchema>;
 export type BattleState = Static<typeof BattleStateSchema>;
 export type BattlePhaseValue = Static<typeof BattlePhase>;
+
+// Farkle Battle System types (v2)
+export type CombinationTypeValue = Static<typeof CombinationType>;
+export type Combination = Static<typeof CombinationSchema>;
+export type FarkleDie = Static<typeof FarkleDieSchema>;
+export type FarkleTurnPhaseValue = Static<typeof FarkleTurnPhase>;
+export type FarkleTurnState = Static<typeof FarkleTurnStateSchema>;
+export type OpponentTurnResult = Static<typeof OpponentTurnResultSchema>;
+export type FarkleBattlePhaseValue = Static<typeof FarkleBattlePhase>;
+export type FarkleBattleState = Static<typeof FarkleBattleStateSchema>;
 
 // Extended types with joined data (client-side only)
 
