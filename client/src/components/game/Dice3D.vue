@@ -62,14 +62,6 @@ const affinityTextures: Record<string, string> = {
   lightning: lightningTexture,
 };
 
-const affinityTextColors: Record<string, string> = {
-  air: "black",
-  fire: "black",
-  water: "black",
-  earth: "black",
-  lightning: "crimson",
-};
-
 interface Props {
   /** The type of dice to render (d4, d6, d10, d12, d20) */
   diceType: DiceType;
