@@ -8,8 +8,8 @@ import type {
   Elemental,
   BaseStats,
   PlayerElemental,
+  ElementTypeValue,
 } from '@elementary-dices/shared'
-import { ElementType } from '@elementary-dices/server/modules/elementals/models'
 
 export const useElementalsStore = defineStore('elementals', () => {
   // State
@@ -37,7 +37,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        api.api.elementals.get({ $query: filters || {} }),
+        () => api.api.elementals.get({ $query: filters || {} }),
         { silent: true }
       )
 
@@ -55,7 +55,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        api.api.elementals.base.get(),
+        () => api.api.elementals.base.get(),
         { silent: true }
       )
 
@@ -73,7 +73,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        playerApi.getElementals(playerId),
+        () => playerApi.getElementals(playerId),
         { silent: true }
       )
 
@@ -95,7 +95,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        playerApi.updateElemental(playerId, elementalId, updates),
+        () => playerApi.updateElemental(playerId, elementalId, updates),
         { silent: true }
       )
 
@@ -125,7 +125,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        playerApi.updateElemental(playerId, elementalId, {
+        () => playerApi.updateElemental(playerId, elementalId, {
           is_in_active_party: true,
           party_position: nextPosition
         }),
@@ -149,7 +149,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        playerApi.updateElemental(playerId, elementalId, {
+        () => playerApi.updateElemental(playerId, elementalId, {
           is_in_active_party: false,
           party_position: null
         }),
@@ -173,7 +173,7 @@ export const useElementalsStore = defineStore('elementals', () => {
 
     try {
       const response = await apiCall(
-        api.api.elementals[id].get(),
+        () => api.api.elementals[id].get(),
         { silent: true }
       )
 
@@ -191,7 +191,7 @@ export const useElementalsStore = defineStore('elementals', () => {
     return allElementals.value.filter(e => e.level === level)
   }
 
-  function getElementalsByElement(elementType: ElementType): Elemental[] {
+  function getElementalsByElement(elementType: ElementTypeValue): Elemental[] {
     return allElementals.value.filter(e =>
       e.element_types.includes(elementType)
     )

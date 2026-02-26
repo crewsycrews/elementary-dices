@@ -162,10 +162,7 @@ const buffItemsCount = computed(() => {
 const handleUseItem = (playerItem: { playerInventory: any; item: any }) => {
   // For now, just show a notification
   // TODO: Implement item usage logic
-  uiStore.showNotification({
-    message: `Using ${playerItem.item.name}...`,
-    type: 'info',
-  });
+  uiStore.showToast(`Using ${playerItem.item.name}...`, 'info');
 
   // If it's a consumable, decrease quantity
   if (playerItem.item.is_consumable && userStore.userId) {

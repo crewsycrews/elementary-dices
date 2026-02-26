@@ -141,12 +141,13 @@ const handlePurchaseDice = async (diceId: string, price: number) => {
 
 // Handle leave merchant
 const handleLeaveMerchant = async () => {
-  if (!userStore.userId) return;
+  const userId = userStore.userId;
+  if (!userId) return;
 
   try {
     await apiCall(
-      api.api.events.merchant.leave.post({
-        player_id: userStore.userId,
+      () => api.api.events.merchant.leave.post({
+        player_id: userId,
       }),
       { successMessage: "Left merchant" },
     );

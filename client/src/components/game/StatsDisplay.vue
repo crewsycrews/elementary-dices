@@ -55,11 +55,11 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { StatsSchema } from '@elementary-dices/shared/schemas';
+import type { BaseStats } from '@elementary-dices/shared';
 
 interface Props {
-  stats: typeof StatsSchema.static;
-  compareTo?: typeof StatsSchema.static; // Optional comparison stats
+  stats: BaseStats;
+  compareTo?: BaseStats; // Optional comparison stats
   compact?: boolean;
 }
 
@@ -68,16 +68,18 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 interface StatDisplay {
-  name: keyof typeof StatsSchema.static;
+  name: StatName;
   label: string;
   icon: string;
   value: number;
   diff: number;
 }
 
+type StatName = 'health' | 'attack' | 'defense' | 'speed';
+
 const statsArray = computed<StatDisplay[]>(() => {
   const statConfigs: Array<{
-    name: keyof typeof StatsSchema.static;
+    name: StatName;
     label: string;
     icon: string;
   }> = [
@@ -98,7 +100,13 @@ const statsArray = computed<StatDisplay[]>(() => {
 
 // Calculate total stats for power level display
 const totalStats = computed(() => {
-  return Object.values(props.stats).reduce((sum, val) => sum + val, 0);
+  const values: number[] = [
+    props.stats.health,
+    props.stats.attack,
+    props.stats.defense,
+    props.stats.speed,
+  ];
+  return values.reduce((sum, val) => sum + val, 0);
 });
 
 // Expose for parent components if needed

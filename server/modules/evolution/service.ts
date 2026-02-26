@@ -62,21 +62,30 @@ export class EvolutionService {
     // Check if player discovered this recipe
     const wasDiscovered = await this.repository.checkPlayerDiscovered(data.player_id, recipe.id);
 
+    const [resultElementalData] = await db('elementals')
+      .where({ id: recipe.result_elemental_id })
+      .select('base_stats', 'name', 'level')
+      .limit(1);
+
+    if (!resultElementalData) {
+      throw new BadRequestError('Result elemental not found');
+    }
+
     // Create new evolved elemental in player's collection
     const [newPlayerElemental] = await db('player_elementals')
       .insert({
         player_id: data.player_id,
         elemental_id: recipe.result_elemental_id,
-        current_stats: db.raw('(SELECT base_stats FROM elementals WHERE id = ?)', [recipe.result_elemental_id]),
+        current_stats: resultElementalData.base_stats,
         is_in_active_party: false,
+        party_position: null,
       })
       .returning('*');
 
-    // Get elemental details
-    const [newElemental] = await db('elementals')
-      .where({ id: recipe.result_elemental_id })
-      .select('name', 'level')
-      .limit(1);
+    const newElemental = {
+      name: resultElementalData.name,
+      level: resultElementalData.level,
+    };
 
     // Delete consumed elementals
     await db('player_elementals')

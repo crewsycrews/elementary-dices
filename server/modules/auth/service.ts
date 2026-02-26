@@ -112,7 +112,11 @@ export class AuthService {
       throw new UnauthorizedError("Failed to fetch Google user info");
     }
 
-    const googleUser: GoogleUserInfo = await response.json();
+    const googleUserData: unknown = await response.json();
+    if (!this.isGoogleUserInfo(googleUserData)) {
+      throw new UnauthorizedError("Invalid Google user info response");
+    }
+    const googleUser: GoogleUserInfo = googleUserData;
 
     console.log("Google user info:", googleUser);
 
@@ -329,5 +333,17 @@ export class AuthService {
         ? new Date(user.updated_at).toISOString()
         : "",
     };
+  }
+
+  private isGoogleUserInfo(value: unknown): value is GoogleUserInfo {
+    if (!value || typeof value !== "object") return false;
+
+    const candidate = value as Partial<GoogleUserInfo>;
+    return (
+      typeof candidate.sub === "string" &&
+      typeof candidate.email === "string" &&
+      typeof candidate.email_verified === "boolean" &&
+      typeof candidate.name === "string"
+    );
   }
 }

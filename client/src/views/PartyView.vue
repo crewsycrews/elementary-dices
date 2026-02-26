@@ -203,7 +203,8 @@ const handleDrop = async (targetPosition: number) => {
     "Dragged elemental:",
     draggedElemental.value,
   );
-  if (!draggedElemental.value || !userStore.userId) return;
+  const userId = userStore.userId;
+  if (!draggedElemental.value || !userId) return;
 
   const sourcePosition = draggedElemental.value.position;
 
@@ -215,7 +216,7 @@ const handleDrop = async (targetPosition: number) => {
     try {
       const { apiCall } = useApi();
       const response = await apiCall(
-        playerApi.swapPartyPositions(userStore.userId, {
+        () => playerApi.swapPartyPositions(userId, {
           position1: sourcePosition,
           position2: targetPosition,
         }),
@@ -224,7 +225,7 @@ const handleDrop = async (targetPosition: number) => {
 
       if (response.data) {
         // Refresh party data
-        await elementalsStore.fetchPlayerElementals(userStore.userId);
+        await elementalsStore.fetchPlayerElementals(userId);
         uiStore.showToast("Party positions swapped!", "success");
       }
     } catch (error) {
@@ -241,7 +242,8 @@ const handleAddToPartyAtPosition = async (
   member: { playerElemental: any; elemental: any },
   position: number,
 ) => {
-  if (!userStore.userId) return;
+  const userId = userStore.userId;
+  if (!userId) return;
 
   const targetSlot = activePartyWithData.value[position - 1];
 
@@ -250,8 +252,8 @@ const handleAddToPartyAtPosition = async (
     try {
       const { apiCall } = useApi();
       await apiCall(
-        playerApi.updateElemental(
-          userStore.userId,
+        () => playerApi.updateElemental(
+          userId,
           targetSlot.playerElemental.id,
           {
             is_in_active_party: false,
@@ -277,14 +279,14 @@ const handleAddToPartyAtPosition = async (
   try {
     const { apiCall } = useApi();
     await apiCall(
-      playerApi.updateElemental(userStore.userId, member.playerElemental.id, {
+      () => playerApi.updateElemental(userId, member.playerElemental.id, {
         is_in_active_party: true,
         party_position: position,
       }),
       { silent: true },
     );
 
-    await elementalsStore.fetchPlayerElementals(userStore.userId);
+    await elementalsStore.fetchPlayerElementals(userId);
 
     if (targetSlot) {
       uiStore.showToast(

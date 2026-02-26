@@ -65,10 +65,10 @@ export class EventService {
     }
 
     // Check active party size for PvP eligibility
-    const activePartyCount = await db("player_elementals")
+    const activePartyCount = (await db("player_elementals")
       .where({ player_id: playerId, is_in_active_party: true })
       .count("* as count")
-      .first();
+      .first()) as { count: string | number } | undefined;
     const partySize = Number(activePartyCount?.count ?? 0);
 
     // Determine event type based on probabilities
@@ -1357,10 +1357,10 @@ export class EventService {
       throw new BadRequestError("Dice roll does not belong to player");
     }
 
-    const elementalCount = await db("player_elementals")
+    const elementalCount = (await db("player_elementals")
       .where({ player_id: data.player_id })
       .count("* as count")
-      .first();
+      .first()) as { count: string | number } | undefined;
 
     if (elementalCount && Number(elementalCount.count) >= 15) {
       throw new BadRequestError("Maximum elemental capacity reached (15)");
@@ -1447,10 +1447,10 @@ export class EventService {
         .increment("successful_captures", 1)
         .increment("total_elementals_owned", 1);
 
-      const previousCaptures = await db("player_elementals")
+      const previousCaptures = (await db("player_elementals")
         .where({ player_id: data.player_id, elemental_id: elemental.id })
         .count("* as count")
-        .first();
+        .first()) as { count: string | number } | undefined;
 
       if (previousCaptures && Number(previousCaptures.count) === 1) {
         await db("player_progress")

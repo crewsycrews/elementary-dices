@@ -16,6 +16,7 @@
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
     "rootDir": "./src",
+    "tsBuildInfoFile": "./node_modules/.cache/client.tsbuildinfo",
     "paths": {
       "@/*": ["./src/*"],
       "@elementary-dices/*": ["../*"]

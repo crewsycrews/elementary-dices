@@ -35,7 +35,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users[id].get(), {
+        const response = await apiCall(() => api.api.users[id].get(), {
           silent: false,
         });
 
@@ -65,7 +65,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users.post(data), {
+        const response = await apiCall(() => api.api.users.post(data), {
           successMessage: "User created successfully!",
         });
 
@@ -87,7 +87,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.auth.login.post(data), {
+        const response = await apiCall(() => api.api.auth.login.post(data), {
           successMessage: "Login successful!",
         });
 
@@ -121,7 +121,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users.me.get(), {
+        const response = await apiCall(() => api.api.users.me.get(), {
           successMessage: "Logged in with Google!",
         });
 
@@ -149,7 +149,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.users.me.get(), {
+        const response = await apiCall(() => api.api.users.me.get(), {
           silent: true,
         });
 
@@ -174,7 +174,7 @@ export const useUserStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.auth.refresh.post({}), {
+        const response = await apiCall(() => api.api.auth.refresh.post({}), {
           silent: true,
         });
 
@@ -189,13 +189,14 @@ export const useUserStore = defineStore(
       amount: number,
       operation: "add" | "subtract" | "set" = "set",
     ) {
-      if (!userId.value) return;
+      const currentUserId = userId.value;
+      if (!currentUserId) return;
 
       const { api, apiCall } = useApi();
 
       try {
         const response = await apiCall(
-          api.api.users[userId.value].currency.patch({ amount, operation }),
+          () => api.api.users[currentUserId].currency.patch({ amount, operation }),
           { silent: true },
         );
 
@@ -227,7 +228,7 @@ export const useUserStore = defineStore(
 
       try {
         // Call backend logout to invalidate tokens
-        await apiCall(api.api.users.logout.post({}), {
+        await apiCall(() => api.api.users.logout.post({}), {
           silent: true,
         });
       } catch (error) {

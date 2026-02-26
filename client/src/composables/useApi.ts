@@ -34,25 +34,25 @@ async function attemptTokenRefresh(): Promise<boolean> {
 
 /**
  * Wrapper function for API calls that handles loading states, errors, and token refresh
- * @param call - Promise from Eden Treaty API call
+ * @param request - Function that executes an Eden Treaty API call
  * @param options - Configuration options
  * @returns The Eden Treaty response (includes .data, .error, .status)
  *
  * @example
  * const response = await apiCall(
- *   api.api.users.get()
+ *   () => api.api.users.get()
  * )
  * console.log(response.data.users) // Fully typed!
  */
-async function apiCall<T extends Promise<any>>(
-  call: T,
+async function apiCall<T extends () => Promise<any>>(
+  request: T,
   options?: {
     silent?: boolean; // Don't show loading indicator
     errorMessage?: string; // Custom error message
     successMessage?: string; // Show success toast
     skipAuthRetry?: boolean; // Skip token refresh retry on 401
   },
-): Promise<Awaited<T>> {
+): Promise<Awaited<ReturnType<T>>> {
   const uiStore = useUIStore();
 
   try {
@@ -60,23 +60,19 @@ async function apiCall<T extends Promise<any>>(
       uiStore.setLoading(true);
     }
 
-    const result = await call;
+    const result = await request();
 
     // Handle Eden Treaty error responses
     if (result.error) {
       // Check for 401 Unauthorized - attempt token refresh
-      if (
-        result.status === 401 &&
-        !options?.skipAuthRetry &&
-        !isRefreshing
-      ) {
+      if (result.status === 401 && !options?.skipAuthRetry) {
         console.log("Received 401, attempting token refresh...");
         const refreshed = await attemptTokenRefresh();
 
         if (refreshed) {
           console.log("Token refreshed, retrying request...");
           // Retry the original request with skipAuthRetry to avoid infinite loop
-          return await apiCall(call, { ...options, skipAuthRetry: true });
+          return await apiCall(request, { ...options, skipAuthRetry: true });
         } else {
           console.log("Token refresh failed, clearing user session");
           // Clear local state without HTTP call since session is expired

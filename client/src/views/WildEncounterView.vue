@@ -305,21 +305,23 @@ const selectedPlayerDice = computed(() =>
 
 // Handle capture attempt
 const handleCaptureAttempt = async () => {
-  if (!selectedDice.value || !userStore.userId) return;
+  const userId = userStore.userId;
+  if (!selectedDice.value || !userId) return;
 
   isRolling.value = true;
   showDiceRoll.value = true;
 
   try {
-    if (!selectedPlayerDice.value) {
+    const playerDice = selectedPlayerDice.value;
+    if (!playerDice) {
       throw new Error("Selected dice not found");
     }
 
     // Perform dice roll
     const rollResponse = await apiCall(
-      api.api.rolls.post({
-        player_id: userStore.userId,
-        dice_type_id: selectedPlayerDice.value.dice_type_id,
+      () => api.api.rolls.post({
+        player_id: userId,
+        dice_type_id: playerDice.dice_type_id,
         context: "capture_attempt",
       }),
       { silent: true },
@@ -350,12 +352,13 @@ const handleCaptureAttempt = async () => {
 
 // Handle skip encounter
 const handleSkipEncounter = async () => {
-  if (!userStore.userId) return;
+  const userId = userStore.userId;
+  if (!userId) return;
 
   try {
     await apiCall(
-      api.api.events["wild-encounter"].skip.post({
-        player_id: userStore.userId,
+      () => api.api.events["wild-encounter"].skip.post({
+        player_id: userId,
       }),
       { successMessage: "Encounter skipped" },
     );
@@ -371,13 +374,14 @@ const handleSkipEncounter = async () => {
 
 // Handle roll complete
 const handleRollComplete = async () => {
-  if (!userStore.userId) return;
+  const userId = userStore.userId;
+  if (!userId) return;
   // Resolve encounter
 
   const diceType = getDiceType(selectedDice.value);
   const resolveResponse = await apiCall(
-    api.api.events["wild-encounter"].resolve.post({
-      player_id: userStore.userId,
+    () => api.api.events["wild-encounter"].resolve.post({
+      player_id: userId,
       dice_roll_id: inventoryStore.lastRoll?.id!,
       item_id: selectedItem.value || undefined,
     }),
@@ -388,10 +392,10 @@ const handleRollComplete = async () => {
 
   // Refresh player data to show updated inventory and elementals
   if (captureResult.value?.success) {
-    await elementalsStore.fetchPlayerElementals(userStore.userId);
+    await elementalsStore.fetchPlayerElementals(userId);
   }
   if (selectedItem.value) {
-    await inventoryStore.fetchPlayerItems(userStore.userId);
+    await inventoryStore.fetchPlayerItems(userId);
   }
 };
 

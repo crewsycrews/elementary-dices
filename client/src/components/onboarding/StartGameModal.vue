@@ -134,7 +134,6 @@ import DiceRollVisualization, {
 } from "@/components/game/DiceRollVisualization.vue";
 import type { Elemental } from "@elementary-dices/shared/types";
 import type {
-  ApiElementalsResponse,
   ApiStartGameResponse,
 } from "@elementary-dices/shared";
 
@@ -160,7 +159,7 @@ const diceVisualizationRef = ref<InstanceType<
 onMounted(async () => {
   loading.value = true;
   try {
-    const response = await apiCall(api.api.elementals.base.get(), {
+    const response = await apiCall(() => api.api.elementals.base.get(), {
       silent: true,
     });
 
@@ -176,14 +175,15 @@ onMounted(async () => {
 
 // Start the roll
 const startRoll = async () => {
-  if (!userStore.userId) return;
+  const userId = userStore.userId;
+  if (!userId) return;
 
   loading.value = true;
   isRolling.value = true;
 
   try {
     // Call the start-game endpoint
-    const response = await apiCall(playerApi.startGame(userStore.userId), {
+    const response = await apiCall(() => playerApi.startGame(userId), {
       silent: true,
     });
 
@@ -193,7 +193,7 @@ const startRoll = async () => {
       // Prepare roll result for visualization
       rollResult.value = {
         roll_value: data.dice_roll.roll_value,
-        result_element: data.dice_roll.result_element ?? "fire", // Use the result element from the roll
+        result_element: data.first_elemental.element_types[0] ?? "fire",
       };
 
       // Store result immediately

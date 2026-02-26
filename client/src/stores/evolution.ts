@@ -54,7 +54,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
 
     try {
       const response = await apiCall(
-        api.api.evolution.get(),
+        () => api.api.evolution.get(),
         { silent: true }
       )
 
@@ -72,7 +72,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
 
     try {
       const response = await apiCall(
-        api.api.evolution.players[playerId].discovered.get(),
+        () => api.api.evolution.players[playerId].discovered.get(),
         { silent: true }
       )
 
@@ -95,7 +95,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
 
     try {
       const response = await apiCall(
-        api.api.evolution.combine.post({
+        () => api.api.evolution.combine.post({
           player_id: playerId,
           player_elemental_ids: playerElementalIds,
         }),

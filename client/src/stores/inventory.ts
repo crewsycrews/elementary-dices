@@ -96,7 +96,7 @@ export const useInventoryStore = defineStore(
 
       try {
         const response = await apiCall(
-          api.api.items.players[playerId].inventory.get(),
+          () => api.api.items.players[playerId].inventory.get(),
           { silent: true },
         );
 
@@ -113,7 +113,7 @@ export const useInventoryStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.items.get({ $query: filters }), {
+        const response = await apiCall(() => api.api.items.get({ $query: filters }), {
           silent: true,
         });
 
@@ -135,7 +135,7 @@ export const useInventoryStore = defineStore(
 
       try {
         await apiCall(
-          api.api.items.players[playerId].inventory.post({
+          () => api.api.items.players[playerId].inventory.post({
             item_id: itemId,
             quantity,
           }),
@@ -164,7 +164,7 @@ export const useInventoryStore = defineStore(
 
       try {
         await apiCall(
-          api.api.items.players[playerId].inventory[inventoryItemId].patch({
+          () => api.api.items.players[playerId].inventory[inventoryItemId].patch({
             quantity: newQuantity,
           }),
           { silent: true },
@@ -193,7 +193,7 @@ export const useInventoryStore = defineStore(
       const { api, apiCall } = useApi();
 
       try {
-        const response = await apiCall(api.api.dice.players[playerId].get(), {
+        const response = await apiCall(() => api.api.dice.players[playerId].get(), {
           silent: true,
         });
 
@@ -214,7 +214,7 @@ export const useInventoryStore = defineStore(
 
       try {
         const response = await apiCall(
-          api.api.dice.types.get({ $query: filters }),
+          () => api.api.dice.types.get({ $query: filters }),
           { silent: true },
         );
 
@@ -232,7 +232,7 @@ export const useInventoryStore = defineStore(
 
       try {
         await apiCall(
-          api.api.dice.players[playerId].post({ dice_type_id: diceTypeId }),
+          () => api.api.dice.players[playerId].post({ dice_type_id: diceTypeId }),
           { successMessage: "Dice purchased!" },
         );
 
@@ -267,14 +267,14 @@ export const useInventoryStore = defineStore(
         // Unequip the old dice of same notation (if exists)
         if (currentEquipped) {
           await apiCall(
-            api.api.dice.players[playerId][currentEquipped.id].unequip.patch(),
+            () => api.api.dice.players[playerId][currentEquipped.id].unequip.patch(),
             { silent: true },
           );
         }
 
         // Equip new dice
         await apiCall(
-          api.api.dice.players[playerId][playerDiceId].equip.patch(),
+          () => api.api.dice.players[playerId][playerDiceId].equip.patch(),
           { silent: true },
         );
 

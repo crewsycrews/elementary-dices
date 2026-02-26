@@ -49,5 +49,6 @@ yarn-error.log*
 **/*.tar.gz
 **/*.tgz
 **/*.log
+**/*.tsbuildinfo
 package-lock.json
 **/*.bun

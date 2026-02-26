@@ -179,7 +179,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events.trigger.post({ player_id: playerId }),
+        () => api.api.events.trigger.post({ player_id: playerId }),
         { silent: false }
       )
 
@@ -211,7 +211,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events['wild-encounter'].resolve.post({
+        () => api.api.events['wild-encounter'].resolve.post({
           player_id: playerId,
           dice_roll_id: diceRollId,
           item_id: itemId,
@@ -235,7 +235,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events['pvp-battle'].start.post({
+        () => api.api.events['pvp-battle'].start.post({
           player_id: playerId,
         }),
         { silent: true }
@@ -258,7 +258,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        (api.api.events['pvp-battle'] as any)['choose-element'].post({
+        () => (api.api.events['pvp-battle'] as any)['choose-element'].post({
           player_id: playerId,
           element,
         }),
@@ -282,7 +282,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events['pvp-battle'].roll.post({
+        () => api.api.events['pvp-battle'].roll.post({
           player_id: playerId,
         }),
         { silent: true }
@@ -305,7 +305,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        (api.api.events['pvp-battle'] as any).reroll.post({
+        () => (api.api.events['pvp-battle'] as any).reroll.post({
           player_id: playerId,
           dice_indices_to_reroll: diceIndicesToReroll,
         }),
@@ -333,7 +333,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        (api.api.events['pvp-battle'] as any)['set-aside'].post({
+        () => (api.api.events['pvp-battle'] as any)['set-aside'].post({
           player_id: playerId,
           dice_indices: diceIndices,
           one_for_all_element: oneForAllElement,
@@ -358,7 +358,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        (api.api.events['pvp-battle'] as any).continue.post({
+        () => (api.api.events['pvp-battle'] as any).continue.post({
           player_id: playerId,
         }),
         { silent: true }
@@ -381,7 +381,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        (api.api.events['pvp-battle'] as any)['end-turn'].post({
+        () => (api.api.events['pvp-battle'] as any)['end-turn'].post({
           player_id: playerId,
         }),
         { silent: true }
@@ -404,7 +404,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events['wild-encounter'].skip.post({
+        () => api.api.events['wild-encounter'].skip.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Encounter skipped' }
@@ -426,7 +426,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events.merchant.leave.post({
+        () => api.api.events.merchant.leave.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Left merchant' }
@@ -448,7 +448,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events.probabilities.get(),
+        () => api.api.events.probabilities.get(),
         { silent: true }
       )
 
@@ -464,7 +464,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        api.api.events.current[playerId].get(),
+        () => api.api.events.current[playerId].get(),
         { silent: true }
       )
 
