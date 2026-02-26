@@ -11,7 +11,8 @@
     "dev": "bun dev:server & bun dev:client",
     "dev:server": "bun --filter @elementary-dices/server dev",
     "dev:client": "bun --filter @elementary-dices/client dev",
-    "build": "bun --filter ./... run build",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "bun run --workspaces build",
+    "typecheck": "bun run --workspaces --if-present typecheck",
+    "test": "bun run --workspaces --if-present test"
   }
 }
