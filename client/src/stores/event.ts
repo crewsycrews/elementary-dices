@@ -10,6 +10,7 @@ type WildEncounterData = {
   elemental_name: string
   elemental_level: number
   capture_difficulty: 'easy' | 'medium' | 'hard'
+  farkle_state?: WildEncounterFarkleState
 }
 
 type MerchantData = {
@@ -65,6 +66,17 @@ export type FarkleTurnState = {
   set_aside_element_bonus: string | null
   is_dice_rush: boolean
   busted: boolean
+}
+
+export type WildEncounterFarkleState = FarkleTurnState & {
+  phase:
+    | 'initial_roll'
+    | 'can_reroll'
+    | 'set_aside'
+    | 'rolling_remaining'
+    | 'done'
+    | 'resolved'
+  detected_combinations: Combination[]
 }
 
 export type OpponentTurnResult = {
@@ -134,6 +146,24 @@ export type FarkleTurnResult = {
   is_dice_rush: boolean
   is_resolved?: boolean
   result?: BattleResult
+}
+
+export type WildEncounterFarkleTurnResult = {
+  farkle_state: WildEncounterFarkleState
+  detected_combinations: Combination[]
+  is_busted: boolean
+  is_dice_rush: boolean
+  is_resolved: boolean
+  result?: {
+    success: boolean
+    message: string
+    elemental_caught?: {
+      id: string
+      name: string
+      level: number
+    }
+    can_continue: boolean
+  }
 }
 
 type EventData = WildEncounterData | MerchantData | PvPData
@@ -282,8 +312,9 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events['pvp-battle'].roll.post({
+        () => api.api.events.farkle.roll.post({
           player_id: playerId,
+          context: 'pvp_battle',
         }),
         { silent: true }
       )
@@ -305,8 +336,9 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => (api.api.events['pvp-battle'] as any).reroll.post({
+        () => (api.api.events.farkle as any).reroll.post({
           player_id: playerId,
+          context: 'pvp_battle',
           dice_indices_to_reroll: diceIndicesToReroll,
         }),
         { silent: true }
@@ -333,8 +365,9 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => (api.api.events['pvp-battle'] as any)['set-aside'].post({
+        () => (api.api.events.farkle as any)['set-aside'].post({
           player_id: playerId,
+          context: 'pvp_battle',
           dice_indices: diceIndices,
           one_for_all_element: oneForAllElement,
         }),
@@ -358,8 +391,9 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => (api.api.events['pvp-battle'] as any).continue.post({
+        () => (api.api.events.farkle as any).continue.post({
           player_id: playerId,
+          context: 'pvp_battle',
         }),
         { silent: true }
       )
@@ -381,8 +415,9 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => (api.api.events['pvp-battle'] as any)['end-turn'].post({
+        () => (api.api.events.farkle as any)['end-turn'].post({
           player_id: playerId,
+          context: 'pvp_battle',
         }),
         { silent: true }
       )
@@ -417,6 +452,138 @@ export const useEventStore = defineStore('event', () => {
       return response.data
     } catch (error) {
       console.error('Failed to skip wild encounter:', error)
+      throw error
+    }
+  }
+
+  async function wildEncounterFarkleRoll(playerId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => api.api.events.farkle.roll.post({
+          player_id: playerId,
+          context: 'wild_encounter',
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.farkle_state && currentEvent.value) {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed wild encounter Farkle roll:', error)
+      throw error
+    }
+  }
+
+  async function wildEncounterFarkleReroll(playerId: string, diceIndicesToReroll: number[]) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => (api.api.events.farkle as any).reroll.post({
+          player_id: playerId,
+          context: 'wild_encounter',
+          dice_indices_to_reroll: diceIndicesToReroll,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.farkle_state && currentEvent.value) {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed wild encounter Farkle reroll:', error)
+      throw error
+    }
+  }
+
+  async function wildEncounterFarkleSetAside(
+    playerId: string,
+    diceIndices: number[],
+    oneForAllElement?: string
+  ) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => (api.api.events.farkle as any)['set-aside'].post({
+          player_id: playerId,
+          context: 'wild_encounter',
+          dice_indices: diceIndices,
+          one_for_all_element: oneForAllElement,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.farkle_state && currentEvent.value) {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed wild encounter Farkle set aside:', error)
+      throw error
+    }
+  }
+
+  async function wildEncounterFarkleContinue(playerId: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => (api.api.events.farkle as any).continue.post({
+          player_id: playerId,
+          context: 'wild_encounter',
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.farkle_state && currentEvent.value) {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed wild encounter Farkle continue:', error)
+      throw error
+    }
+  }
+
+  async function wildEncounterFarkleEndTurn(playerId: string, itemId?: string) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => (api.api.events.farkle as any)['end-turn'].post({
+          player_id: playerId,
+          context: 'wild_encounter',
+          item_id: itemId,
+        }),
+        { silent: false, successMessage: 'Encounter resolved!' }
+      )
+
+      if (response.data?.result?.farkle_state && currentEvent.value) {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+      }
+
+      if (response.data?.result?.result?.can_continue) {
+        clearEvent()
+      }
+
+      return response.data
+    } catch (error) {
+      console.error('Failed wild encounter Farkle end turn:', error)
       throw error
     }
   }
@@ -511,6 +678,11 @@ export const useEventStore = defineStore('event', () => {
     farkleContinue,
     farkleEndTurn,
     skipWildEncounter,
+    wildEncounterFarkleRoll,
+    wildEncounterFarkleReroll,
+    wildEncounterFarkleSetAside,
+    wildEncounterFarkleContinue,
+    wildEncounterFarkleEndTurn,
     leaveMerchant,
     getEventProbabilities,
     initializeEventState,

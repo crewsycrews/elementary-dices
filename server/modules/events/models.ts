@@ -32,6 +32,7 @@ export const WildEncounterDataDTO = t.Object({
   elemental_name: t.String(),
   elemental_level: t.Number(),
   capture_difficulty: t.String(), // 'easy', 'medium', 'hard'
+  farkle_state: t.Optional(t.Any()),
 });
 
 // Merchant Event specific
@@ -125,6 +126,11 @@ export const WildEncounterResultDTO = t.Object({
     }),
   ),
   can_continue: t.Boolean(), // Whether player can roll for next event
+});
+
+export const WildEncounterFarkleEndTurnDTO = t.Object({
+  player_id: t.String(),
+  item_id: t.Optional(t.String()),
 });
 
 // Battle Start
@@ -277,6 +283,40 @@ export const FarkleEndTurnDTO = t.Object({
   player_id: t.String(),
 });
 
+export const FarkleContextDTO = t.Union([
+  t.Literal("pvp_battle"),
+  t.Literal("wild_encounter"),
+]);
+
+export const GenericFarkleRollDTO = t.Object({
+  player_id: t.String(),
+  context: FarkleContextDTO,
+});
+
+export const GenericFarkleRerollDTO = t.Object({
+  player_id: t.String(),
+  context: FarkleContextDTO,
+  dice_indices_to_reroll: t.Array(t.Number()),
+});
+
+export const GenericFarkleSetAsideDTO = t.Object({
+  player_id: t.String(),
+  context: FarkleContextDTO,
+  dice_indices: t.Array(t.Number()),
+  one_for_all_element: t.Optional(t.String()),
+});
+
+export const GenericFarkleContinueDTO = t.Object({
+  player_id: t.String(),
+  context: FarkleContextDTO,
+});
+
+export const GenericFarkleEndTurnDTO = t.Object({
+  player_id: t.String(),
+  context: FarkleContextDTO,
+  item_id: t.Optional(t.String()),
+});
+
 // Extract TypeScript types
 export type EventResponse = typeof EventResponseDTO.static;
 export type TriggerEventData = typeof TriggerEventDTO.static;
@@ -288,6 +328,7 @@ export type BattleRollRecord = typeof BattleRollRecordDTO.static;
 export type BattleStateData = typeof BattleStateDTO.static;
 export type ResolveWildEncounterData = typeof ResolveWildEncounterDTO.static;
 export type WildEncounterResult = typeof WildEncounterResultDTO.static;
+export type WildEncounterFarkleEndTurnData = typeof WildEncounterFarkleEndTurnDTO.static;
 export type BattleStartData = typeof BattleStartDTO.static;
 export type BattleRollData = typeof BattleRollDTO.static;
 export type BattleRollResult = typeof BattleRollResultDTO.static;
@@ -300,3 +341,9 @@ export type FarkleRerollData = typeof FarkleRerollDTO.static;
 export type FarkleSetAsideData = typeof FarkleSetAsideDTO.static;
 export type FarkleContinueData = typeof FarkleContinueDTO.static;
 export type FarkleEndTurnData = typeof FarkleEndTurnDTO.static;
+export type FarkleContextData = typeof FarkleContextDTO.static;
+export type GenericFarkleRollData = typeof GenericFarkleRollDTO.static;
+export type GenericFarkleRerollData = typeof GenericFarkleRerollDTO.static;
+export type GenericFarkleSetAsideData = typeof GenericFarkleSetAsideDTO.static;
+export type GenericFarkleContinueData = typeof GenericFarkleContinueDTO.static;
+export type GenericFarkleEndTurnData = typeof GenericFarkleEndTurnDTO.static;

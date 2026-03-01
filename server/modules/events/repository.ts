@@ -1,5 +1,6 @@
 import { db } from '../../db';
 import type { EventType } from './models';
+import type { FarkleDie, FarkleTurnPhaseValue, ElementTypeValue } from '@elementary-dices/shared';
 
 // ========================================
 // Player Current Events (Pointer to Active Event)
@@ -118,14 +119,37 @@ export interface WildEncounterEvent {
   dice_roll_id?: string;
   item_used_id?: string;
   captured_player_elemental_id?: string;
+  farkle_state?: WildEncounterFarkleState | null;
   created_at: string;
   resolved_at?: string;
+}
+
+export interface WildEncounterFarkleState {
+  phase: FarkleTurnPhaseValue | 'resolved';
+  dice: FarkleDie[];
+  has_used_reroll: boolean;
+  active_combinations: Array<{
+    type: string;
+    elements: ElementTypeValue[];
+    dice_indices: number[];
+    bonuses: Partial<Record<ElementTypeValue, number>>;
+  }>;
+  set_aside_element_bonus: ElementTypeValue | null;
+  is_dice_rush: boolean;
+  busted: boolean;
+  detected_combinations: Array<{
+    type: string;
+    elements: ElementTypeValue[];
+    dice_indices: number[];
+    bonuses: Partial<Record<ElementTypeValue, number>>;
+  }>;
 }
 
 export interface CreateWildEncounterEventData {
   player_id: string;
   elemental_id: string;
   stats_modifier?: number;
+  farkle_state?: WildEncounterFarkleState | null;
 }
 
 export interface UpdateWildEncounterResolutionData {
@@ -147,6 +171,7 @@ export class WildEncounterEventRepository {
         elemental_id: data.elemental_id,
         stats_modifier: data.stats_modifier ?? 1.0,
         status: 'pending',
+        farkle_state: data.farkle_state ?? null,
       })
       .returning('*');
     return event;
@@ -170,6 +195,20 @@ export class WildEncounterEventRepository {
         item_used_id: data.item_used_id,
         captured_player_elemental_id: data.captured_player_elemental_id,
         resolved_at: data.resolved_at ?? db.fn.now(),
+      })
+      .returning('*');
+    return event;
+  }
+
+  async updateFarkleState(
+    id: string,
+    farkleState: WildEncounterFarkleState
+  ): Promise<WildEncounterEvent> {
+    const [event] = await db(this.table)
+      .where({ id })
+      .update({
+        status: 'in_progress',
+        farkle_state: farkleState,
       })
       .returning('*');
     return event;

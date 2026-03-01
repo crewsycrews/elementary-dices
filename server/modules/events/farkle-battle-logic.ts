@@ -167,10 +167,7 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
     const [el1, el2] = uniqueElements;
     const count1 = byElement[el1]!.length;
     const count2 = byElement[el2]!.length;
-    if (
-      (count1 === 3 && count2 === 2) ||
-      (count1 === 2 && count2 === 3)
-    ) {
+    if ((count1 === 3 && count2 === 2) || (count1 === 2 && count2 === 3)) {
       const tripletEl = count1 === 3 ? el1 : el2;
       const pairEl = count1 === 2 ? el1 : el2;
       combos.push({
@@ -196,6 +193,7 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
   }
 
   // Triplet: exactly 3 of same element (not already covered by full_house or better)
+  console.log(dice, uniqueElements, byElement, combos);
   for (const el of uniqueElements) {
     const indices = byElement[el]!;
     if (indices.length === 3) {
@@ -220,7 +218,9 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
 /**
  * Select the best combination by total bonus value (greedy strategy for AI).
  */
-export function selectBestCombination(combos: Combination[]): Combination | null {
+export function selectBestCombination(
+  combos: Combination[],
+): Combination | null {
   if (combos.length === 0) return null;
 
   return combos.reduce((best, combo) => {
@@ -281,7 +281,9 @@ export function simulateOpponentTurn(
   dice: FarkleDie[],
   setAsideElement: ElementType,
 ): OpponentTurnResult {
-  const rolled = rollFarkleDice(dice.map((d) => ({ ...d, is_set_aside: false })));
+  const rolled = rollFarkleDice(
+    dice.map((d) => ({ ...d, is_set_aside: false })),
+  );
   const combos = detectCombinations(rolled);
   const best = selectBestCombination(combos);
 

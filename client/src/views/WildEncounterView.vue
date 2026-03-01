@@ -1,26 +1,21 @@
 <template>
-  <div class="container mx-auto p-6 space-y-6">
-    <!-- Back Button -->
+  <div class="container mx-auto p-4 md:p-6 space-y-6">
     <button
       @click="router.push('/')"
       class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
     >
-      <span class="text-xl">←</span>
+      <span class="text-xl">&larr;</span>
       <span class="font-semibold">Back</span>
     </button>
 
-    <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
-      <div class="text-6xl mb-4">⏳</div>
       <p class="text-xl font-semibold">Loading encounter...</p>
     </div>
 
-    <!-- No Active Event -->
-    <div v-else-if="!eventStore.isEventActive" class="text-center py-12">
-      <div class="text-6xl mb-4">🎲</div>
+    <div v-else-if="!eventStore.isEventActive || !eventStore.isWildEncounter" class="text-center py-12">
       <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
       <p class="text-muted-foreground mb-6">
-        Trigger an event from the dashboard to start your adventure!
+        Trigger an event from the dashboard to start your adventure.
       </p>
       <button
         @click="router.push('/')"
@@ -30,121 +25,56 @@
       </button>
     </div>
 
-    <!-- Wild Encounter Event -->
-    <div v-else class="flex flex-row items-center justify-center gap-2">
-      <div class="flex flex-col items-center space-y-2 w-1/2">
-        <h1 class="text-3xl font-bold mb-2">🌲 Wild Encounter!</h1>
+    <div v-else class="space-y-6">
+      <div class="text-center">
+        <h1 class="text-3xl font-bold mb-2">Wild Encounter</h1>
+        <div
+          class="inline-block px-4 py-2 rounded-lg font-semibold"
+          :class="getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)"
+        >
+          Capture difficulty: {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+        </div>
+      </div>
 
-        <!-- Wild Elemental Card -->
-        <div class="max-w-md mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div class="space-y-4">
           <ElementalCard
             v-if="wildElemental"
             :elemental="wildElemental"
             :show-stats="true"
             :show-description="true"
           />
-        </div>
-        <div class="flex flex-col items-center space-y-2">
-          <div class="text-center">
-            <div
-              class="inline-block px-4 py-2 rounded-lg font-semibold"
-              :class="
-                getDifficultyClass(
-                  eventStore.wildEncounterData?.capture_difficulty,
-                )
-              "
-            >
-              Capture Difficulty:
-              {{
-                eventStore.wildEncounterData?.capture_difficulty?.toUpperCase()
-              }}
-            </div>
-            <div class="text-center mb-4">
-              <p class="text-sm text-muted-foreground">
-                Roll the dice to attempt capture!
-              </p>
-              <p class="text-xs text-muted-foreground mt-1">
-                Items increase your chances of success
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- Actions -->
-      <Transition name="fade" mode="out-in">
-        <div v-if="!captureResult" class="max-w-md mx-auto space-y-4 w-1/2">
-          <!-- Dice Selection -->
-          <div class="flex flex-col place-content-center space-y-4 h-[550px]">
-            <Transition mode="out-in">
-              <HandDiceSelector
-                v-if="!selectedDice || !showDiceRoll"
-                :selected-dice-type="selectedDiceType"
-                :disabled="isRolling"
-                @select="handleDiceTypeSelect"
-              />
-              <!-- Dice Roll Visualization -->
-              <div v-else>
-                <DiceRollVisualization
-                  ref="diceVisualizationRef"
-                  :dice-type="getDiceType(selectedDice)"
-                  :result="rollResult"
-                  @roll-complete="handleRollComplete"
-                  :element-faces="(selectedPlayerDice?.dice_type as any)?.faces"
-                />
-              </div>
-            </Transition>
-          </div>
 
-          <div class="max-w-md mx-auto space-y-4" v-if="!showDiceRoll">
-            <!-- Item Selection (Optional) -->
-            <div class="space-y-2">
-              <label class="text-sm font-semibold">Use Item (Optional):</label>
-              <select
-                v-model="selectedItem"
-                class="w-full p-3 border rounded-lg bg-background"
-                :disabled="isRolling"
+          <div class="space-y-2">
+            <label class="text-sm font-semibold">Use Item (Optional)</label>
+            <select
+              v-model="selectedItem"
+              class="w-full p-3 border rounded-lg bg-background"
+              :disabled="isActing || !!captureResult"
+            >
+              <option value="">No item</option>
+              <option
+                v-for="item in captureItems"
+                :key="item.item_id"
+                :value="item.item_id"
               >
-                <option value="">No item (lower success chance)</option>
-                <option
-                  v-for="item in captureItems"
-                  :key="item.item_id"
-                  :value="item.item_id"
-                >
-                  {{ item.item?.name }} (x{{ item.quantity }}) - +{{
-                    getCaptureBonus(item)
-                  }}
-                  bonus
-                </option>
-              </select>
-            </div>
-
-            <!-- Roll Button -->
-            <button
-              @click="handleCaptureAttempt"
-              :disabled="!selectedDice || isRolling"
-              class="w-full px-6 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {{ isRolling ? "🎲 Rolling..." : "🎲 Roll to Capture!" }}
-            </button>
-
-            <!-- Skip Button -->
-            <button
-              @click="handleSkipEncounter"
-              :disabled="isRolling"
-              class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
-            >
-              Skip Encounter
-            </button>
+                {{ item.item?.name }} (x{{ item.quantity }}) - +{{ getCaptureBonus(item) }}
+              </option>
+            </select>
           </div>
+
+          <button
+            @click="handleSkipEncounter"
+            :disabled="isActing || !!captureResult"
+            class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
+          >
+            Skip Encounter
+          </button>
         </div>
-        <div v-else class="max-w-md mx-auto text-center space-y-4 w-1/2">
-          <DiceRollVisualization
-            :dice-type="getDiceType(selectedDice)"
-            :result="rollResult"
-            @roll-complete="handleRollComplete"
-            :element-faces="(selectedPlayerDice?.dice_type as any)?.faces"
-          />
+
+        <div class="space-y-4">
           <div
+            v-if="captureResult"
             class="p-6 rounded-lg"
             :class="
               captureResult.success
@@ -152,78 +82,117 @@
                 : 'bg-red-500/10 border-2 border-red-500'
             "
           >
-            <div class="text-6xl mb-4">
-              {{ captureResult.success ? "🎉" : "😞" }}
-            </div>
             <h2 class="text-2xl font-bold mb-2">
-              {{
-                captureResult.success
-                  ? "Capture Successful!"
-                  : "Capture Failed!"
-              }}
+              {{ captureResult.success ? 'Capture Successful' : 'Capture Failed' }}
             </h2>
             <p class="text-lg mb-4">{{ captureResult.message }}</p>
 
-            <!-- Additional details for successful capture -->
             <div
               v-if="captureResult.success && captureResult.elemental_caught"
               class="mt-4 p-4 bg-background/50 rounded-lg"
             >
-              <p class="text-sm text-muted-foreground mb-2">
-                New Elemental Added:
-              </p>
-              <p class="font-bold text-xl">
-                {{ captureResult.elemental_caught.name }}
-              </p>
-              <p class="text-sm text-muted-foreground">
-                Level {{ captureResult.elemental_caught.level }}
-              </p>
+              <p class="font-bold text-xl">{{ captureResult.elemental_caught.name }}</p>
+              <p class="text-sm text-muted-foreground">Level {{ captureResult.elemental_caught.level }}</p>
             </div>
 
-            <!-- Roll details -->
-            <div class="mt-4 pt-4 border-t border-border">
-              <p class="text-sm text-muted-foreground">
-                Your roll:
-                <span class="font-bold">{{ rollResult?.roll_value }}</span>
-                <span
-                  class="ml-2 px-2 py-1 rounded text-xs capitalize"
-                  :class="{
-                    'bg-red-500/20 text-red-600': rollResult?.result_element === 'fire',
-                    'bg-blue-500/20 text-blue-600': rollResult?.result_element === 'water',
-                    'bg-amber-500/20 text-amber-600': rollResult?.result_element === 'earth',
-                    'bg-cyan-500/20 text-cyan-600': rollResult?.result_element === 'air',
-                    'bg-yellow-500/20 text-yellow-600': rollResult?.result_element === 'lightning',
-                  }"
-                >
-                  {{ rollResult?.result_element }}
-                </span>
-              </p>
-            </div>
+            <button
+              @click="proceedToNext"
+              class="w-full mt-6 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
+            >
+              Proceed
+            </button>
           </div>
 
-          <button
-            @click="proceedToNext"
-            class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-          >
-            🎲 Proceed to Next Event
-          </button>
+          <template v-else>
+            <div v-if="farkleState?.dice?.length" class="space-y-3">
+              <FarkleDiceRow
+                :dice="farkleState.dice"
+                :selected-indices="selectedDiceIndices"
+                @toggle-select="toggleDiceSelection"
+              />
+
+              <CombinationDisplay
+                :combinations="detectedCombinations"
+                :selectable="false"
+                :show-empty="true"
+              />
+            </div>
+
+            <div class="space-y-3">
+              <div class="flex flex-wrap gap-3">
+                <button
+                  v-if="canRoll"
+                  @click="handleRoll"
+                  :disabled="isActing"
+                  class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
+                >
+                  Roll all dice
+                </button>
+
+                <button
+                  v-if="canReroll"
+                  @click="handleReroll"
+                  :disabled="isActing || selectedDiceIndices.length === 0"
+                  class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
+                >
+                  Reroll selected ({{ selectedDiceIndices.length }})
+                </button>
+
+                <button
+                  v-if="canSetAside"
+                  @click="handleSetAside"
+                  :disabled="isActing"
+                  class="px-4 py-2 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
+                >
+                  Set aside best combo
+                </button>
+
+                <button
+                  v-if="canSetAsideTargetElement"
+                  @click="handleSetAsideTargetElement"
+                  :disabled="isActing"
+                  class="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
+                >
+                  Set aside encounter element
+                </button>
+
+                <button
+                  v-if="canContinue"
+                  @click="handleContinue"
+                  :disabled="isActing"
+                  class="px-4 py-2 bg-sky-500/20 text-sky-300 border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
+                >
+                  Roll remaining dice
+                </button>
+              </div>
+
+              <button
+                v-if="canEndTurn"
+                @click="handleEndTurn"
+                :disabled="isActing"
+                class="px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50"
+              >
+                Resolve Capture
+              </button>
+            </div>
+          </template>
         </div>
-      </Transition>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useEventStore } from "@/stores/event";
+import { useEventStore, type Combination, type WildEncounterFarkleState } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
 import { useApi } from "@/composables/useApi";
 import ElementalCard from "@/components/game/ElementalCard.vue";
-import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
-import HandDiceSelector from "@/components/game/HandDiceSelector.vue";
+import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
+import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -233,59 +202,56 @@ const inventoryStore = useInventoryStore();
 const { api, apiCall } = useApi();
 
 const loading = ref(false);
-const isRolling = ref(false);
-const selectedDice = ref("");
-const selectedDiceType = ref<string | null>(null);
+const isActing = ref(false);
 const selectedItem = ref("");
-const showDiceRoll = ref(false);
-const rollResult = ref<any>(null);
+const selectedDiceIndices = ref<number[]>([]);
 const captureResult = ref<any>(null);
-const diceVisualizationRef = ref<InstanceType<
-  typeof DiceRollVisualization
-> | null>(null);
-
-// Wild elemental data
+const detectedCombinations = ref<Combination[]>([]);
 const wildElemental = ref<any>(null);
 
-// Available dice from inventory
-const availableDice = computed(() => {
-  return inventoryStore.equippedDice;
-});
+const captureItems = computed(() => inventoryStore.captureItems);
 
-// Capture items from inventory
-const captureItems = computed(() => {
-  return inventoryStore.captureItems;
-});
+const farkleState = computed(
+  () => (eventStore.wildEncounterData?.farkle_state as WildEncounterFarkleState | undefined) ?? null,
+);
 
-// Get dice type from dice ID
-const getDiceType = (diceId: string): "d4" | "d6" | "d10" | "d12" | "d20" => {
-  const dice = availableDice.value.find((d) => d.id === diceId);
-  return (dice?.dice_type?.dice_notation || "d6") as
-    | "d4"
-    | "d6"
-    | "d10"
-    | "d12"
-    | "d20";
-};
+const targetElement = computed(() => wildElemental.value?.element_types?.[0] ?? null);
 
-// Handle dice type selection from HandDiceSelector
-const handleDiceTypeSelect = (diceType: string) => {
-  selectedDiceType.value = diceType;
-  // Auto-select the first dice of that type
-  const diceOfType = availableDice.value.find(
-    (d) => d.dice_type?.dice_notation === diceType,
-  );
-  if (diceOfType) {
-    selectedDice.value = diceOfType.id;
+const canRoll = computed(() => farkleState.value?.phase === "initial_roll");
+const canReroll = computed(
+  () => farkleState.value?.phase === "can_reroll" && !farkleState.value?.has_used_reroll,
+);
+const canSetAside = computed(
+  () =>
+    !!farkleState.value &&
+    ["can_reroll", "set_aside", "rolling_remaining"].includes(farkleState.value.phase) &&
+    detectedCombinations.value.length > 0,
+);
+const canSetAsideTargetElement = computed(() => {
+  if (!farkleState.value || !targetElement.value) return false;
+  if (!["can_reroll", "set_aside", "rolling_remaining"].includes(farkleState.value.phase)) {
+    return false;
   }
-};
+  return farkleState.value.dice.some(
+    (d) => !d.is_set_aside && d.current_result === targetElement.value,
+  );
+});
+const canContinue = computed(
+  () =>
+    !!farkleState.value &&
+    farkleState.value.phase === "rolling_remaining",
+);
+const canEndTurn = computed(() => {
+  if (!farkleState.value) return false;
+  if (farkleState.value.busted) return true;
+  return (
+    farkleState.value.active_combinations.length > 0 ||
+    farkleState.value.set_aside_element_bonus !== null
+  );
+});
 
-// Get capture bonus from item
-const getCaptureBonus = (item: any): number => {
-  return item.effect?.capture_bonus || 0;
-};
+const getCaptureBonus = (item: any): number => item.effect?.capture_bonus || 0;
 
-// Get difficulty class
 const getDifficultyClass = (difficulty?: string) => {
   switch (difficulty) {
     case "easy":
@@ -299,157 +265,169 @@ const getDifficultyClass = (difficulty?: string) => {
   }
 };
 
-const selectedPlayerDice = computed(() =>
-  availableDice.value.find((d) => d.id === selectedDice.value),
-);
+const toggleDiceSelection = (index: number) => {
+  if (!canReroll.value) return;
+  const existing = selectedDiceIndices.value.indexOf(index);
+  if (existing >= 0) selectedDiceIndices.value.splice(existing, 1);
+  else selectedDiceIndices.value.push(index);
+};
 
-// Handle capture attempt
-const handleCaptureAttempt = async () => {
-  const userId = userStore.userId;
-  if (!selectedDice.value || !userId) return;
+const updateFromTurnResult = (result: any) => {
+  detectedCombinations.value = (result?.detected_combinations ?? []) as Combination[];
+  selectedDiceIndices.value = [];
+};
 
-  isRolling.value = true;
-  showDiceRoll.value = true;
-
+const handleRoll = async () => {
+  if (!userStore.userId) return;
+  isActing.value = true;
   try {
-    const playerDice = selectedPlayerDice.value;
-    if (!playerDice) {
-      throw new Error("Selected dice not found");
-    }
-
-    // Perform dice roll
-    const rollResponse = await apiCall(
-      () => api.api.rolls.post({
-        player_id: userId,
-        dice_type_id: playerDice.dice_type_id,
-        context: "capture_attempt",
-      }),
-      { silent: true },
-    );
-    if (!rollResponse.data?.roll) {
-      throw new Error("No roll data returned");
-    }
-    const diceRoll = rollResponse.data?.roll;
-    // Set roll result for visualization
-    rollResult.value = {
-      roll_value: diceRoll.roll_value,
-      result_element: diceRoll.result_element,
-    };
-    setTimeout(() => {
-      nextTick(() => {
-        diceVisualizationRef.value?.roll();
-      });
-    }, 450);
-
-    // Save last roll to inventory store
-    inventoryStore.updateLastRoll(diceRoll);
+    const response = await eventStore.wildEncounterFarkleRoll(userStore.userId);
+    updateFromTurnResult(response?.result);
   } catch (error) {
-    console.error("Failed to resolve capture:", error);
+    console.error("Failed wild encounter roll:", error);
   } finally {
-    isRolling.value = false;
+    isActing.value = false;
   }
 };
 
-// Handle skip encounter
+const handleReroll = async () => {
+  if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
+  isActing.value = true;
+  try {
+    const response = await eventStore.wildEncounterFarkleReroll(
+      userStore.userId,
+      [...selectedDiceIndices.value],
+    );
+    updateFromTurnResult(response?.result);
+  } catch (error) {
+    console.error("Failed wild encounter reroll:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
+const handleSetAside = async () => {
+  if (!userStore.userId || detectedCombinations.value.length === 0) return;
+  isActing.value = true;
+  const best = [...detectedCombinations.value].sort(
+    (a, b) =>
+      Object.values(b.bonuses).reduce((sum, v) => sum + Number(v), 0) -
+      Object.values(a.bonuses).reduce((sum, v) => sum + Number(v), 0),
+  )[0];
+  try {
+    const response = await eventStore.wildEncounterFarkleSetAside(
+      userStore.userId,
+      best.dice_indices,
+      best.type === "one_for_all" ? targetElement.value ?? undefined : undefined,
+    );
+    updateFromTurnResult(response?.result);
+  } catch (error) {
+    console.error("Failed wild encounter set aside:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
+const handleSetAsideTargetElement = async () => {
+  if (!userStore.userId || !farkleState.value || !targetElement.value) return;
+  const idx = farkleState.value.dice.findIndex(
+    (d) => !d.is_set_aside && d.current_result === targetElement.value,
+  );
+  if (idx < 0) return;
+  isActing.value = true;
+  try {
+    const response = await eventStore.wildEncounterFarkleSetAside(userStore.userId, [idx]);
+    updateFromTurnResult(response?.result);
+  } catch (error) {
+    console.error("Failed target-element set aside:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
+const handleContinue = async () => {
+  if (!userStore.userId) return;
+  isActing.value = true;
+  try {
+    const response = await eventStore.wildEncounterFarkleContinue(userStore.userId);
+    updateFromTurnResult(response?.result);
+  } catch (error) {
+    console.error("Failed wild encounter continue:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
+const handleEndTurn = async () => {
+  if (!userStore.userId) return;
+  isActing.value = true;
+  try {
+    const response = await eventStore.wildEncounterFarkleEndTurn(
+      userStore.userId,
+      selectedItem.value || undefined,
+    );
+    captureResult.value = response?.result?.result ?? null;
+
+    if (captureResult.value?.success) {
+      await elementalsStore.fetchPlayerElementals(userStore.userId);
+    }
+    if (selectedItem.value) {
+      await inventoryStore.fetchPlayerItems(userStore.userId);
+    }
+  } catch (error) {
+    console.error("Failed to resolve encounter:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
 const handleSkipEncounter = async () => {
   const userId = userStore.userId;
   if (!userId) return;
 
   try {
     await apiCall(
-      () => api.api.events["wild-encounter"].skip.post({
-        player_id: userId,
-      }),
+      () =>
+        api.api.events["wild-encounter"].skip.post({
+          player_id: userId,
+        }),
       { successMessage: "Encounter skipped" },
     );
-
-    // Clear event from store
     eventStore.clearEvent();
-
     router.push("/");
   } catch (error) {
     console.error("Failed to skip encounter:", error);
   }
 };
 
-// Handle roll complete
-const handleRollComplete = async () => {
-  const userId = userStore.userId;
-  if (!userId) return;
-  // Resolve encounter
-
-  const diceType = getDiceType(selectedDice.value);
-  const resolveResponse = await apiCall(
-    () => api.api.events["wild-encounter"].resolve.post({
-      player_id: userId,
-      dice_roll_id: inventoryStore.lastRoll?.id!,
-      item_id: selectedItem.value || undefined,
-    }),
-    { successMessage: "Encounter resolved!" },
-  );
-
-  captureResult.value = resolveResponse.data?.result;
-
-  // Refresh player data to show updated inventory and elementals
-  if (captureResult.value?.success) {
-    await elementalsStore.fetchPlayerElementals(userId);
-  }
-  if (selectedItem.value) {
-    await inventoryStore.fetchPlayerItems(userId);
-  }
-};
-
-// Proceed to next event or dashboard
 const proceedToNext = () => {
-  // Clear event from store now that player has reviewed results
   eventStore.clearEvent();
   router.push("/");
 };
 
-// Load event data
 onMounted(async () => {
   if (!userStore.userId) return;
-
   loading.value = true;
-
   try {
-    // Load necessary data
     await elementalsStore.fetchAllElementals();
     await elementalsStore.fetchPlayerElementals(userStore.userId);
     await inventoryStore.fetchPlayerDice(userStore.userId);
     await inventoryStore.fetchPlayerItems(userStore.userId);
 
-    // Load event-specific data
     if (eventStore.isWildEncounter && eventStore.wildEncounterData) {
-      // Fetch wild elemental details
-      const elemental = await elementalsStore.getElementalById(
+      wildElemental.value = await elementalsStore.getElementalById(
         eventStore.wildEncounterData.elemental_id,
       );
-      wildElemental.value = elemental;
+
+      detectedCombinations.value = (
+        (eventStore.wildEncounterData.farkle_state as WildEncounterFarkleState | undefined)
+          ?.detected_combinations ?? []
+      ) as Combination[];
     }
   } catch (error) {
-    console.error("Failed to load event data:", error);
+    console.error("Failed to load encounter data:", error);
   } finally {
     loading.value = false;
   }
 });
 </script>
-<style scoped>
-/* we will explain what these classes do next! */
-.v-enter-active,
-.v-leave-active,
-.fade-enter-active,
-.fade-leave-active {
-  transition: all 0.4s ease-in-out;
-}
-
-.v-enter-from,
-.v-leave-to {
-  transform: translateX(-200px);
-  opacity: 0;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-</style>

@@ -107,7 +107,6 @@ export class AuthService {
         },
       },
     );
-    console.log("Google userinfo response status:", response.status);
     if (!response.ok) {
       throw new UnauthorizedError("Failed to fetch Google user info");
     }
@@ -117,8 +116,6 @@ export class AuthService {
       throw new UnauthorizedError("Invalid Google user info response");
     }
     const googleUser: GoogleUserInfo = googleUserData;
-
-    console.log("Google user info:", googleUser);
 
     // Check if OAuth account exists
     let oauthAccount = await this.repository.findOAuthAccount(

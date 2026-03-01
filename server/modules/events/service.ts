@@ -11,6 +11,7 @@ import type {
   SkipWildEncounterResult,
   LeaveMerchantResult,
   BattleRollResult,
+  FarkleContextData,
 } from "./models";
 import { EVENT_PROBABILITIES } from "./models";
 import {
@@ -18,6 +19,7 @@ import {
   WildEncounterEventRepository,
   BattleEventRepository,
   MerchantEventRepository,
+  type WildEncounterFarkleState,
 } from "./repository";
 import { DiceRollService } from "../dice-rolls/service";
 import {
@@ -88,6 +90,7 @@ export class EventService {
           player_id: playerId,
           elemental_id: encounterData.elemental_id,
           stats_modifier: Math.random() * 0.4 + 0.8, // 0.8 to 1.2
+          farkle_state: this.createInitialWildEncounterFarkleState(),
         });
         eventRecordId = wildEncounter.id;
 
@@ -213,15 +216,29 @@ export class EventService {
       elemental_name: randomElemental.name,
       elemental_level: randomElemental.level,
       capture_difficulty: captureDifficulty,
+      farkle_state: this.createInitialWildEncounterFarkleState(),
     };
 
     return {
       response: {
         event_type: "wild_encounter",
-        description: `A wild ${randomElemental.name} appeared! You can attempt to capture it using a dice roll and a capture item.`,
+        description: `A wild ${randomElemental.name} appeared! Use the Farkle capture flow and optional items to attempt capture.`,
         data,
       },
       elemental_id: randomElemental.id,
+    };
+  }
+
+  private createInitialWildEncounterFarkleState(): WildEncounterFarkleState {
+    return {
+      phase: "initial_roll",
+      dice: [],
+      has_used_reroll: false,
+      active_combinations: [],
+      set_aside_element_bonus: null,
+      is_dice_rush: false,
+      busted: false,
+      detected_combinations: [],
     };
   }
 
@@ -463,6 +480,61 @@ export class EventService {
     return battleState;
   }
 
+  async farkleRoll(playerId: string, context: FarkleContextData): Promise<any> {
+    if (context === "pvp_battle") {
+      return this.farkleInitialRoll(playerId);
+    }
+    return this.wildEncounterFarkleInitialRoll(playerId);
+  }
+
+  async farkleRerollGeneric(
+    playerId: string,
+    context: FarkleContextData,
+    diceIndicesToReroll: number[],
+  ): Promise<any> {
+    if (context === "pvp_battle") {
+      return this.farkleReroll(playerId, diceIndicesToReroll);
+    }
+    return this.wildEncounterFarkleReroll(playerId, diceIndicesToReroll);
+  }
+
+  async farkleSetAsideGeneric(
+    playerId: string,
+    context: FarkleContextData,
+    diceIndices: number[],
+    oneForAllElement?: string,
+  ): Promise<any> {
+    if (context === "pvp_battle") {
+      return this.farkleSetAside(playerId, diceIndices, oneForAllElement);
+    }
+    return this.wildEncounterFarkleSetAside(
+      playerId,
+      diceIndices,
+      oneForAllElement,
+    );
+  }
+
+  async farkleContinueGeneric(
+    playerId: string,
+    context: FarkleContextData,
+  ): Promise<any> {
+    if (context === "pvp_battle") {
+      return this.farkleContinue(playerId);
+    }
+    return this.wildEncounterFarkleContinue(playerId);
+  }
+
+  async farkleEndTurnGeneric(
+    playerId: string,
+    context: FarkleContextData,
+    itemId?: string,
+  ): Promise<any> {
+    if (context === "pvp_battle") {
+      return this.farkleEndTurn(playerId);
+    }
+    return this.wildEncounterFarkleEndTurn(playerId, itemId);
+  }
+
   /**
    * Player rolls all 5 equipped dice (initial roll of a Farkle turn).
    */
@@ -635,7 +707,6 @@ export class EventService {
     if (selectedDice.length !== diceIndices.length) {
       throw new BadRequestError("Invalid dice indices");
     }
-
     // Validate: either selected dice form a valid combination OR all selected are the chosen element
     const activeDice = turn.dice.map((d, i) => ({
       ...d,
@@ -700,8 +771,7 @@ export class EventService {
 
     await this.battleRepo.updateBattleState(battle.id, battleState);
 
-    const remainingDice = turn.dice.filter((d) => !d.is_set_aside);
-    const detectedRemaining = detectCombinations(remainingDice);
+    const detectedRemaining = detectCombinations(turn.dice);
 
     return {
       battle_state: battleState,
@@ -738,8 +808,7 @@ export class EventService {
     turn.dice = updatedDice;
     turn.phase = "can_reroll";
 
-    const activeDice = updatedDice.filter((d) => !d.is_set_aside);
-    const detected = detectCombinations(activeDice);
+    const detected = detectCombinations(updatedDice);
 
     // Bust check: no combos, no chosen-element die in active dice, and reroll already used
     const busted = isBust(updatedDice, battleState.set_aside_element, turn.has_used_reroll);
@@ -1217,11 +1286,13 @@ export class EventService {
           elemental_name: elemental.name,
           elemental_level: elemental.level,
           capture_difficulty: captureDifficulty,
+          farkle_state:
+            wildEncounter.farkle_state ?? this.createInitialWildEncounterFarkleState(),
         };
 
         return {
           event_type: "wild_encounter",
-          description: `A wild ${elemental.name} appeared! You can attempt to capture it using a dice roll and a capture item.`,
+          description: `A wild ${elemental.name} appeared! Use the Farkle capture flow and optional items to attempt capture.`,
           data,
         };
       }
@@ -1315,6 +1386,462 @@ export class EventService {
       default:
         throw new BadRequestError("Unknown event type");
     }
+  }
+
+  private async getWildEncounterForFarkle(playerId: string): Promise<{
+    wildEncounter: NonNullable<
+      Awaited<ReturnType<WildEncounterEventRepository["findById"]>>
+    >;
+    elemental: any;
+    targetElement: ElementType;
+    farkleState: WildEncounterFarkleState;
+  }> {
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+    if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
+      throw new BadRequestError("No active wild encounter event");
+    }
+    if (!currentEvent.wild_encounter_id) {
+      throw new BadRequestError("Invalid wild encounter event");
+    }
+
+    const wildEncounter = await this.wildEncounterRepo.findById(
+      currentEvent.wild_encounter_id,
+    );
+    if (!wildEncounter) {
+      throw new NotFoundError("Wild encounter event");
+    }
+
+    const [elemental] = await db("elementals")
+      .where({ id: wildEncounter.elemental_id })
+      .limit(1);
+    if (!elemental) {
+      throw new NotFoundError("Elemental");
+    }
+
+    const targetElement = (elemental.element_types?.[0] ?? "fire") as ElementType;
+
+    return {
+      wildEncounter,
+      elemental,
+      targetElement,
+      farkleState:
+        wildEncounter.farkle_state ?? this.createInitialWildEncounterFarkleState(),
+    };
+  }
+
+  async wildEncounterFarkleInitialRoll(playerId: string): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { wildEncounter, farkleState } = await this.getWildEncounterForFarkle(playerId);
+
+    if (farkleState.phase !== "initial_roll") {
+      throw new BadRequestError("Already rolled. Continue the current turn.");
+    }
+
+    const equippedDice = await db("player_dice")
+      .where({ player_id: playerId, is_equipped: true })
+      .leftJoin("dice_types", "player_dice.dice_type_id", "dice_types.id")
+      .select(
+        "player_dice.id as player_dice_id",
+        "player_dice.dice_type_id",
+        "dice_types.dice_notation",
+        "dice_types.faces",
+      )
+      .limit(5);
+
+    if (equippedDice.length === 0) {
+      throw new BadRequestError(
+        "No dice equipped. Please equip dice before attempting a capture.",
+      );
+    }
+
+    const farkleDice: FarkleDie[] = equippedDice.map((d: any) => ({
+      player_dice_id: d.player_dice_id,
+      dice_type_id: d.dice_type_id,
+      dice_notation: d.dice_notation ?? "d6",
+      faces: Array.isArray(d.faces) ? d.faces : JSON.parse(d.faces ?? "[]"),
+      current_result: "fire" as ElementType,
+      is_set_aside: false,
+    }));
+
+    const rolledDice = rollFarkleDice(farkleDice);
+
+    for (const die of rolledDice) {
+      await this.diceRollService.performRoll({
+        player_id: playerId,
+        dice_type_id: die.dice_type_id,
+        context: "farkle_battle",
+      });
+    }
+
+    const detected = detectCombinations(rolledDice);
+
+    farkleState.phase = "can_reroll";
+    farkleState.dice = rolledDice;
+    farkleState.has_used_reroll = false;
+    farkleState.active_combinations = [];
+    farkleState.set_aside_element_bonus = null;
+    farkleState.is_dice_rush = false;
+    farkleState.busted = false;
+    farkleState.detected_combinations = detected;
+
+    await this.wildEncounterRepo.updateFarkleState(wildEncounter.id, farkleState);
+
+    return {
+      farkle_state: farkleState,
+      detected_combinations: detected,
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async wildEncounterFarkleReroll(
+    playerId: string,
+    diceIndicesToReroll: number[],
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { wildEncounter, farkleState } = await this.getWildEncounterForFarkle(playerId);
+
+    if (farkleState.phase !== "can_reroll") {
+      throw new BadRequestError("Cannot reroll at this stage");
+    }
+    if (farkleState.has_used_reroll) {
+      throw new BadRequestError("Free reroll already used");
+    }
+    if (diceIndicesToReroll.length === 0 || diceIndicesToReroll.length > 5) {
+      throw new BadRequestError("Must reroll between 1 and 5 dice");
+    }
+
+    const indexSet = new Set(diceIndicesToReroll);
+    const updatedDice = farkleState.dice.map((die, i) => {
+      if (indexSet.has(i) && !die.is_set_aside) {
+        const randomFace = die.faces[Math.floor(Math.random() * die.faces.length)];
+        return { ...die, current_result: randomFace };
+      }
+      return die;
+    });
+
+    const detected = detectCombinations(updatedDice);
+
+    farkleState.dice = updatedDice;
+    farkleState.has_used_reroll = true;
+    farkleState.phase = "set_aside";
+    farkleState.detected_combinations = detected;
+
+    await this.wildEncounterRepo.updateFarkleState(wildEncounter.id, farkleState);
+
+    return {
+      farkle_state: farkleState,
+      detected_combinations: detected,
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async wildEncounterFarkleSetAside(
+    playerId: string,
+    diceIndices: number[],
+    oneForAllElement?: string,
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { wildEncounter, targetElement, farkleState } =
+      await this.getWildEncounterForFarkle(playerId);
+
+    if (
+      farkleState.phase !== "can_reroll" &&
+      farkleState.phase !== "set_aside" &&
+      farkleState.phase !== "rolling_remaining"
+    ) {
+      throw new BadRequestError("Cannot set aside dice at this stage");
+    }
+
+    if (diceIndices.length === 0) {
+      throw new BadRequestError("Must select at least one die to set aside");
+    }
+
+    const selectedDice = diceIndices.map((i) => farkleState.dice[i]).filter(Boolean);
+
+    if (selectedDice.length !== diceIndices.length) {
+      throw new BadRequestError("Invalid dice selection");
+    }
+
+    const selectedCombos = detectCombinations(
+      selectedDice.map((d) => ({ ...d, is_set_aside: true })),
+    );
+    const isValidCombo = selectedCombos.length > 0;
+    const isTargetElementSolo = selectedDice.every(
+      (d) => d.current_result === targetElement,
+    );
+
+    if (!isValidCombo && !isTargetElementSolo) {
+      throw new BadRequestError(
+        "Selected dice must form a valid combination or match the encounter element",
+      );
+    }
+
+    diceIndices.forEach((i) => {
+      if (farkleState.dice[i]) {
+        farkleState.dice[i] = { ...farkleState.dice[i], is_set_aside: true };
+      }
+    });
+
+    if (isTargetElementSolo && !isValidCombo) {
+      farkleState.set_aside_element_bonus = targetElement;
+    } else {
+      const setAsideDice = farkleState.dice.filter((d) => d.is_set_aside);
+      const allCombos = detectCombinations(setAsideDice);
+      if (oneForAllElement) {
+        const oneForAll = allCombos.find((c) => c.type === "one_for_all");
+        if (oneForAll) {
+          oneForAll.bonuses = { [oneForAllElement]: 0.3 };
+        }
+      }
+      farkleState.active_combinations = allCombos;
+    }
+
+    const diceRush = isDiceRush(farkleState.dice);
+    farkleState.is_dice_rush = diceRush;
+
+    if (diceRush) {
+      farkleState.dice = farkleState.dice.map((d) => ({ ...d, is_set_aside: false }));
+      farkleState.has_used_reroll = false;
+      farkleState.phase = "initial_roll";
+      farkleState.detected_combinations = [];
+    } else {
+      farkleState.phase = "rolling_remaining";
+      farkleState.detected_combinations = detectCombinations(farkleState.dice);
+    }
+
+    await this.wildEncounterRepo.updateFarkleState(wildEncounter.id, farkleState);
+
+    return {
+      farkle_state: farkleState,
+      detected_combinations: farkleState.detected_combinations as Combination[],
+      is_busted: false,
+      is_dice_rush: diceRush,
+      is_resolved: false,
+    };
+  }
+
+  async wildEncounterFarkleContinue(playerId: string): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { wildEncounter, targetElement, farkleState } =
+      await this.getWildEncounterForFarkle(playerId);
+
+    if (farkleState.phase !== "rolling_remaining") {
+      throw new BadRequestError("Cannot roll at this stage");
+    }
+
+    const updatedDice = rollFarkleDice(farkleState.dice);
+    const detected = detectCombinations(updatedDice);
+    const busted = isBust(updatedDice, targetElement, farkleState.has_used_reroll);
+
+    farkleState.dice = updatedDice;
+    farkleState.phase = busted ? "done" : "can_reroll";
+    farkleState.busted = busted;
+    farkleState.detected_combinations = detected;
+
+    await this.wildEncounterRepo.updateFarkleState(wildEncounter.id, farkleState);
+
+    return {
+      farkle_state: farkleState,
+      detected_combinations: detected,
+      is_busted: busted,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async wildEncounterFarkleEndTurn(
+    playerId: string,
+    itemId?: string,
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+    result: WildEncounterResult;
+  }> {
+    const { wildEncounter, elemental, targetElement, farkleState } =
+      await this.getWildEncounterForFarkle(playerId);
+
+    if (farkleState.phase === "initial_roll") {
+      throw new BadRequestError("Roll dice before ending the encounter");
+    }
+
+    const elementalCount = (await db("player_elementals")
+      .where({ player_id: playerId })
+      .count("* as count")
+      .first()) as { count: string | number } | undefined;
+
+    if (elementalCount && Number(elementalCount.count) >= 15) {
+      throw new BadRequestError("Maximum elemental capacity reached (15)");
+    }
+
+    let captureBonus = 0;
+    if (itemId) {
+      const [item] = await db("items").where({ id: itemId }).limit(1);
+      if (!item) {
+        throw new NotFoundError("Item");
+      }
+
+      const [inventoryItem] = await db("player_inventory")
+        .where({ player_id: playerId, item_id: itemId })
+        .limit(1);
+
+      if (!inventoryItem || inventoryItem.quantity < 1) {
+        throw new BadRequestError("Item not in inventory or insufficient quantity");
+      }
+
+      if (item.effect?.capture_bonus) {
+        captureBonus = item.effect.capture_bonus;
+      }
+
+      if (inventoryItem.quantity === 1) {
+        await db("player_inventory").where({ id: inventoryItem.id }).delete();
+      } else {
+        await db("player_inventory")
+          .where({ id: inventoryItem.id })
+          .update({ quantity: inventoryItem.quantity - 1 });
+      }
+    }
+
+    const turnBonuses: Partial<Record<ElementType, number>> = {};
+    if (!farkleState.busted) {
+      for (const combo of farkleState.active_combinations) {
+        for (const [el, pct] of Object.entries(combo.bonuses)) {
+          turnBonuses[el as ElementType] =
+            (turnBonuses[el as ElementType] ?? 0) + (pct as number);
+        }
+      }
+      if (farkleState.set_aside_element_bonus) {
+        turnBonuses[farkleState.set_aside_element_bonus as ElementType] =
+          (turnBonuses[farkleState.set_aside_element_bonus as ElementType] ?? 0) + 0.1;
+      }
+    }
+
+    const targetBonus = turnBonuses[targetElement] ?? 0;
+    const targetDiceSetAside = farkleState.dice.filter(
+      (d) => d.is_set_aside && d.current_result === targetElement,
+    ).length;
+    const diceRushBonus = farkleState.is_dice_rush ? 1 : 0;
+
+    let score = farkleState.busted ? 0 : Math.round(targetBonus * 10) + targetDiceSetAside + diceRushBonus;
+    score += captureBonus;
+
+    let captureDifficulty: "easy" | "medium" | "hard";
+    if (elemental.level === 1) captureDifficulty = "easy";
+    else if (elemental.level === 2) captureDifficulty = "medium";
+    else captureDifficulty = "hard";
+
+    const thresholdByDifficulty: Record<typeof captureDifficulty, number> = {
+      easy: 2,
+      medium: 4,
+      hard: 6,
+    };
+    const success = score >= thresholdByDifficulty[captureDifficulty];
+
+    let elementalCaught:
+      | {
+          id: string;
+          name: string;
+          level: number;
+        }
+      | undefined;
+
+    if (success) {
+      const [playerElemental] = await db("player_elementals")
+        .insert({
+          player_id: playerId,
+          elemental_id: elemental.id,
+          current_stats: elemental.base_stats,
+          is_in_active_party: false,
+          party_position: null,
+        })
+        .returning("*");
+
+      elementalCaught = {
+        id: playerElemental.id,
+        name: elemental.name,
+        level: elemental.level,
+      };
+
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "victory",
+        item_used_id: itemId,
+        captured_player_elemental_id: playerElemental.id,
+        resolved_at: new Date(),
+      });
+
+      await db("player_progress")
+        .where({ player_id: playerId })
+        .increment("successful_captures", 1)
+        .increment("total_elementals_owned", 1);
+
+      const previousCaptures = (await db("player_elementals")
+        .where({ player_id: playerId, elemental_id: elemental.id })
+        .count("* as count")
+        .first()) as { count: string | number } | undefined;
+
+      if (previousCaptures && Number(previousCaptures.count) === 1) {
+        await db("player_progress")
+          .where({ player_id: playerId })
+          .increment("unique_elementals_collected", 1);
+      }
+    } else {
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "defeat",
+        item_used_id: itemId,
+        resolved_at: new Date(),
+      });
+    }
+
+    await this.repository.clearCurrentEvent(playerId);
+
+    farkleState.phase = "resolved";
+    farkleState.detected_combinations = [];
+
+    const result: WildEncounterResult = {
+      success,
+      message: success
+        ? `Successfully captured ${elemental.name}! It has been added to your collection.`
+        : `Failed to capture ${elemental.name}. The elemental escaped!`,
+      elemental_caught: elementalCaught,
+      can_continue: true,
+    };
+
+    return {
+      farkle_state: farkleState,
+      detected_combinations: [],
+      is_busted: farkleState.busted,
+      is_dice_rush: farkleState.is_dice_rush,
+      is_resolved: true,
+      result,
+    };
   }
 
   /**

@@ -10,6 +10,7 @@ import type {
   ItemRarityValue,
   ItemTypeValue,
   FarkleBattleState,
+  FarkleTurnState,
 } from '@elementary-dices/shared';
 
 // ============================================================
@@ -166,6 +167,7 @@ interface EventsWildEncounterRow {
   dice_roll_id: string | null;
   item_used_id: string | null;
   captured_player_elemental_id: string | null;
+  farkle_state: FarkleTurnState | null;
   created_at: Date;
   resolved_at: Date | null;
 }
@@ -393,6 +395,7 @@ declare module 'knex/types/tables' {
         dice_roll_id?: string | null;
         item_used_id?: string | null;
         captured_player_elemental_id?: string | null;
+        farkle_state?: FarkleTurnState | null;
         resolved_at?: Date | null;
       },
       Partial<Omit<EventsWildEncounterRow, 'id' | 'created_at'>>
