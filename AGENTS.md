@@ -83,6 +83,7 @@ Before finishing:
 
 1. Run type checks:
    - `bun run typecheck`
+   - On Windows agent sessions, do not run typecheck in the agent sandbox; ask the user to run it locally and report results.
 2. If backend data logic changed:
    - run relevant migrations/seeds as needed
    - hit `/api/health`

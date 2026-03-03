@@ -1,6 +1,12 @@
 import { db } from '../../db';
 import type { EventType } from './models';
-import type { FarkleDie, FarkleTurnPhaseValue, ElementTypeValue } from '@elementary-dices/shared';
+import type {
+  FarkleDie,
+  FarkleTurnPhaseValue,
+  ElementTypeValue,
+  EncounterTypeValue,
+  FarkleBattleState,
+} from '@elementary-dices/shared';
 
 // ========================================
 // Player Current Events (Pointer to Active Event)
@@ -119,7 +125,6 @@ export interface WildEncounterEvent {
   dice_roll_id?: string;
   item_used_id?: string;
   captured_player_elemental_id?: string;
-  farkle_state?: WildEncounterFarkleState | null;
   created_at: string;
   resolved_at?: string;
 }
@@ -149,7 +154,6 @@ export interface CreateWildEncounterEventData {
   player_id: string;
   elemental_id: string;
   stats_modifier?: number;
-  farkle_state?: WildEncounterFarkleState | null;
 }
 
 export interface UpdateWildEncounterResolutionData {
@@ -171,7 +175,6 @@ export class WildEncounterEventRepository {
         elemental_id: data.elemental_id,
         stats_modifier: data.stats_modifier ?? 1.0,
         status: 'pending',
-        farkle_state: data.farkle_state ?? null,
       })
       .returning('*');
     return event;
@@ -195,20 +198,6 @@ export class WildEncounterEventRepository {
         item_used_id: data.item_used_id,
         captured_player_elemental_id: data.captured_player_elemental_id,
         resolved_at: data.resolved_at ?? db.fn.now(),
-      })
-      .returning('*');
-    return event;
-  }
-
-  async updateFarkleState(
-    id: string,
-    farkleState: WildEncounterFarkleState
-  ): Promise<WildEncounterEvent> {
-    const [event] = await db(this.table)
-      .where({ id })
-      .update({
-        status: 'in_progress',
-        farkle_state: farkleState,
       })
       .returning('*');
     return event;
@@ -239,7 +228,6 @@ export interface BattleEvent {
   dice_roll_id?: string;
   currency_reward?: number;
   downgraded_elemental_id?: string;
-  battle_state?: any;
   opponent_party_data?: any;
   created_at: string;
   resolved_at?: string;
@@ -250,7 +238,6 @@ export interface CreateBattleEventData {
   opponent_player_id?: string;
   opponent_name: string;
   opponent_power_level: number;
-  battle_state?: any;
   opponent_party_data?: any;
 }
 
@@ -275,19 +262,8 @@ export class BattleEventRepository {
         opponent_player_id: data.opponent_player_id,
         opponent_name: data.opponent_name,
         opponent_power_level: data.opponent_power_level,
-        battle_state: data.battle_state ? JSON.stringify(data.battle_state) : null,
-        opponent_party_data: data.opponent_party_data ? JSON.stringify(data.opponent_party_data) : null,
+        opponent_party_data: data.opponent_party_data ?? null,
         status: 'pending',
-      })
-      .returning('*');
-    return event;
-  }
-
-  async updateBattleState(id: string, battleState: any): Promise<BattleEvent> {
-    const [event] = await db(this.table)
-      .where({ id })
-      .update({
-        battle_state: JSON.stringify(battleState),
       })
       .returning('*');
     return event;
@@ -320,6 +296,141 @@ export class BattleEventRepository {
       .where({ player_id: playerId })
       .orderBy('created_at', 'desc')
       .limit(limit);
+  }
+}
+
+export interface FarkleSession {
+  id: string;
+  player_id: string;
+  event_type: EncounterTypeValue;
+  event_id: string;
+  set_aside_element: ElementTypeValue;
+  opponent_set_aside_element?: ElementTypeValue | null;
+  status: 'active' | 'resolved';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FarkleStateRow {
+  session_id: string;
+  phase: FarkleTurnPhaseValue | 'targeting' | 'choose_element' | 'player_turn' | 'resolved';
+  has_used_reroll: boolean;
+  set_aside_element_bonus?: ElementTypeValue | null;
+  is_dice_rush: boolean;
+  busted: boolean;
+  dice_state: FarkleDie[];
+  active_combinations: any[];
+  detected_combinations: any[];
+  meta: {
+    battle_state?: FarkleBattleState;
+    [key: string]: any;
+  };
+  updated_at: string;
+}
+
+export interface CreateFarkleSessionData {
+  player_id: string;
+  event_type: EncounterTypeValue;
+  event_id: string;
+  set_aside_element: ElementTypeValue;
+  opponent_set_aside_element?: ElementTypeValue | null;
+}
+
+export class FarkleSessionRepository {
+  private sessionTable = 'events_farkle_session';
+  private stateTable = 'events_farkle_state';
+
+  private toStateWritePayload(
+    state: Partial<Omit<FarkleStateRow, 'session_id' | 'updated_at'>>,
+  ) {
+    const payload: Record<string, unknown> = { ...state };
+
+    // Ensure JSONB columns are always written as valid JSON text.
+    if ('dice_state' in state) {
+      payload.dice_state = JSON.stringify(state.dice_state ?? []);
+    }
+    if ('active_combinations' in state) {
+      payload.active_combinations = JSON.stringify(state.active_combinations ?? []);
+    }
+    if ('detected_combinations' in state) {
+      payload.detected_combinations = JSON.stringify(state.detected_combinations ?? []);
+    }
+    if ('meta' in state) {
+      payload.meta = JSON.stringify(state.meta ?? {});
+    }
+
+    return payload;
+  }
+
+  async findSessionByEvent(
+    eventType: EncounterTypeValue,
+    eventId: string,
+  ): Promise<FarkleSession | null> {
+    const [session] = await db(this.sessionTable)
+      .where({ event_type: eventType, event_id: eventId })
+      .limit(1);
+    return session || null;
+  }
+
+  async findSessionById(sessionId: string): Promise<FarkleSession | null> {
+    const [session] = await db(this.sessionTable).where({ id: sessionId }).limit(1);
+    return session || null;
+  }
+
+  async createSession(data: CreateFarkleSessionData): Promise<FarkleSession> {
+    const [session] = await db(this.sessionTable)
+      .insert({
+        player_id: data.player_id,
+        event_type: data.event_type,
+        event_id: data.event_id,
+        set_aside_element: data.set_aside_element,
+        opponent_set_aside_element: data.opponent_set_aside_element ?? null,
+        status: 'active',
+      })
+      .returning('*');
+    return session;
+  }
+
+  async createState(
+    sessionId: string,
+    state: Omit<FarkleStateRow, 'session_id' | 'updated_at'>,
+  ): Promise<FarkleStateRow> {
+    const [row] = await db(this.stateTable)
+      .insert({
+        session_id: sessionId,
+        ...this.toStateWritePayload(state),
+        updated_at: db.fn.now(),
+      })
+      .returning('*');
+    return row;
+  }
+
+  async getState(sessionId: string): Promise<FarkleStateRow | null> {
+    const [row] = await db(this.stateTable).where({ session_id: sessionId }).limit(1);
+    return row || null;
+  }
+
+  async updateState(
+    sessionId: string,
+    state: Partial<Omit<FarkleStateRow, 'session_id' | 'updated_at'>>,
+  ): Promise<FarkleStateRow> {
+    const [row] = await db(this.stateTable)
+      .where({ session_id: sessionId })
+      .update({
+        ...this.toStateWritePayload(state),
+        updated_at: db.fn.now(),
+      })
+      .returning('*');
+    return row;
+  }
+
+  async resolveSession(sessionId: string): Promise<void> {
+    await db(this.sessionTable)
+      .where({ id: sessionId })
+      .update({
+        status: 'resolved',
+        updated_at: db.fn.now(),
+      });
   }
 }
 

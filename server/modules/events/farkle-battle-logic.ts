@@ -135,6 +135,8 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
     if (!byElement[el]) byElement[el] = [];
     byElement[el]!.push(i);
   }
+  console.log("Rolling dice:", dice.map((d) => d.current_result));
+  console.log("Dice grouped by element:", byElement);
 
   const uniqueElements = Object.keys(byElement) as ElementType[];
   const totalDice = dice.length;
@@ -193,7 +195,6 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
   }
 
   // Triplet: exactly 3 of same element (not already covered by full_house or better)
-  console.log(dice, uniqueElements, byElement, combos);
   for (const el of uniqueElements) {
     const indices = byElement[el]!;
     if (indices.length === 3) {
@@ -211,7 +212,7 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
       }
     }
   }
-
+  console.log("Detected combinations:", combos);
   return combos;
 }
 

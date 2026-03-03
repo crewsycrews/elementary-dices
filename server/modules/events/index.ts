@@ -7,6 +7,7 @@ import {
   BattleStartDTO,
   LeaveMerchantDTO,
   ChooseElementDTO,
+  FarkleInitDTO,
   GenericFarkleRollDTO,
   GenericFarkleRerollDTO,
   GenericFarkleSetAsideDTO,
@@ -59,6 +60,27 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
   )
   // Generic Farkle gameplay endpoints (used by both PvP battle and wild encounter)
   .post(
+    "/farkle/init",
+    async (context) => {
+      const { body, eventService } = context;
+      const user = context.user;
+
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only init your own events");
+      }
+      const result = await eventService.farkleInit(
+        body.player_id,
+        body.event_type,
+        body.event_id,
+        body.set_aside_element as any,
+      );
+      return { result };
+    },
+    {
+      body: FarkleInitDTO,
+    },
+  )
+  .post(
     "/farkle/roll",
     async (context) => {
       const { body, eventService } = context;
@@ -67,7 +89,10 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only roll in your own events");
       }
-      const result = await eventService.farkleRoll(body.player_id, body.context);
+      const result = await eventService.farkleRoll(
+        body.player_id,
+        body.farkle_session_id,
+      );
       return { result };
     },
     {
@@ -85,7 +110,7 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       }
       const result = await eventService.farkleRerollGeneric(
         body.player_id,
-        body.context,
+        body.farkle_session_id,
         body.dice_indices_to_reroll,
       );
       return { result };
@@ -105,7 +130,7 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       }
       const result = await eventService.farkleSetAsideGeneric(
         body.player_id,
-        body.context,
+        body.farkle_session_id,
         body.dice_indices,
         body.one_for_all_element,
       );
@@ -126,7 +151,7 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       }
       const result = await eventService.farkleContinueGeneric(
         body.player_id,
-        body.context,
+        body.farkle_session_id,
       );
       return { result };
     },
@@ -145,7 +170,7 @@ export const eventsModule = new Elysia({ prefix: "/api/events" })
       }
       const result = await eventService.farkleEndTurnGeneric(
         body.player_id,
-        body.context,
+        body.farkle_session_id,
         body.item_id,
       );
       return { result };

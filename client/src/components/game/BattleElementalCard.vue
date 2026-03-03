@@ -10,7 +10,9 @@
     <!-- Element + Level Badge -->
     <div class="flex items-center justify-between mb-2">
       <span class="text-xl">{{ elementEmoji }}</span>
-      <span class="text-xs font-bold bg-black/60 text-white px-2 py-0.5 rounded">
+      <span
+        class="text-xs font-bold bg-black/60 text-white px-2 py-0.5 rounded"
+      >
         Lv.{{ member.level }}
       </span>
     </div>
@@ -33,13 +35,16 @@
           class="text-xs font-bold"
           :class="powerDiff > 0 ? 'text-green-400' : 'text-red-400'"
         >
-          {{ powerDiff > 0 ? '+' : '' }}{{ powerDiff.toFixed(1) }}
+          {{ powerDiff > 0 ? "+" : "" }}{{ powerDiff.toFixed(1) }}
         </span>
       </div>
     </div>
 
     <!-- Target Arrow Indicator -->
-    <div v-if="showTarget && targetName" class="mt-2 pt-2 border-t border-border">
+    <div
+      v-if="showTarget && targetName"
+      class="mt-2 pt-2 border-t border-border"
+    >
       <div class="flex items-center gap-1 text-xs text-muted-foreground">
         <span>→</span>
         <span>{{ targetName }}</span>
@@ -49,51 +54,55 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
-import type { BattlePartyMember } from '@/stores/event'
+import { computed, ref, watch } from "vue";
+import type { BattlePartyMember } from "@/stores/event";
 
 const props = defineProps<{
-  member: BattlePartyMember
-  isBuffed?: boolean
-  isTargeted?: boolean
-  showTarget?: boolean
-  targetName?: string
-}>()
+  member: BattlePartyMember;
+  isBuffed?: boolean;
+  isTargeted?: boolean;
+  showTarget?: boolean;
+  targetName?: string;
+}>();
 
 const ELEMENT_CONFIG: Record<string, { emoji: string; borderColor: string }> = {
-  fire: { emoji: '🔥', borderColor: 'border-red-500/60' },
-  water: { emoji: '💧', borderColor: 'border-blue-500/60' },
-  earth: { emoji: '🪨', borderColor: 'border-amber-600/60' },
-  air: { emoji: '💨', borderColor: 'border-cyan-400/60' },
-  lightning: { emoji: '⚡', borderColor: 'border-yellow-400/60' },
-}
+  fire: { emoji: "🔥", borderColor: "border-red-500/60" },
+  water: { emoji: "💧", borderColor: "border-blue-500/60" },
+  earth: { emoji: "🏔️", borderColor: "border-amber-600/60" },
+  air: { emoji: "💨", borderColor: "border-cyan-400/60" },
+  lightning: { emoji: "⚡", borderColor: "border-yellow-400/60" },
+};
 
-const elementEmoji = computed(() =>
-  ELEMENT_CONFIG[props.member.element]?.emoji ?? '❓'
-)
+const elementEmoji = computed(
+  () => ELEMENT_CONFIG[props.member.element]?.emoji ?? "❓",
+);
 
-const borderColorClass = computed(() =>
-  ELEMENT_CONFIG[props.member.element]?.borderColor ?? 'border-gray-500/60'
-)
+const borderColorClass = computed(
+  () =>
+    ELEMENT_CONFIG[props.member.element]?.borderColor ?? "border-gray-500/60",
+);
 
-const displayPower = computed(() => props.member.current_power.toFixed(1))
+const displayPower = computed(() => props.member.current_power.toFixed(1));
 
-const powerDiff = computed(() =>
-  props.member.current_power - props.member.base_power
-)
+const powerDiff = computed(
+  () => props.member.current_power - props.member.base_power,
+);
 
-const previousPower = ref(props.member.current_power)
-const powerChangeClass = ref('')
+const previousPower = ref(props.member.current_power);
+const powerChangeClass = ref("");
 
-watch(() => props.member.current_power, (newVal, oldVal) => {
-  if (newVal > oldVal) {
-    powerChangeClass.value = 'text-green-400 scale-110'
-  } else if (newVal < oldVal) {
-    powerChangeClass.value = 'text-red-400 scale-110'
-  }
-  setTimeout(() => {
-    powerChangeClass.value = ''
-  }, 600)
-  previousPower.value = newVal
-})
+watch(
+  () => props.member.current_power,
+  (newVal, oldVal) => {
+    if (newVal > oldVal) {
+      powerChangeClass.value = "text-green-400 scale-110";
+    } else if (newVal < oldVal) {
+      powerChangeClass.value = "text-red-400 scale-110";
+    }
+    setTimeout(() => {
+      powerChangeClass.value = "";
+    }, 600);
+    previousPower.value = newVal;
+  },
+);
 </script>
