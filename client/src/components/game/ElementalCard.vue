@@ -1,6 +1,6 @@
 <template>
   <div
-    class="elemental-card relative rounded-lg border-2 overflow-hidden transition-all duration-200 hover:shadow-lg"
+    class="elemental-card relative rounded-lg border-2 overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col"
     :class="[
       elementBorderColor,
       isSelectable ? 'cursor-pointer hover:scale-105' : '',
@@ -20,7 +20,7 @@
     </div>
 
     <!-- Image -->
-    <div class="aspect-square bg-gradient-to-br from-muted to-background p-4 flex items-center justify-center">
+    <div class="aspect-square bg-gradient-to-br from-muted to-background p-4 flex items-center justify-center h-96">
       <img
         v-if="elemental.image_url"
         :src="elemental.image_url"
@@ -148,6 +148,6 @@ const handleDragEnd = () => {
 
 <style scoped>
 .elemental-card {
-  min-width: 180px;
+  /*min-width: 180px;*/
 }
 </style>

@@ -56,5 +56,19 @@
     "show_summary": true,
     "show_command": true,
     "tags": ["database", "seed"]
+  },
+  {
+    "label": "DB Truncate",
+    "command": "bun db:truncate",
+    "cwd": "$ZED_WORKTREE_ROOT/server",
+    "use_new_terminal": false,
+    "allow_concurrent_runs": false,
+    "reveal": "always",
+    "reveal_target": "dock",
+    "hide": "on_success",
+    "shell": "system",
+    "show_summary": true,
+    "show_command": true,
+    "tags": ["database", "truncate"]
   }
 ]

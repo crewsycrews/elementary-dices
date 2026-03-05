@@ -122,16 +122,21 @@
             </div>
 
             <div class="space-y-3">
-              <div class="flex flex-wrap gap-3">
-                <button
-                  v-if="canRoll"
-                  @click="handleRoll"
-                  :disabled="isActing"
-                  class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all disabled:opacity-50"
-                >
-                  Roll all dice
-                </button>
+              <div v-if="canRoll" class="space-y-4">
+                <DiceInventoryPanel :disabled="isActing">
+                  <template #hand-center>
+                    <button
+                      @click="handleRoll"
+                      :disabled="isActing"
+                      class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+                    >
+                      {{ isActing ? "ROLLING..." : "ROLL" }}
+                    </button>
+                  </template>
+                </DiceInventoryPanel>
+              </div>
 
+              <div class="flex flex-wrap gap-3">
                 <button
                   v-if="canReroll"
                   @click="handleReroll"
@@ -196,6 +201,7 @@ import { useApi } from "@/composables/useApi";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
+import DiceInventoryPanel from "@/components/game/DiceInventoryPanel.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();

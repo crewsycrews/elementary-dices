@@ -2,7 +2,7 @@
   <div class="modal-overlay" @click.self="close">
     <div class="modal-content">
       <!-- Welcome State -->
-      <div v-if="!isRolling && !result" class="welcome-state">
+      <div v-if="!isRolling && !isRollComplete && !result" class="welcome-state">
         <h1 class="title">Welcome to Elementary Dices!</h1>
         <p class="description">
           Roll the dice to receive your first elemental companion and begin your
@@ -43,16 +43,23 @@
       </div>
 
       <!-- Rolling State -->
-      <div v-else-if="isRolling" class="rolling-state">
-        <h2 class="title">Rolling the dice...</h2>
+      <div v-else-if="isRolling || isRollComplete" class="rolling-state">
+        <h2 class="title" v-if="isRolling">Rolling the dice...</h2>
+        <h2 class="title" v-else>Your roll is ready</h2>
         <DiceRollVisualization
           ref="diceVisualizationRef"
-          dice-type="d4"
-          :auto-roll="true"
+          dice-type="d10"
+          :element-faces="starterDiceFaces"
           :result="rollResult"
           @roll-complete="handleRollComplete"
-          affinity="fire"
         />
+        <button
+          v-if="isRollComplete && pendingResult"
+          @click="showRollOutcome"
+          class="continue-button"
+        >
+          Reveal Companion
+        </button>
       </div>
 
       <!-- Result State -->
@@ -124,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, nextTick } from "vue";
 import { useApi } from "@/composables/useApi";
 import { playerApi } from "@/composables/useApiHelpers";
 import { useElementalsStore } from "@/stores/elementals";
@@ -148,9 +155,23 @@ const userStore = useUserStore();
 
 const loading = ref(false);
 const isRolling = ref(false);
+const isRollComplete = ref(false);
 const baseElementals = ref<Elemental[]>([]);
 const rollResult = ref<DiceRollResult | undefined>(undefined);
+const pendingResult = ref<ApiStartGameResponse | null>(null);
 const result = ref<ApiStartGameResponse | null>(null);
+const starterDiceFaces: DiceRollResult["result_element"][] = [
+  "fire",
+  "fire",
+  "water",
+  "water",
+  "earth",
+  "earth",
+  "air",
+  "air",
+  "lightning",
+  "lightning",
+];
 const diceVisualizationRef = ref<InstanceType<
   typeof DiceRollVisualization
 > | null>(null);
@@ -180,6 +201,10 @@ const startRoll = async () => {
 
   loading.value = true;
   isRolling.value = true;
+  isRollComplete.value = false;
+  result.value = null;
+  pendingResult.value = null;
+  rollResult.value = undefined;
 
   try {
     // Call the start-game endpoint
@@ -189,32 +214,41 @@ const startRoll = async () => {
 
     if (response.data) {
       const data = response.data;
+      const rolledElement =
+        starterDiceFaces[data.dice_roll.selected_index] ?? "fire";
 
       // Prepare roll result for visualization
       rollResult.value = {
         roll_value: data.dice_roll.roll_value,
-        result_element: data.first_elemental.element_types[0] ?? "fire",
+        result_element: rolledElement,
       };
 
-      // Store result immediately
-      result.value = data;
+      pendingResult.value = data;
+
+      // Ensure visualization is mounted before triggering animation
+      await nextTick();
+      await diceVisualizationRef.value?.roll();
     }
   } catch (error) {
     console.error("Failed to start game:", error);
-  } finally {
     isRolling.value = false;
+  } finally {
     loading.value = false;
   }
 };
 
 // Handle roll completion
-const handleRollComplete = async () => {
-  // Wait a moment for effect
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
+const handleRollComplete = () => {
   isRolling.value = false;
+  isRollComplete.value = true;
+};
 
-  loading.value = false;
+const showRollOutcome = () => {
+  if (!pendingResult.value) return;
+
+  result.value = pendingResult.value;
+  pendingResult.value = null;
+  isRollComplete.value = false;
 };
 
 // Complete onboarding
@@ -230,7 +264,7 @@ const completeOnboarding = async () => {
 
 // Close modal
 const close = () => {
-  if (!isRolling.value) {
+  if (!isRolling.value && !isRollComplete.value) {
     emit("close");
   }
 };

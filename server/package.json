@@ -12,7 +12,8 @@
     "db:migrate:rollback": "tsx node_modules/.bin/knex migrate:rollback --knexfile ./knexfile.ts",
     "db:migrate:clear": "tsx node_modules/.bin/knex migrate:rollback --all --knexfile ./knexfile.ts",
     "db:seed": "tsx node_modules/.bin/knex seed:run --knexfile ./knexfile.ts",
-    "db:seed:make": "tsx node_modules/.bin/knex seed:make --knexfile ./knexfile.ts"
+    "db:seed:make": "tsx node_modules/.bin/knex seed:make --knexfile ./knexfile.ts",
+    "db:truncate": "tsx ./scripts/truncate-all-data.ts"
   },
   "dependencies": {
     "@elementary-dices/shared": "workspace:*",
