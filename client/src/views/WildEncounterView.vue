@@ -232,11 +232,18 @@ const canRoll = computed(() => !farkleState.value || farkleState.value.phase ===
 const canReroll = computed(
   () => farkleState.value?.phase === "can_reroll" && !farkleState.value?.has_used_reroll,
 );
+const availableSetAsideCombinations = computed(() => {
+  if (!farkleState.value) return [] as Combination[];
+
+  return detectedCombinations.value.filter((combo) =>
+    combo.dice_indices.some((index) => !farkleState.value?.dice[index]?.is_set_aside),
+  );
+});
 const canSetAside = computed(
   () =>
     !!farkleState.value &&
     ["can_reroll", "set_aside", "rolling_remaining"].includes(farkleState.value.phase) &&
-    detectedCombinations.value.length > 0,
+    availableSetAsideCombinations.value.length > 0,
 );
 const canSetAsideTargetElement = computed(() => {
   if (!farkleState.value || !targetElement.value) return false;
@@ -250,7 +257,8 @@ const canSetAsideTargetElement = computed(() => {
 const canContinue = computed(
   () =>
     !!farkleState.value &&
-    farkleState.value.phase === "rolling_remaining",
+    farkleState.value.phase === "rolling_remaining" &&
+    farkleState.value.dice.some((die) => !die.is_set_aside),
 );
 const canEndTurn = computed(() => {
   if (!farkleState.value) return false;
@@ -318,9 +326,9 @@ const handleReroll = async () => {
 };
 
 const handleSetAside = async () => {
-  if (!userStore.userId || detectedCombinations.value.length === 0) return;
+  if (!userStore.userId || availableSetAsideCombinations.value.length === 0) return;
   isActing.value = true;
-  const best = [...detectedCombinations.value].sort(
+  const best = [...availableSetAsideCombinations.value].sort(
     (a, b) =>
       Object.values(b.bonuses).reduce((sum, v) => sum + Number(v), 0) -
       Object.values(a.bonuses).reduce((sum, v) => sum + Number(v), 0),

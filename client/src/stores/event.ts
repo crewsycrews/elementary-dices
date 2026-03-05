@@ -68,6 +68,7 @@ export type FarkleTurnState = {
   has_used_reroll: boolean
   active_combinations: Combination[]
   set_aside_element_bonus: string | null
+  accumulated_dice_rush_bonuses?: Record<string, number>
   is_dice_rush: boolean
   busted: boolean
 }

@@ -63,6 +63,8 @@ export interface FarkleTurnState {
   has_used_reroll: boolean;
   active_combinations: Combination[]; // combos currently set aside
   set_aside_element_bonus: ElementType | null; // die set aside solo (chosen element)
+  // Sum of bonuses banked from completed Dice Rush cycles in the same turn.
+  accumulated_dice_rush_bonuses: Partial<Record<ElementType, number>>;
   is_dice_rush: boolean;
   busted: boolean;
 }
@@ -272,6 +274,35 @@ export function mergeBonuses(
 }
 
 /**
+ * Count set-aside dice that should receive chosen-element solo bonus.
+ * Dice already consumed by any active combination do not grant solo +10%.
+ */
+export function countSoloSetAsideElementDice(
+  dice: FarkleDie[],
+  activeCombinations: Combination[],
+  setAsideElement: ElementType | null,
+): number {
+  if (!setAsideElement) return 0;
+
+  const setAsideDice = dice.filter((d) => d.is_set_aside);
+  if (setAsideDice.length === 0) return 0;
+
+  // Combination indices are relative to set-aside dice arrays.
+  const comboDiceIndices = new Set<number>();
+  for (const combo of activeCombinations) {
+    for (const idx of combo.dice_indices) {
+      comboDiceIndices.add(idx);
+    }
+  }
+
+  return setAsideDice.reduce((count, die, idx) => {
+    if (comboDiceIndices.has(idx)) return count;
+    if (die.current_result !== setAsideElement) return count;
+    return count + 1;
+  }, 0);
+}
+
+/**
  * Simulate the opponent's Farkle turn (greedy AI):
  * 1. Roll all 5 dice.
  * 2. Detect best combination.
@@ -294,12 +325,12 @@ export function simulateOpponentTurn(
   if (best) {
     bonusesApplied = { ...best.bonuses };
   } else {
-    // No combo: check if set_aside_element die is present for +10% fallback
-    const hasSetAsideDie = rolled.some(
+    // No combo: each chosen-element die grants +10% fallback.
+    const setAsideDiceCount = rolled.filter(
       (d) => d.current_result === setAsideElement,
-    );
-    if (hasSetAsideDie) {
-      bonusesApplied = { [setAsideElement]: 0.1 };
+    ).length;
+    if (setAsideDiceCount > 0) {
+      bonusesApplied = { [setAsideElement]: setAsideDiceCount * 0.1 };
       setAsideElementUsed = true;
     }
   }

@@ -224,6 +224,7 @@ export const FarkleTurnStateDTO = t.Object({
   has_used_reroll: t.Boolean(),
   active_combinations: t.Array(FarkleCombinationDTO),
   set_aside_element_bonus: t.Nullable(t.String()),
+  accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
   is_dice_rush: t.Boolean(),
   busted: t.Boolean(),
 });

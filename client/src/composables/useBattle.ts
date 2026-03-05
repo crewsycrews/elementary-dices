@@ -93,13 +93,27 @@ export function useBattle() {
     () => turnPhase.value === "can_reroll" && !hasUsedReroll.value,
   );
 
+  const availableSetAsideCombinations = computed(() => {
+    if (!farkleTurnState.value) return [] as Combination[];
+
+    return detectedCombinations.value.filter((combo) =>
+      combo.dice_indices.some(
+        (index) => !farkleTurnState.value?.dice[index]?.is_set_aside,
+      ),
+    );
+  });
+
   const canSetAside = computed(
     () =>
       (turnPhase.value === "can_reroll" || turnPhase.value === "set_aside") &&
-      detectedCombinations.value.length > 0,
+      availableSetAsideCombinations.value.length > 0,
   );
 
-  const canContinue = computed(() => turnPhase.value === "rolling_remaining");
+  const canContinue = computed(
+    () =>
+      turnPhase.value === "rolling_remaining" &&
+      farkleDice.value.some((die) => !die.is_set_aside),
+  );
 
   const canEndTurn = computed(
     () =>
@@ -165,6 +179,7 @@ export function useBattle() {
 
   // Toggle dice index selection (for reroll)
   function toggleDiceSelection(index: number) {
+    if (!canReroll.value) return;
     const i = selectedDiceIndices.value.indexOf(index);
     if (i >= 0) {
       selectedDiceIndices.value.splice(i, 1);
@@ -192,6 +207,7 @@ export function useBattle() {
   }) {
     battleState.value = data.battle_state;
     detectedCombinations.value = data.detected_combinations ?? [];
+    selectedDiceIndices.value = [];
 
     if (data.is_resolved && data.result) {
       battleResult.value = data.result;
@@ -235,6 +251,7 @@ export function useBattle() {
     turnPhase,
     canRoll,
     canReroll,
+    availableSetAsideCombinations,
     canSetAside,
     canContinue,
     canEndTurn,

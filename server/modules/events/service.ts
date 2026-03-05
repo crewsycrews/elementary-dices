@@ -35,6 +35,7 @@ import {
   simulateOpponentTurn,
   applyBonusesToParty,
   mergeBonuses,
+  countSoloSetAsideElementDice,
   isDiceRush,
   isBust,
   type FarkleDie,
@@ -44,6 +45,32 @@ import {
 
 type DiceRarity = "green" | "blue" | "purple" | "gold";
 const RARITY_ORDER: DiceRarity[] = ["green", "blue", "purple", "gold"];
+
+function calculateSetAsideBonuses(
+  dice: FarkleDie[],
+  activeCombinations: Combination[],
+  setAsideElement: ElementType | null,
+): Partial<Record<ElementType, number>> {
+  let bonuses: Partial<Record<ElementType, number>> = {};
+
+  for (const combo of activeCombinations) {
+    for (const [el, pct] of Object.entries(combo.bonuses)) {
+      bonuses[el as ElementType] = (bonuses[el as ElementType] ?? 0) + pct;
+    }
+  }
+
+  const soloSetAsideCount = countSoloSetAsideElementDice(
+    dice,
+    activeCombinations,
+    setAsideElement,
+  );
+  if (setAsideElement && soloSetAsideCount > 0) {
+    bonuses[setAsideElement] =
+      (bonuses[setAsideElement] ?? 0) + soloSetAsideCount * 0.1;
+  }
+
+  return bonuses;
+}
 
 export class EventService {
   constructor(
@@ -311,9 +338,9 @@ export class EventService {
       ),
     );
 
-    // Generate opponent party matching player's total power roughly
-    const playerTotalPower = playerParty.reduce((sum, m) => sum + m.base_power, 0);
-    const opponentParty = await this.generateOpponentParty(playerTotalPower);
+    // Generate opponent party with the same level profile as the player's party
+    const playerPartyLevels = playerParty.map((member) => member.level);
+    const opponentParty = await this.generateOpponentParty(playerPartyLevels);
     const opponentName = this.generateOpponentName();
     const opponentPowerLevel = opponentParty.reduce((sum, m) => sum + m.base_power, 0);
 
@@ -369,11 +396,9 @@ export class EventService {
   }
 
   /**
-   * Generate an AI opponent party matching the player's total power roughly (+/- 20%).
+   * Generate an AI opponent party that mirrors the player's party levels.
    */
-  private async generateOpponentParty(
-    targetTotalPower: number,
-  ): Promise<BattlePartyMember[]> {
+  private async generateOpponentParty(playerPartyLevels: number[]): Promise<BattlePartyMember[]> {
     // Get all base elementals from DB
     const allElementals = await db("elementals")
       .select("id", "name", "level", "element_types")
@@ -383,48 +408,25 @@ export class EventService {
       throw new BadRequestError("No elementals available for opponent party");
     }
 
-    // Build 5 opponent members, trying to match target power
-    const variance = 0.2;
-    const minPower = Math.floor(targetTotalPower * (1 - variance));
-    const maxPower = Math.ceil(targetTotalPower * (1 + variance));
-    const targetPower =
-      Math.floor(Math.random() * (maxPower - minPower + 1)) + minPower;
+    const partySize = playerPartyLevels.length;
+    if (partySize === 0) {
+      throw new BadRequestError("Player party is empty");
+    }
 
-    // Simple strategy: pick 5 random elementals, then adjust if needed
+    // Pick random elementals, then set each member level to match the player's slot level
     const party: BattlePartyMember[] = [];
-    let currentPower = 0;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < partySize; i++) {
       // Pick from available elementals, cycling through the list
       const elemental = allElementals[i % allElementals.length];
+      const level = Math.max(1, Math.min(4, playerPartyLevels[i]));
       const member = buildPartyMember({
         id: elemental.id,
         name: elemental.name,
-        level: elemental.level,
+        level,
         element_types: elemental.element_types,
       });
       party.push(member);
-      currentPower += member.base_power;
-    }
-
-    // If total power is too far from target, adjust levels
-    // Each level step changes power by 10
-    const powerDiff = targetPower - currentPower;
-    if (Math.abs(powerDiff) > 10) {
-      const stepsNeeded = Math.round(powerDiff / 10);
-      const stepsPerMember = Math.floor(Math.abs(stepsNeeded) / 5);
-      const remainder = Math.abs(stepsNeeded) % 5;
-      const direction = stepsNeeded > 0 ? 1 : -1;
-
-      for (let i = 0; i < 5; i++) {
-        const extraStep = i < remainder ? 1 : 0;
-        const totalSteps = (stepsPerMember + extraStep) * direction;
-        const newLevel = Math.max(1, Math.min(4, party[i].level + totalSteps));
-        const newPower = newLevel * 10;
-        party[i].level = newLevel;
-        party[i].base_power = newPower;
-        party[i].current_power = newPower;
-      }
     }
 
     return party;
@@ -630,6 +632,9 @@ export class EventService {
     if (!battleState) {
       throw new BadRequestError("Battle state not initialized");
     }
+    if (battleState.player_turn) {
+      battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
+    }
     return { battle: battle!, battleState, sessionId: session.id };
   }
 
@@ -782,13 +787,17 @@ export class EventService {
     }
 
     const detected = detectCombinations(rolledDice);
+    const previousTurnState = battleState.player_turn;
+    const isFirstRollOfTurn = !previousTurnState || !previousTurnState.has_used_reroll;
 
     battleState.player_turn = {
-      phase: "can_reroll",
+      phase: isFirstRollOfTurn ? "can_reroll" : "set_aside",
       dice: rolledDice,
-      has_used_reroll: false,
+      has_used_reroll: !isFirstRollOfTurn,
       active_combinations: [],
       set_aside_element_bonus: null,
+      accumulated_dice_rush_bonuses:
+        previousTurnState?.accumulated_dice_rush_bonuses ?? {},
       is_dice_rush: false,
       busted: false,
     };
@@ -927,6 +936,11 @@ export class EventService {
       );
     }
 
+    if (turn.phase === "can_reroll" && !turn.has_used_reroll) {
+      // Advancing from the first roll without reroll consumes reroll opportunity.
+      turn.has_used_reroll = true;
+    }
+
     // Mark dice as set aside
     diceIndices.forEach((i) => {
       if (turn.dice[i]) {
@@ -934,10 +948,7 @@ export class EventService {
       }
     });
 
-    if (isChosenElementSolo && !isValidCombo) {
-      // Solo chosen-element set-aside
-      turn.set_aside_element_bonus = battleState.set_aside_element;
-    } else {
+    if (!(isChosenElementSolo && !isValidCombo)) {
       // Recalculate combinations from all set-aside dice
       const setAsideDice = turn.dice.filter((d) => d.is_set_aside);
       const allCombos = detectCombinations(setAsideDice);
@@ -950,15 +961,34 @@ export class EventService {
       }
       turn.active_combinations = allCombos;
     }
+    const soloSetAsideCount = countSoloSetAsideElementDice(
+      turn.dice,
+      turn.active_combinations,
+      battleState.set_aside_element,
+    );
+    turn.set_aside_element_bonus =
+      soloSetAsideCount > 0 && battleState.set_aside_element
+        ? battleState.set_aside_element
+        : null;
 
     const diceRush = isDiceRush(turn.dice);
     turn.is_dice_rush = diceRush;
 
     if (diceRush) {
+      const cycleBonuses = calculateSetAsideBonuses(
+        turn.dice,
+        turn.active_combinations,
+        battleState.set_aside_element,
+      );
+      turn.accumulated_dice_rush_bonuses = mergeBonuses(
+        turn.accumulated_dice_rush_bonuses ?? {},
+        cycleBonuses,
+      );
+
       // Dice Rush: reset all dice to unset-aside for the next roll
       turn.dice = turn.dice.map((d) => ({ ...d, is_set_aside: false }));
-      turn.active_combinations = turn.active_combinations; // keep combos
-      turn.has_used_reroll = false; // fresh set of dice, fresh reroll
+      turn.active_combinations = [];
+      turn.set_aside_element_bonus = null;
       turn.phase = "initial_roll";
     } else {
       turn.phase = "rolling_remaining";
@@ -1003,12 +1033,12 @@ export class EventService {
     // Roll non-set-aside dice
     const updatedDice = rollFarkleDice(turn.dice);
     turn.dice = updatedDice;
-    turn.phase = "can_reroll";
+    turn.phase = "set_aside";
 
     const detected = detectCombinations(updatedDice);
 
-    // Bust check: no combos, no chosen-element die in active dice, and reroll already used
-    const busted = isBust(updatedDice, battleState.set_aside_element, turn.has_used_reroll);
+    // After first roll, reroll is no longer available; bust applies immediately.
+    const busted = isBust(updatedDice, battleState.set_aside_element, true);
 
     if (busted) {
       turn.busted = true;
@@ -1053,18 +1083,16 @@ export class EventService {
     let turnBonuses: Partial<Record<ElementType, number>> = {};
 
     if (turn && !turn.busted) {
-      for (const combo of turn.active_combinations) {
-        for (const [el, pct] of Object.entries(combo.bonuses)) {
-          turnBonuses[el as ElementType] =
-            (turnBonuses[el as ElementType] ?? 0) + pct;
-        }
-      }
-
-      // Add solo set-aside element bonus (+10%)
-      if (turn.set_aside_element_bonus) {
-        turnBonuses[turn.set_aside_element_bonus] =
-          (turnBonuses[turn.set_aside_element_bonus] ?? 0) + 0.1;
-      }
+      turnBonuses = mergeBonuses(
+        turnBonuses,
+        turn.accumulated_dice_rush_bonuses ?? {},
+      );
+      const currentSetAsideBonuses = calculateSetAsideBonuses(
+        turn.dice,
+        turn.active_combinations,
+        battleState.set_aside_element,
+      );
+      turnBonuses = mergeBonuses(turnBonuses, currentSetAsideBonuses);
     }
     // If busted: turnBonuses stays empty
 
@@ -1094,14 +1122,6 @@ export class EventService {
       battleState.opponent_bonuses_total,
       opponentResult.bonuses_applied as Partial<Record<ElementType, number>>,
     );
-
-    // Also add chosen-element solo bonus if used
-    if (opponentResult.set_aside_element_used) {
-      battleState.opponent_bonuses_total = mergeBonuses(
-        battleState.opponent_bonuses_total,
-        { [opponentSetAsideEl]: 0.1 },
-      );
-    }
 
     battleState.opponent_party = applyBonusesToParty(
       battleState.opponent_party,
@@ -1752,7 +1772,8 @@ export class EventService {
     is_dice_rush: boolean;
     is_resolved: boolean;
   }> {
-    const { sessionId, farkleState } = await this.getWildEncounterForFarkle(playerId);
+    const { sessionId, targetElement, farkleState } =
+      await this.getWildEncounterForFarkle(playerId);
 
     if (farkleState.phase !== "can_reroll") {
       throw new BadRequestError("Cannot reroll at this stage");
@@ -1845,9 +1866,12 @@ export class EventService {
       }
     });
 
-    if (isTargetElementSolo && !isValidCombo) {
-      farkleState.set_aside_element_bonus = targetElement;
-    } else {
+    if (farkleState.phase === "can_reroll" && !farkleState.has_used_reroll) {
+      // Advancing from the first roll without reroll consumes reroll opportunity.
+      farkleState.has_used_reroll = true;
+    }
+
+    if (!(isTargetElementSolo && !isValidCombo)) {
       const setAsideDice = farkleState.dice.filter((d) => d.is_set_aside);
       const allCombos = detectCombinations(setAsideDice);
       if (oneForAllElement) {
@@ -1858,19 +1882,19 @@ export class EventService {
       }
       farkleState.active_combinations = allCombos;
     }
+    const soloSetAsideCount = countSoloSetAsideElementDice(
+      farkleState.dice,
+      farkleState.active_combinations as Combination[],
+      targetElement,
+    );
+    farkleState.set_aside_element_bonus =
+      soloSetAsideCount > 0 ? targetElement : null;
 
-    const diceRush = isDiceRush(farkleState.dice);
-    farkleState.is_dice_rush = diceRush;
-
-    if (diceRush) {
-      farkleState.dice = farkleState.dice.map((d) => ({ ...d, is_set_aside: false }));
-      farkleState.has_used_reroll = false;
-      farkleState.phase = "initial_roll";
-      farkleState.detected_combinations = [];
-    } else {
-      farkleState.phase = "rolling_remaining";
-      farkleState.detected_combinations = detectCombinations(farkleState.dice);
-    }
+    // Dice Rush is intentionally disabled for wild encounters.
+    const diceRush = false;
+    farkleState.is_dice_rush = false;
+    farkleState.phase = "rolling_remaining";
+    farkleState.detected_combinations = detectCombinations(farkleState.dice);
 
     await this.saveWildFarkleState(sessionId, farkleState);
 
@@ -1899,10 +1923,10 @@ export class EventService {
 
     const updatedDice = rollFarkleDice(farkleState.dice);
     const detected = detectCombinations(updatedDice);
-    const busted = isBust(updatedDice, targetElement, farkleState.has_used_reroll);
+    const busted = isBust(updatedDice, targetElement, true);
 
     farkleState.dice = updatedDice;
-    farkleState.phase = busted ? "done" : "can_reroll";
+    farkleState.phase = busted ? "done" : "set_aside";
     farkleState.busted = busted;
     farkleState.detected_combinations = detected;
 
@@ -1980,9 +2004,14 @@ export class EventService {
             (turnBonuses[el as ElementType] ?? 0) + (pct as number);
         }
       }
-      if (farkleState.set_aside_element_bonus) {
-        turnBonuses[farkleState.set_aside_element_bonus as ElementType] =
-          (turnBonuses[farkleState.set_aside_element_bonus as ElementType] ?? 0) + 0.1;
+      const soloSetAsideCount = countSoloSetAsideElementDice(
+        farkleState.dice,
+        farkleState.active_combinations as Combination[],
+        targetElement,
+      );
+      if (soloSetAsideCount > 0) {
+        turnBonuses[targetElement] =
+          (turnBonuses[targetElement] ?? 0) + soloSetAsideCount * 0.1;
       }
     }
 
@@ -1990,9 +2019,7 @@ export class EventService {
     const targetDiceSetAside = farkleState.dice.filter(
       (d) => d.is_set_aside && d.current_result === targetElement,
     ).length;
-    const diceRushBonus = farkleState.is_dice_rush ? 1 : 0;
-
-    let score = farkleState.busted ? 0 : Math.round(targetBonus * 10) + targetDiceSetAside + diceRushBonus;
+    let score = farkleState.busted ? 0 : Math.round(targetBonus * 10) + targetDiceSetAside;
     score += captureBonus;
 
     let captureDifficulty: "easy" | "medium" | "hard";
