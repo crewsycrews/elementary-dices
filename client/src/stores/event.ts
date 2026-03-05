@@ -6,10 +6,14 @@ import { useApi } from '@/composables/useApi'
 type EventType = 'wild_encounter' | 'pvp_battle' | 'merchant'
 
 type WildEncounterData = {
+  event_id?: string
   elemental_id: string
   elemental_name: string
   elemental_level: number
+  encounter_element?: string
   capture_difficulty: 'easy' | 'medium' | 'hard'
+  farkle_initialized?: boolean
+  farkle_session_id?: string
   farkle_state?: WildEncounterFarkleState
 }
 
@@ -118,12 +122,15 @@ export type BattleRollRecord = {
 }
 
 type PvPData = {
+  event_id?: string
   opponent_id?: string
   opponent_name: string
   opponent_power_level: number
   potential_reward: number
   opponent_party: BattlePartyMember[]
   player_party: BattlePartyMember[]
+  farkle_initialized?: boolean
+  farkle_session_id?: string
   battle_state?: FarkleBattleState
 }
 
@@ -203,6 +210,58 @@ export const useEventStore = defineStore('event', () => {
     pvpData.value?.battle_state ?? null
   )
 
+  async function initFarkleSession(playerId: string, setAsideElement: string) {
+    const { api, apiCall } = useApi()
+    if (!currentEvent.value) {
+      throw new Error('No active event')
+    }
+
+    const data = currentEvent.value.data as WildEncounterData | PvPData
+    const eventId = data.event_id
+    if (!eventId) {
+      throw new Error('Missing event id')
+    }
+
+    const response = await apiCall(
+      () => (api.api.events.farkle as any).init.post({
+        player_id: playerId,
+        event_type: currentEvent.value!.event_type,
+        event_id: eventId,
+        set_aside_element: setAsideElement,
+      }),
+      { silent: true }
+    )
+
+    const result = response.data?.result as
+      | { farkle_session_id: string; battle_state?: FarkleBattleState; farkle_state?: WildEncounterFarkleState }
+      | undefined
+
+    if (result?.farkle_session_id) {
+      ;(data as any).farkle_session_id = result.farkle_session_id
+      ;(data as any).farkle_initialized = true
+    }
+    if (result?.battle_state && currentEvent.value?.event_type === 'pvp_battle') {
+      ;(data as PvPData).battle_state = result.battle_state
+    }
+    if (result?.farkle_state && currentEvent.value?.event_type === 'wild_encounter') {
+      ;(data as WildEncounterData).farkle_state = result.farkle_state
+    }
+
+    return result
+  }
+
+  function getFarkleSessionId(): string {
+    if (!currentEvent.value) {
+      throw new Error('No active event')
+    }
+    const data = currentEvent.value.data as WildEncounterData | PvPData
+    const sessionId = data.farkle_session_id
+    if (!sessionId) {
+      throw new Error('Farkle session is not initialized')
+    }
+    return sessionId
+  }
+
   // Actions
   async function triggerEvent(playerId: string) {
     const { api, apiCall } = useApi()
@@ -261,22 +320,29 @@ export const useEventStore = defineStore('event', () => {
   }
 
   async function startBattle(playerId: string) {
-    const { api, apiCall } = useApi()
-
     try {
-      const response = await apiCall(
-        () => api.api.events['pvp-battle'].start.post({
-          player_id: playerId,
-        }),
-        { silent: true }
-      )
-
-      if (response.data?.battle_state && currentEvent.value) {
-        const data = currentEvent.value.data as PvPData
-        data.battle_state = response.data.battle_state as FarkleBattleState
+      if (!currentEvent.value || currentEvent.value.event_type !== 'pvp_battle') {
+        throw new Error('No active PvP battle')
       }
-
-      return response.data
+      const data = currentEvent.value.data as PvPData
+      const seedPlayer = data.player_party ?? []
+      const seedOpponent = data.opponent_party ?? []
+      const localState: FarkleBattleState = {
+        phase: 'choose_element',
+        player_party: seedPlayer,
+        opponent_party: seedOpponent,
+        set_aside_element: null,
+        opponent_set_aside_element: null,
+        current_turn: 1,
+        player_turns_done: 0,
+        opponent_turns_done: 0,
+        player_turn: null,
+        opponent_turn_result: null,
+        player_bonuses_total: {},
+        opponent_bonuses_total: {},
+      }
+      data.battle_state = localState
+      return { battle_state: localState }
     } catch (error) {
       console.error('Failed to start battle:', error)
       throw error
@@ -284,23 +350,13 @@ export const useEventStore = defineStore('event', () => {
   }
 
   async function chooseSetAsideElement(playerId: string, element: string) {
-    const { api, apiCall } = useApi()
-
     try {
-      const response = await apiCall(
-        () => (api.api.events['pvp-battle'] as any)['choose-element'].post({
-          player_id: playerId,
-          element,
-        }),
-        { silent: true }
-      )
-
-      if (response.data?.battle_state && currentEvent.value) {
+      const result = await initFarkleSession(playerId, element)
+      if (result?.battle_state && currentEvent.value) {
         const data = currentEvent.value.data as PvPData
-        data.battle_state = response.data.battle_state as FarkleBattleState
+        data.battle_state = result.battle_state as FarkleBattleState
       }
-
-      return response.data
+      return { battle_state: result?.battle_state }
     } catch (error) {
       console.error('Failed to choose element:', error)
       throw error
@@ -311,10 +367,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => api.api.events.farkle.roll.post({
           player_id: playerId,
-          context: 'pvp_battle',
+          farkle_session_id: sessionId,
         }),
         { silent: true }
       )
@@ -335,10 +392,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any).reroll.post({
           player_id: playerId,
-          context: 'pvp_battle',
+          farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
         }),
         { silent: true }
@@ -364,10 +422,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any)['set-aside'].post({
           player_id: playerId,
-          context: 'pvp_battle',
+          farkle_session_id: sessionId,
           dice_indices: diceIndices,
           one_for_all_element: oneForAllElement,
         }),
@@ -390,10 +449,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any).continue.post({
           player_id: playerId,
-          context: 'pvp_battle',
+          farkle_session_id: sessionId,
         }),
         { silent: true }
       )
@@ -414,10 +474,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any)['end-turn'].post({
           player_id: playerId,
-          context: 'pvp_battle',
+          farkle_session_id: sessionId,
         }),
         { silent: true }
       )
@@ -460,10 +521,22 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      if (currentEvent.value?.event_type !== 'wild_encounter') {
+        throw new Error('No active wild encounter')
+      }
+      const data = currentEvent.value.data as WildEncounterData
+      if (!data.farkle_session_id) {
+        const encounterElement = data.encounter_element
+        if (!encounterElement) {
+          throw new Error('Encounter element is missing')
+        }
+        await initFarkleSession(playerId, encounterElement)
+      }
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => api.api.events.farkle.roll.post({
           player_id: playerId,
-          context: 'wild_encounter',
+          farkle_session_id: sessionId,
         }),
         { silent: true }
       )
@@ -484,10 +557,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any).reroll.post({
           player_id: playerId,
-          context: 'wild_encounter',
+          farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
         }),
         { silent: true }
@@ -513,10 +587,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any)['set-aside'].post({
           player_id: playerId,
-          context: 'wild_encounter',
+          farkle_session_id: sessionId,
           dice_indices: diceIndices,
           one_for_all_element: oneForAllElement,
         }),
@@ -539,10 +614,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any).continue.post({
           player_id: playerId,
-          context: 'wild_encounter',
+          farkle_session_id: sessionId,
         }),
         { silent: true }
       )
@@ -563,10 +639,11 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
+      const sessionId = getFarkleSessionId()
       const response = await apiCall(
         () => (api.api.events.farkle as any)['end-turn'].post({
           player_id: playerId,
-          context: 'wild_encounter',
+          farkle_session_id: sessionId,
           item_id: itemId,
         }),
         { silent: false, successMessage: 'Encounter resolved!' }
@@ -639,6 +716,22 @@ export const useEventStore = defineStore('event', () => {
         currentEvent.value = response.data.event as EventResponse
         isEventActive.value = true
         console.log('Restored active event from server:', currentEvent.value?.event_type)
+
+        if (currentEvent.value.event_type === 'pvp_battle') {
+          const data = currentEvent.value.data as PvPData
+          if (data.farkle_initialized && data.farkle_session_id && !data.battle_state) {
+            const fallbackElement = data.player_party?.[0]?.element
+            if (fallbackElement) {
+              await initFarkleSession(playerId, fallbackElement)
+            }
+          }
+        }
+        if (currentEvent.value.event_type === 'wild_encounter') {
+          const data = currentEvent.value.data as WildEncounterData
+          if (data.farkle_initialized && data.farkle_session_id && !data.farkle_state && data.encounter_element) {
+            await initFarkleSession(playerId, data.encounter_element)
+          }
+        }
       } else {
         clearEvent()
       }

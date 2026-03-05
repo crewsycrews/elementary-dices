@@ -6,6 +6,7 @@
       :dice-type="diceType"
       :affinity="affinity"
       :element-faces="elementFaces"
+      :scale="scale"
       :is-rolling="isRolling"
       @roll-completed="handleRollComplete"
       :value="result?.roll_value"
@@ -18,7 +19,7 @@
 
     <!-- Result -->
     <div
-      v-if="showResult && result"
+      v-if="showResult && showOutcome && result"
       class="result-display"
       :class="`result-${result.result_element}`"
     >
@@ -52,11 +53,16 @@ const props = defineProps<{
   elementFaces?: string[];
   autoRoll?: boolean;
   result?: DiceRollResult;
+  scale?: number;
+  showOutcome?: boolean;
 }>();
 
 const emit = defineEmits<{
   rollComplete: [];
 }>();
+
+const scale = props.scale ?? 1;
+const showOutcome = props.showOutcome ?? true;
 
 const dice3DRef = ref<InstanceType<typeof Dice3D> | null>(null);
 const isRolling = ref(false);

@@ -12,7 +12,10 @@
       <p class="text-xl font-semibold">Loading encounter...</p>
     </div>
 
-    <div v-else-if="!eventStore.isEventActive || !eventStore.isWildEncounter" class="text-center py-12">
+    <div
+      v-else-if="(!eventStore.isEventActive || !eventStore.isWildEncounter) && !captureResult"
+      class="text-center py-12"
+    >
       <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
       <p class="text-muted-foreground mb-6">
         Trigger an event from the dashboard to start your adventure.
@@ -215,9 +218,11 @@ const farkleState = computed(
   () => (eventStore.wildEncounterData?.farkle_state as WildEncounterFarkleState | undefined) ?? null,
 );
 
-const targetElement = computed(() => wildElemental.value?.element_types?.[0] ?? null);
+const targetElement = computed(
+  () => eventStore.wildEncounterData?.encounter_element ?? wildElemental.value?.element_types?.[0] ?? null,
+);
 
-const canRoll = computed(() => farkleState.value?.phase === "initial_roll");
+const canRoll = computed(() => !farkleState.value || farkleState.value.phase === "initial_roll");
 const canReroll = computed(
   () => farkleState.value?.phase === "can_reroll" && !farkleState.value?.has_used_reroll,
 );
@@ -330,13 +335,16 @@ const handleSetAside = async () => {
 
 const handleSetAsideTargetElement = async () => {
   if (!userStore.userId || !farkleState.value || !targetElement.value) return;
-  const idx = farkleState.value.dice.findIndex(
-    (d) => !d.is_set_aside && d.current_result === targetElement.value,
-  );
-  if (idx < 0) return;
+  const indices = farkleState.value.dice.map((d, i) => ({ d, i }))
+    .filter(
+      ({ d }) =>
+        !d.is_set_aside && d.current_result === targetElement.value,
+    )
+    .map(({ i }) => i);
+  if (indices.length < 1) return;
   isActing.value = true;
   try {
-    const response = await eventStore.wildEncounterFarkleSetAside(userStore.userId, [idx]);
+    const response = await eventStore.wildEncounterFarkleSetAside(userStore.userId, indices);
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed target-element set aside:", error);
@@ -420,8 +428,7 @@ onMounted(async () => {
       );
 
       detectedCombinations.value = (
-        (eventStore.wildEncounterData.farkle_state as WildEncounterFarkleState | undefined)
-          ?.detected_combinations ?? []
+        farkleState.value?.detected_combinations ?? []
       ) as Combination[];
     }
   } catch (error) {

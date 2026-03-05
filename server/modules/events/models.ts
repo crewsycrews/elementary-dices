@@ -28,11 +28,14 @@ export const TriggerEventDTO = t.Object({
 
 // Wild Encounter specific
 export const WildEncounterDataDTO = t.Object({
+  event_id: t.Optional(t.String()),
   elemental_id: t.String(),
   elemental_name: t.String(),
   elemental_level: t.Number(),
+  encounter_element: t.Optional(t.String()),
   capture_difficulty: t.String(), // 'easy', 'medium', 'hard'
-  farkle_state: t.Optional(t.Any()),
+  farkle_initialized: t.Optional(t.Boolean()),
+  farkle_session_id: t.Optional(t.String()),
 });
 
 // Merchant Event specific
@@ -71,6 +74,7 @@ export const BattlePartyMemberDTO = t.Object({
 
 // PvP Battle specific
 export const PvPDataDTO = t.Object({
+  event_id: t.Optional(t.String()),
   opponent_id: t.Optional(t.String()),
   opponent_name: t.String(),
   opponent_power_level: t.Number(),
@@ -78,6 +82,8 @@ export const PvPDataDTO = t.Object({
   opponent_party: t.Array(BattlePartyMemberDTO),
   player_party: t.Array(BattlePartyMemberDTO),
   battle_state: t.Optional(t.Any()),
+  farkle_initialized: t.Optional(t.Boolean()),
+  farkle_session_id: t.Optional(t.String()),
 });
 
 // Battle Roll Record
@@ -288,33 +294,54 @@ export const FarkleContextDTO = t.Union([
   t.Literal("wild_encounter"),
 ]);
 
-export const GenericFarkleRollDTO = t.Object({
+export const FarkleInitDTO = t.Object({
   player_id: t.String(),
-  context: FarkleContextDTO,
+  event_type: FarkleContextDTO,
+  event_id: t.String(),
+  set_aside_element: ElementType,
 });
 
-export const GenericFarkleRerollDTO = t.Object({
+export const FarkleSessionActionBaseDTO = t.Object({
   player_id: t.String(),
-  context: FarkleContextDTO,
-  dice_indices_to_reroll: t.Array(t.Number()),
+  farkle_session_id: t.String(),
 });
 
-export const GenericFarkleSetAsideDTO = t.Object({
-  player_id: t.String(),
-  context: FarkleContextDTO,
-  dice_indices: t.Array(t.Number()),
-  one_for_all_element: t.Optional(t.String()),
-});
+export const GenericFarkleRollDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({}),
+]);
 
-export const GenericFarkleContinueDTO = t.Object({
-  player_id: t.String(),
-  context: FarkleContextDTO,
-});
+export const GenericFarkleRerollDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({
+    dice_indices_to_reroll: t.Array(t.Number()),
+  }),
+]);
 
-export const GenericFarkleEndTurnDTO = t.Object({
+export const GenericFarkleSetAsideDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({
+    dice_indices: t.Array(t.Number()),
+    one_for_all_element: t.Optional(t.String()),
+  }),
+]);
+
+export const GenericFarkleContinueDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({}),
+]);
+
+export const GenericFarkleEndTurnDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({
+    item_id: t.Optional(t.String()),
+  }),
+]);
+
+/* legacy context DTOs retained for compatibility in type exports only */
+export const LegacyGenericFarkleRollDTO = t.Object({
   player_id: t.String(),
   context: FarkleContextDTO,
-  item_id: t.Optional(t.String()),
 });
 
 // Extract TypeScript types
@@ -342,6 +369,7 @@ export type FarkleSetAsideData = typeof FarkleSetAsideDTO.static;
 export type FarkleContinueData = typeof FarkleContinueDTO.static;
 export type FarkleEndTurnData = typeof FarkleEndTurnDTO.static;
 export type FarkleContextData = typeof FarkleContextDTO.static;
+export type FarkleInitData = typeof FarkleInitDTO.static;
 export type GenericFarkleRollData = typeof GenericFarkleRollDTO.static;
 export type GenericFarkleRerollData = typeof GenericFarkleRerollDTO.static;
 export type GenericFarkleSetAsideData = typeof GenericFarkleSetAsideDTO.static;

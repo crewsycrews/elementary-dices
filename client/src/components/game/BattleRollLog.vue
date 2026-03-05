@@ -6,11 +6,7 @@
       No rolls yet...
     </div>
 
-    <div
-      v-else
-      class="space-y-1.5 max-h-48 overflow-y-auto"
-      ref="logContainer"
-    >
+    <div v-else class="space-y-1.5 max-h-48 overflow-y-auto" ref="logContainer">
       <div
         v-for="(roll, index) in rolls"
         :key="index"
@@ -30,7 +26,7 @@
           class="font-bold w-12 shrink-0"
           :class="roll.side === 'player' ? 'text-blue-400' : 'text-red-400'"
         >
-          {{ roll.side === 'player' ? 'YOU' : 'OPP' }}
+          {{ roll.side === "player" ? "YOU" : "OPP" }}
         </span>
 
         <!-- Dice element -->
@@ -42,7 +38,11 @@
         <!-- Effect -->
         <span class="text-muted-foreground">
           +{{ roll.bonus_applied.toFixed(1) }} to
-          {{ roll.affected_element === 'all_others' ? 'all non-⚡' : getElementEmoji(roll.affected_element) }}
+          {{
+            roll.affected_element === "all_others"
+              ? "all non-⚡"
+              : getElementEmoji(roll.affected_element)
+          }}
         </span>
       </div>
     </div>
@@ -50,33 +50,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue'
-import type { BattleRollRecord } from '@/stores/event'
+import { ref, watch, nextTick } from "vue";
+import type { BattleRollRecord } from "@/stores/event";
 
 defineProps<{
-  rolls: BattleRollRecord[]
-}>()
+  rolls: BattleRollRecord[];
+}>();
 
-const logContainer = ref<HTMLElement | null>(null)
+const logContainer = ref<HTMLElement | null>(null);
 
 const ELEMENT_EMOJIS: Record<string, string> = {
-  fire: '🔥',
-  water: '💧',
-  earth: '🪨',
-  air: '💨',
-  lightning: '⚡',
-}
+  fire: "🔥",
+  water: "💧",
+  earth: "🏔️",
+  air: "💨",
+  lightning: "⚡",
+};
 
 function getElementEmoji(element: string): string {
-  return ELEMENT_EMOJIS[element] ?? '❓'
+  return ELEMENT_EMOJIS[element] ?? "❓";
 }
 
 // Auto-scroll to bottom when new rolls are added
-watch(() => logContainer.value?.children.length, () => {
-  nextTick(() => {
-    if (logContainer.value) {
-      logContainer.value.scrollTop = logContainer.value.scrollHeight
-    }
-  })
-})
+watch(
+  () => logContainer.value?.children.length,
+  () => {
+    nextTick(() => {
+      if (logContainer.value) {
+        logContainer.value.scrollTop = logContainer.value.scrollHeight;
+      }
+    });
+  },
+);
 </script>

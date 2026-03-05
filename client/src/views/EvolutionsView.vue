@@ -238,7 +238,7 @@ function getElementEmoji(element: string): string {
   const map: Record<string, string> = {
     fire: "🔥",
     water: "💧",
-    earth: "🪨",
+    earth: "🏔️",
     air: "💨",
     lightning: "⚡",
   };
