@@ -198,12 +198,6 @@ const handleDragEnd = () => {
 
 // Handle drop on party slot (reordering)
 const handleDrop = async (targetPosition: number) => {
-  console.log(
-    "Dropped on position:",
-    targetPosition,
-    "Dragged elemental:",
-    draggedElemental.value,
-  );
   const userId = userStore.userId;
   if (!draggedElemental.value || !userId) return;
 

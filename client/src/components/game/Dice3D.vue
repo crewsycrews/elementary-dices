@@ -246,7 +246,6 @@ async function roll(targetValue: number): Promise<void> {
 
   isAnimating.value = false;
   emit("rollCompleted", targetValue);
-  console.log(`Dice rolled to ${targetValue}`);
 }
 
 /**

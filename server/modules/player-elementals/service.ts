@@ -213,8 +213,6 @@ export class PlayerElementalsService {
       .where({ player_id: playerId, party_position: position2 })
       .limit(1);
 
-    console.log("Swapping positions:", { playerId, elemental1, elemental2 });
-
     // Use transaction with three-step swap to avoid unique constraint violation
     await db.transaction(async (trx) => {
       // Step 1: Move elemental1 to NULL (temporary state)

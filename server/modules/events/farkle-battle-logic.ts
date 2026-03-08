@@ -137,8 +137,6 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
     if (!byElement[el]) byElement[el] = [];
     byElement[el]!.push(i);
   }
-  console.log("Rolling dice:", dice.map((d) => d.current_result));
-  console.log("Dice grouped by element:", byElement);
 
   const uniqueElements = Object.keys(byElement) as ElementType[];
   const totalDice = dice.length;
@@ -214,7 +212,6 @@ export function detectCombinations(dice: FarkleDie[]): Combination[] {
       }
     }
   }
-  console.log("Detected combinations:", combos);
   return combos;
 }
 

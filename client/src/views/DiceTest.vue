@@ -87,8 +87,20 @@ const affinities: { label: string; value: Affinity | undefined }[] = [
   { label: "🌬️ Air", value: "air" },
   { label: "⚡ Lightning", value: "lightning" },
 ];
-const ELEMENTS: DiceRollResult["result_element"][] = ["fire", "water", "earth", "air", "lightning"];
-const DICE_MAX: Record<DiceType, number> = { d4: 4, d6: 6, d10: 10, d12: 12, d20: 20 };
+const ELEMENTS: DiceRollResult["result_element"][] = [
+  "fire",
+  "water",
+  "earth",
+  "air",
+  "lightning",
+];
+const DICE_MAX: Record<DiceType, number> = {
+  d4: 4,
+  d6: 6,
+  d10: 10,
+  d12: 12,
+  d20: 20,
+};
 
 const selectedDice = ref<DiceType>("d6");
 const selectedAffinity = ref<Affinity | undefined>(undefined);
@@ -97,9 +109,9 @@ const isRolling = ref(false);
 const currentResult = ref<DiceRollResult>();
 const vizRef = ref<InstanceType<typeof DiceRollVisualization> | null>(null);
 
-const rollLog = ref<Array<{ dice: string; value: number; result_element: string }>>(
-  [],
-);
+const rollLog = ref<
+  Array<{ dice: string; value: number; result_element: string }>
+>([]);
 
 async function rollDice() {
   if (isRolling.value) return;
@@ -131,7 +143,7 @@ async function rollDice() {
 }
 
 function onRollComplete() {
-  console.log("Roll animation complete");
+  // console.log("Roll animation complete");
 }
 </script>
 

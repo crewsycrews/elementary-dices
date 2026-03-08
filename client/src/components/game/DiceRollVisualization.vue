@@ -72,7 +72,6 @@ const roll = async () => {
 
   // Trigger 3D dice animation
   if (props.result && dice3DRef.value) {
-    console.log(`Rolling dice to ${props.result.roll_value}`);
     await dice3DRef.value.roll(props.result.roll_value);
   }
 
