@@ -28,7 +28,7 @@
           :subtitle="
             eventStore.isEventActive
               ? getEventTypeLabel(eventStore.currentEvent?.event_type || '')
-              : 'Roll for new event'
+              : 'Choose your next event'
           "
           :is-active="eventStore.isEventActive"
           :pulse="eventStore.isEventActive"
@@ -174,10 +174,45 @@ const handleEventClick = async () => {
       return;
     }
 
-    // Trigger new event
+    // Let player choose which eligible event to create
     try {
       isRolling.value = true;
-      await eventStore.triggerEvent(userStore.userId!);
+
+      const options = await eventStore.getEventOptions();
+      const available = options?.available ?? [];
+      if (available.length === 0) {
+        isRolling.value = false;
+        alert("No event types are currently available.");
+        return;
+      }
+
+      const labels: Record<string, string> = {
+        wild_encounter: "Wild encounter",
+        pvp_battle: "PvP battle",
+        merchant: "Merchant",
+      };
+      const promptText = `Choose an event:\n${available
+        .map((type, index) => `${index + 1}. ${labels[type] ?? type} (${type})`)
+        .join("\n")}\n\nEnter number or event id:`;
+      const input = window.prompt(promptText, available[0]);
+      if (!input) {
+        isRolling.value = false;
+        return;
+      }
+
+      const normalized = input.trim();
+      const fromNumber = Number(normalized);
+      const selectedType =
+        Number.isFinite(fromNumber) && fromNumber >= 1 && fromNumber <= available.length
+          ? available[fromNumber - 1]
+          : (normalized as "wild_encounter" | "pvp_battle" | "merchant");
+      if (!available.includes(selectedType)) {
+        isRolling.value = false;
+        alert("Invalid event selection.");
+        return;
+      }
+
+      await eventStore.createEvent(userStore.userId!, selectedType);
 
       setTimeout(() => {
         isRolling.value = false;

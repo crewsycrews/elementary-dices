@@ -21,7 +21,7 @@ import {
   FarkleSessionRepository,
   type WildEncounterFarkleState,
   type FarkleStateRow,
-} from "./repository";
+} from "./repositories";
 import { DiceRollService } from "../dice-rolls/service";
 import {
   buildPartyMember,
@@ -83,10 +83,38 @@ export class EventService {
   ) {}
 
   /**
-   * Trigger a random event based on probabilities.
+   * Returns event types currently available for a player.
    * PvP battles require 5 active party elementals.
    */
-  async triggerEvent(playerId: string): Promise<EventResponse> {
+  async getEventOptions(playerId: string): Promise<{
+    available: EventType[];
+    unavailable: Array<{ event_type: EventType; reason: string }>;
+  }> {
+    const activePartyCount = (await db("player_elementals")
+      .where({ player_id: playerId, is_in_active_party: true })
+      .count("* as count")
+      .first()) as { count: string | number } | undefined;
+    const partySize = Number(activePartyCount?.count ?? 0);
+
+    const available: EventType[] = ["wild_encounter", "merchant"];
+    const unavailable: Array<{ event_type: EventType; reason: string }> = [];
+
+    if (partySize >= 5) {
+      available.push("pvp_battle");
+    } else {
+      unavailable.push({
+        event_type: "pvp_battle",
+        reason: "PvP battle requires 5 active party elementals",
+      });
+    }
+
+    return { available, unavailable };
+  }
+
+  /**
+   * Create a specific event type for a player.
+   */
+  async createEvent(playerId: string, eventType: EventType): Promise<EventResponse> {
     // Check if player already has a current event
     const existingEvent = await this.repository.getCurrentEvent(playerId);
     if (existingEvent) {
@@ -95,15 +123,11 @@ export class EventService {
       );
     }
 
-    // Check active party size for PvP eligibility
-    const activePartyCount = (await db("player_elementals")
-      .where({ player_id: playerId, is_in_active_party: true })
-      .count("* as count")
-      .first()) as { count: string | number } | undefined;
-    const partySize = Number(activePartyCount?.count ?? 0);
-
-    // Determine event type based on probabilities
-    const eventType = this.determineEventType(partySize < 5);
+    const options = await this.getEventOptions(playerId);
+    if (!options.available.includes(eventType)) {
+      const entry = options.unavailable.find((item) => item.event_type === eventType);
+      throw new BadRequestError(entry?.reason ?? "Selected event type is unavailable");
+    }
 
     // Generate event-specific data and create event records
     let eventResponse: EventResponse;
@@ -182,6 +206,16 @@ export class EventService {
     }
 
     return eventResponse;
+  }
+
+  /**
+   * Trigger a random event based on probabilities.
+   * Kept for backward compatibility with existing callers.
+   */
+  async triggerEvent(playerId: string): Promise<EventResponse> {
+    const options = await this.getEventOptions(playerId);
+    const eventType = this.determineEventType(!options.available.includes("pvp_battle"));
+    return this.createEvent(playerId, eventType);
   }
 
   /**

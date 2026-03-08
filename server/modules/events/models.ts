@@ -26,6 +26,27 @@ export const TriggerEventDTO = t.Object({
   player_id: t.String(),
 });
 
+export const EventTypeDTO = t.Union([
+  t.Literal("wild_encounter"),
+  t.Literal("pvp_battle"),
+  t.Literal("merchant"),
+]);
+
+export const CreateEventDTO = t.Object({
+  player_id: t.String(),
+  event_type: EventTypeDTO,
+});
+
+export const EventOptionsResponseDTO = t.Object({
+  available: t.Array(EventTypeDTO),
+  unavailable: t.Array(
+    t.Object({
+      event_type: EventTypeDTO,
+      reason: t.String(),
+    }),
+  ),
+});
+
 // Wild Encounter specific
 export const WildEncounterDataDTO = t.Object({
   event_id: t.Optional(t.String()),
@@ -348,6 +369,8 @@ export const LegacyGenericFarkleRollDTO = t.Object({
 // Extract TypeScript types
 export type EventResponse = typeof EventResponseDTO.static;
 export type TriggerEventData = typeof TriggerEventDTO.static;
+export type CreateEventData = typeof CreateEventDTO.static;
+export type EventOptionsResponse = typeof EventOptionsResponseDTO.static;
 export type WildEncounterData = typeof WildEncounterDataDTO.static;
 export type MerchantData = typeof MerchantDataDTO.static;
 export type PvPData = typeof PvPDataDTO.static;

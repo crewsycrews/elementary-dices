@@ -155,7 +155,7 @@ const handleLeaveMerchant = async () => {
 
   try {
     await apiCall(
-      () => api.api.events.merchant.leave.post({
+      () => api.api.merchants.leave.post({
         player_id: userId,
       }),
       { successMessage: "Left merchant" },

@@ -11,6 +11,9 @@ import { diceModule } from "./modules/dice";
 import { itemsModule } from "./modules/items";
 import { diceRollsModule } from "./modules/dice-rolls";
 import { eventsModule } from "./modules/events";
+import { battlesModule } from "./modules/battles";
+import { wildEncountersModule } from "./modules/wild-encounters";
+import { merchantsModule } from "./modules/merchants";
 import { evolutionModule } from "./modules/evolution";
 import { playerElementalsModule } from "./modules/player-elementals";
 
@@ -125,6 +128,9 @@ export const app = new Elysia()
   .use(itemsModule)
   .use(diceRollsModule)
   .use(eventsModule)
+  .use(battlesModule)
+  .use(wildEncountersModule)
+  .use(merchantsModule)
   .use(evolutionModule)
   .listen(3000);
 

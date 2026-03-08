@@ -182,11 +182,17 @@ type EventResponse = {
   data: EventData
 }
 
+type EventOptions = {
+  available: EventType[]
+  unavailable: Array<{ event_type: EventType; reason: string }>
+}
+
 export const useEventStore = defineStore('event', () => {
   // State
   const currentEvent = ref<EventResponse | null>(null)
   const eventHistory = ref<Array<{ event_type: EventType; timestamp: Date }>>([])
   const isEventActive = ref(false)
+  const eventOptions = ref<EventOptions | null>(null)
 
   // Computed
   const eventType = computed(() => currentEvent.value?.event_type ?? null)
@@ -223,15 +229,26 @@ export const useEventStore = defineStore('event', () => {
       throw new Error('Missing event id')
     }
 
-    const response = await apiCall(
-      () => (api.api.events.farkle as any).init.post({
-        player_id: playerId,
-        event_type: currentEvent.value!.event_type,
-        event_id: eventId,
-        set_aside_element: setAsideElement,
-      }),
-      { silent: true }
-    )
+    const response =
+      currentEvent.value.event_type === 'pvp_battle'
+        ? await apiCall(
+            () => (api.api.battles.farkle as any).init.post({
+              player_id: playerId,
+              event_type: currentEvent.value!.event_type,
+              event_id: eventId,
+              set_aside_element: setAsideElement,
+            }),
+            { silent: true }
+          )
+        : await apiCall(
+            () => (api.api['wild-encounters'].farkle as any).init.post({
+              player_id: playerId,
+              event_type: currentEvent.value!.event_type,
+              event_id: eventId,
+              set_aside_element: setAsideElement,
+            }),
+            { silent: true }
+          )
 
     const result = response.data?.result as
       | { farkle_session_id: string; battle_state?: FarkleBattleState; farkle_state?: WildEncounterFarkleState }
@@ -264,12 +281,28 @@ export const useEventStore = defineStore('event', () => {
   }
 
   // Actions
-  async function triggerEvent(playerId: string) {
+  async function getEventOptions() {
     const { api, apiCall } = useApi()
 
     try {
       const response = await apiCall(
-        () => api.api.events.trigger.post({ player_id: playerId }),
+        () => api.api.events.options.get(),
+        { silent: true }
+      )
+      eventOptions.value = (response.data?.options as EventOptions) ?? null
+      return eventOptions.value
+    } catch (error) {
+      console.error('Failed to fetch event options:', error)
+      throw error
+    }
+  }
+
+  async function createEvent(playerId: string, eventType: EventType) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const response = await apiCall(
+        () => api.api.events.create.post({ player_id: playerId, event_type: eventType }),
         { silent: false }
       )
 
@@ -287,7 +320,7 @@ export const useEventStore = defineStore('event', () => {
         }
       }
     } catch (error) {
-      console.error('Failed to trigger event:', error)
+      console.error('Failed to create event:', error)
       throw error
     }
   }
@@ -301,7 +334,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events['wild-encounter'].resolve.post({
+        () => api.api['wild-encounters'].resolve.post({
           player_id: playerId,
           dice_roll_id: diceRollId,
           item_id: itemId,
@@ -321,29 +354,22 @@ export const useEventStore = defineStore('event', () => {
   }
 
   async function startBattle(playerId: string) {
+    const { api, apiCall } = useApi()
+
     try {
       if (!currentEvent.value || currentEvent.value.event_type !== 'pvp_battle') {
         throw new Error('No active PvP battle')
       }
-      const data = currentEvent.value.data as PvPData
-      const seedPlayer = data.player_party ?? []
-      const seedOpponent = data.opponent_party ?? []
-      const localState: FarkleBattleState = {
-        phase: 'choose_element',
-        player_party: seedPlayer,
-        opponent_party: seedOpponent,
-        set_aside_element: null,
-        opponent_set_aside_element: null,
-        current_turn: 1,
-        player_turns_done: 0,
-        opponent_turns_done: 0,
-        player_turn: null,
-        opponent_turn_result: null,
-        player_bonuses_total: {},
-        opponent_bonuses_total: {},
+      const response = await apiCall(
+        () => api.api.battles.start.post({ player_id: playerId }),
+        { silent: true }
+      )
+      const state = response.data?.battle_state as FarkleBattleState | undefined
+      if (state) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = state
       }
-      data.battle_state = localState
-      return { battle_state: localState }
+      return { battle_state: state }
     } catch (error) {
       console.error('Failed to start battle:', error)
       throw error
@@ -370,7 +396,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => api.api.events.farkle.roll.post({
+        () => api.api.battles.farkle.roll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -395,7 +421,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any).reroll.post({
+        () => (api.api.battles.farkle as any).reroll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
@@ -425,7 +451,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any)['set-aside'].post({
+        () => (api.api.battles.farkle as any)['set-aside'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices: diceIndices,
@@ -452,7 +478,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any).continue.post({
+        () => (api.api.battles.farkle as any).continue.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -477,7 +503,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any)['end-turn'].post({
+        () => (api.api.battles.farkle as any)['end-turn'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -501,7 +527,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events['wild-encounter'].skip.post({
+        () => api.api['wild-encounters'].skip.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Encounter skipped' }
@@ -535,7 +561,7 @@ export const useEventStore = defineStore('event', () => {
       }
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => api.api.events.farkle.roll.post({
+        () => api.api['wild-encounters'].farkle.roll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -560,7 +586,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any).reroll.post({
+        () => (api.api['wild-encounters'].farkle as any).reroll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
@@ -590,7 +616,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any)['set-aside'].post({
+        () => (api.api['wild-encounters'].farkle as any)['set-aside'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices: diceIndices,
@@ -617,7 +643,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any).continue.post({
+        () => (api.api['wild-encounters'].farkle as any).continue.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -642,7 +668,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.events.farkle as any)['end-turn'].post({
+        () => (api.api['wild-encounters'].farkle as any)['end-turn'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           item_id: itemId,
@@ -671,7 +697,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events.merchant.leave.post({
+        () => api.api.merchants.leave.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Left merchant' }
@@ -684,22 +710,6 @@ export const useEventStore = defineStore('event', () => {
       return response.data
     } catch (error) {
       console.error('Failed to leave merchant:', error)
-      throw error
-    }
-  }
-
-  async function getEventProbabilities() {
-    const { api, apiCall } = useApi()
-
-    try {
-      const response = await apiCall(
-        () => api.api.events.probabilities.get(),
-        { silent: true }
-      )
-
-      return response.data
-    } catch (error) {
-      console.error('Failed to fetch event probabilities:', error)
       throw error
     }
   }
@@ -752,6 +762,7 @@ export const useEventStore = defineStore('event', () => {
     currentEvent,
     eventHistory,
     isEventActive,
+    eventOptions,
     // Computed
     eventType,
     isWildEncounter,
@@ -762,7 +773,8 @@ export const useEventStore = defineStore('event', () => {
     pvpData,
     battleState,
     // Actions
-    triggerEvent,
+    getEventOptions,
+    createEvent,
     resolveWildEncounter,
     startBattle,
     chooseSetAsideElement,
@@ -778,7 +790,6 @@ export const useEventStore = defineStore('event', () => {
     wildEncounterFarkleContinue,
     wildEncounterFarkleEndTurn,
     leaveMerchant,
-    getEventProbabilities,
     initializeEventState,
     clearEvent,
   }
