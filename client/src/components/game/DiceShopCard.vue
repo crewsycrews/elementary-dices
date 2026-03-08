@@ -1,6 +1,6 @@
 <template>
   <div
-    class="shop-card rounded-lg border-2 overflow-hidden transition-all duration-200 hover:shadow-xl"
+    class="shop-card rounded-lg border-2 overflow-hidden transition-all duration-200 hover:shadow-xl relative"
     :class="[cardBorderClass, { 'opacity-50 cursor-not-allowed': !canAfford }]"
   >
     <!-- Rarity Badge -->
@@ -124,14 +124,10 @@ const canAfford = computed(() => props.playerCurrency >= props.dice.price);
 // Styling
 const cardBorderClass = computed(() => {
   const rarityColors: Record<string, string> = {
-    common: "border-gray-400",
+    common: "border-green-500",
     rare: "border-blue-500",
     epic: "border-purple-500",
     legendary: "border-yellow-500",
-    green: "border-green-500",
-    blue: "border-blue-500",
-    purple: "border-purple-500",
-    gold: "border-yellow-500",
   };
 
   return rarityColors[props.dice.rarity] || "border-gray-400";
@@ -139,14 +135,10 @@ const cardBorderClass = computed(() => {
 
 const backgroundClass = computed(() => {
   const rarityBgs: Record<string, string> = {
-    common: "bg-gray-500/10",
+    common: "bg-green-500/10",
     rare: "bg-blue-500/10",
     epic: "bg-purple-500/10",
     legendary: "bg-gradient-to-br from-yellow-400/20 to-orange-500/20",
-    green: "bg-green-500/10",
-    blue: "bg-blue-500/10",
-    purple: "bg-purple-500/10",
-    gold: "bg-gradient-to-br from-yellow-400/20 to-yellow-600/20",
   };
 
   return rarityBgs[props.dice.rarity] || "bg-muted/10";
@@ -154,14 +146,10 @@ const backgroundClass = computed(() => {
 
 const rarityBadgeClass = computed(() => {
   const rarityColors: Record<string, string> = {
-    common: "bg-gray-500 text-white",
+    common: "bg-green-500 text-white",
     rare: "bg-blue-500 text-white",
     epic: "bg-purple-500 text-white",
     legendary: "bg-gradient-to-r from-yellow-400 to-orange-500 text-white",
-    green: "bg-green-500 text-white",
-    blue: "bg-blue-500 text-white",
-    purple: "bg-purple-500 text-white",
-    gold: "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white",
   };
 
   return rarityColors[props.dice.rarity] || "bg-gray-500 text-white";

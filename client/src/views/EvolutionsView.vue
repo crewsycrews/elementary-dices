@@ -1,15 +1,17 @@
 <template>
   <div class="container mx-auto p-6 space-y-6 max-w-4xl">
+    <div class="flex items-start gap-3">
     <!-- Back Button -->
     <button
       @click="$router.push('/party')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+      class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
       <span class="font-semibold">Back to Party</span>
     </button>
 
     <h1 class="text-3xl font-bold">Elemental Evolutions</h1>
+    </div>
 
     <!-- Result Banner -->
     <Transition name="fade">

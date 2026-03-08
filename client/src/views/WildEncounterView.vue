@@ -1,19 +1,14 @@
 <template>
   <div class="container mx-auto p-4 md:p-6 space-y-6">
-    <button
-      @click="router.push('/')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-    >
-      <span class="text-xl">&larr;</span>
-      <span class="font-semibold">Back</span>
-    </button>
-
     <div v-if="loading" class="text-center py-12">
       <p class="text-xl font-semibold">Loading encounter...</p>
     </div>
 
     <div
-      v-else-if="(!eventStore.isEventActive || !eventStore.isWildEncounter) && !captureResult"
+      v-else-if="
+        (!eventStore.isEventActive || !eventStore.isWildEncounter) &&
+        !captureResult
+      "
       class="text-center py-12"
     >
       <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
@@ -29,14 +24,29 @@
     </div>
 
     <div v-else class="space-y-6">
-      <div class="text-center">
-        <h1 class="text-3xl font-bold mb-2">Wild Encounter</h1>
-        <div
-          class="inline-block px-4 py-2 rounded-lg font-semibold"
-          :class="getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)"
+      <div class="grid grid-cols-[auto_1fr_auto] items-start gap-3">
+        <button
+          @click="router.push('/')"
+          class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
-          Capture difficulty: {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+          <span class="text-xl">&larr;</span>
+          <span class="font-semibold">Back</span>
+        </button>
+        <div class="text-center">
+          <h1 class="text-3xl font-bold mb-2">Wild Encounter</h1>
+          <div
+            class="inline-block px-4 py-2 rounded-lg font-semibold"
+            :class="
+              getDifficultyClass(
+                eventStore.wildEncounterData?.capture_difficulty,
+              )
+            "
+          >
+            Capture difficulty:
+            {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+          </div>
         </div>
+        <span class="w-14" aria-hidden="true"></span>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
@@ -53,7 +63,7 @@
             <select
               v-model="selectedItem"
               class="w-full p-3 border rounded-lg bg-background"
-              :disabled="isActing || !!captureResult"
+              :disabled="isBusy || !!captureResult"
             >
               <option value="">No item</option>
               <option
@@ -61,14 +71,16 @@
                 :key="item.item_id"
                 :value="item.item_id"
               >
-                {{ item.item?.name }} (x{{ item.quantity }}) - +{{ getCaptureBonus(item) }}
+                {{ item.item?.name }} (x{{ item.quantity }}) - +{{
+                  getCaptureBonus(item)
+                }}
               </option>
             </select>
           </div>
 
           <button
             @click="handleSkipEncounter"
-            :disabled="isActing || !!captureResult"
+            :disabled="isBusy || !!captureResult"
             class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
           >
             Skip Encounter
@@ -86,7 +98,9 @@
             "
           >
             <h2 class="text-2xl font-bold mb-2">
-              {{ captureResult.success ? 'Capture Successful' : 'Capture Failed' }}
+              {{
+                captureResult.success ? "Capture Successful" : "Capture Failed"
+              }}
             </h2>
             <p class="text-lg mb-4">{{ captureResult.message }}</p>
 
@@ -94,8 +108,12 @@
               v-if="captureResult.success && captureResult.elemental_caught"
               class="mt-4 p-4 bg-background/50 rounded-lg"
             >
-              <p class="font-bold text-xl">{{ captureResult.elemental_caught.name }}</p>
-              <p class="text-sm text-muted-foreground">Level {{ captureResult.elemental_caught.level }}</p>
+              <p class="font-bold text-xl">
+                {{ captureResult.elemental_caught.name }}
+              </p>
+              <p class="text-sm text-muted-foreground">
+                Level {{ captureResult.elemental_caught.level }}
+              </p>
             </div>
 
             <button
@@ -111,7 +129,11 @@
               <FarkleDiceRow
                 :dice="farkleState.dice"
                 :selected-indices="selectedDiceIndices"
+                :force-animate-indices="forcedAnimationIndices"
+                :force-animate-nonce="forceAnimationNonce"
                 @toggle-select="toggleDiceSelection"
+                @rolling-start="isDiceAnimating = true"
+                @rolling-complete="isDiceAnimating = false"
               />
 
               <CombinationDisplay
@@ -123,14 +145,14 @@
 
             <div class="space-y-3">
               <div v-if="canRoll" class="space-y-4">
-                <DiceInventoryPanel :disabled="isActing">
+                <DiceInventoryPanel :disabled="isBusy">
                   <template #hand-center>
                     <button
                       @click="handleRoll"
-                      :disabled="isActing"
+                      :disabled="isBusy"
                       class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
                     >
-                      {{ isActing ? "ROLLING..." : "ROLL" }}
+                      {{ isBusy ? "ROLLING..." : "ROLL" }}
                     </button>
                   </template>
                 </DiceInventoryPanel>
@@ -140,7 +162,7 @@
                 <button
                   v-if="canReroll"
                   @click="handleReroll"
-                  :disabled="isActing || selectedDiceIndices.length === 0"
+                  :disabled="isBusy || selectedDiceIndices.length === 0"
                   class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
                 >
                   Reroll selected ({{ selectedDiceIndices.length }})
@@ -149,7 +171,7 @@
                 <button
                   v-if="canSetAside"
                   @click="handleSetAside"
-                  :disabled="isActing"
+                  :disabled="isBusy"
                   class="px-4 py-2 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
                 >
                   Set aside best combo
@@ -158,7 +180,7 @@
                 <button
                   v-if="canSetAsideTargetElement"
                   @click="handleSetAsideTargetElement"
-                  :disabled="isActing"
+                  :disabled="isBusy"
                   class="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
                 >
                   Set aside encounter element
@@ -167,7 +189,7 @@
                 <button
                   v-if="canContinue"
                   @click="handleContinue"
-                  :disabled="isActing"
+                  :disabled="isBusy"
                   class="px-4 py-2 bg-sky-500/20 text-sky-300 border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
                 >
                   Roll remaining dice
@@ -177,7 +199,7 @@
               <button
                 v-if="canEndTurn"
                 @click="handleEndTurn"
-                :disabled="isActing"
+                :disabled="isBusy"
                 class="px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50"
               >
                 Resolve Capture
@@ -193,7 +215,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import { useEventStore, type Combination, type WildEncounterFarkleState } from "@/stores/event";
+import {
+  useEventStore,
+  type Combination,
+  type WildEncounterFarkleState,
+} from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
@@ -212,8 +238,11 @@ const { api, apiCall } = useApi();
 
 const loading = ref(false);
 const isActing = ref(false);
+const isDiceAnimating = ref(false);
 const selectedItem = ref("");
 const selectedDiceIndices = ref<number[]>([]);
+const forceAnimationNonce = ref(0);
+const forcedAnimationIndices = ref<number[]>([]);
 const captureResult = ref<any>(null);
 const detectedCombinations = ref<Combination[]>([]);
 const wildElemental = ref<any>(null);
@@ -221,33 +250,51 @@ const wildElemental = ref<any>(null);
 const captureItems = computed(() => inventoryStore.captureItems);
 
 const farkleState = computed(
-  () => (eventStore.wildEncounterData?.farkle_state as WildEncounterFarkleState | undefined) ?? null,
+  () =>
+    (eventStore.wildEncounterData?.farkle_state as
+      | WildEncounterFarkleState
+      | undefined) ?? null,
 );
 
 const targetElement = computed(
-  () => eventStore.wildEncounterData?.encounter_element ?? wildElemental.value?.element_types?.[0] ?? null,
+  () =>
+    eventStore.wildEncounterData?.encounter_element ??
+    wildElemental.value?.element_types?.[0] ??
+    null,
 );
 
-const canRoll = computed(() => !farkleState.value || farkleState.value.phase === "initial_roll");
+const canRoll = computed(
+  () => !farkleState.value || farkleState.value.phase === "initial_roll",
+);
 const canReroll = computed(
-  () => farkleState.value?.phase === "can_reroll" && !farkleState.value?.has_used_reroll,
+  () =>
+    farkleState.value?.phase === "can_reroll" &&
+    !farkleState.value?.has_used_reroll,
 );
 const availableSetAsideCombinations = computed(() => {
   if (!farkleState.value) return [] as Combination[];
 
   return detectedCombinations.value.filter((combo) =>
-    combo.dice_indices.some((index) => !farkleState.value?.dice[index]?.is_set_aside),
+    combo.dice_indices.some(
+      (index) => !farkleState.value?.dice[index]?.is_set_aside,
+    ),
   );
 });
 const canSetAside = computed(
   () =>
     !!farkleState.value &&
-    ["can_reroll", "set_aside", "rolling_remaining"].includes(farkleState.value.phase) &&
+    ["can_reroll", "set_aside", "rolling_remaining"].includes(
+      farkleState.value.phase,
+    ) &&
     availableSetAsideCombinations.value.length > 0,
 );
 const canSetAsideTargetElement = computed(() => {
   if (!farkleState.value || !targetElement.value) return false;
-  if (!["can_reroll", "set_aside", "rolling_remaining"].includes(farkleState.value.phase)) {
+  if (
+    !["can_reroll", "set_aside", "rolling_remaining"].includes(
+      farkleState.value.phase,
+    )
+  ) {
     return false;
   }
   return farkleState.value.dice.some(
@@ -268,6 +315,7 @@ const canEndTurn = computed(() => {
     farkleState.value.set_aside_element_bonus !== null
   );
 });
+const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 
 const getCaptureBonus = (item: any): number => item.effect?.capture_bonus || 0;
 
@@ -291,8 +339,14 @@ const toggleDiceSelection = (index: number) => {
   else selectedDiceIndices.value.push(index);
 };
 
+const scheduleForcedDiceAnimation = (indices: number[]) => {
+  forcedAnimationIndices.value = [...indices];
+  forceAnimationNonce.value += 1;
+};
+
 const updateFromTurnResult = (result: any) => {
-  detectedCombinations.value = (result?.detected_combinations ?? []) as Combination[];
+  detectedCombinations.value = (result?.detected_combinations ??
+    []) as Combination[];
   selectedDiceIndices.value = [];
 };
 
@@ -301,6 +355,14 @@ const handleRoll = async () => {
   isActing.value = true;
   try {
     const response = await eventStore.wildEncounterFarkleRoll(userStore.userId);
+    const rolledDice = response?.result?.farkle_state?.dice ?? [];
+    const indicesToAnimate = rolledDice
+      .map((die: { is_set_aside: boolean }, index: number) => ({ die, index }))
+      .filter(
+        ({ die }: { die: { is_set_aside: boolean } }) => !die.is_set_aside,
+      )
+      .map(({ index }: { index: number }) => index);
+    scheduleForcedDiceAnimation(indicesToAnimate);
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter roll:", error);
@@ -311,12 +373,14 @@ const handleRoll = async () => {
 
 const handleReroll = async () => {
   if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
+  const indicesToAnimate = [...selectedDiceIndices.value];
   isActing.value = true;
   try {
     const response = await eventStore.wildEncounterFarkleReroll(
       userStore.userId,
       [...selectedDiceIndices.value],
     );
+    scheduleForcedDiceAnimation(indicesToAnimate);
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter reroll:", error);
@@ -326,7 +390,8 @@ const handleReroll = async () => {
 };
 
 const handleSetAside = async () => {
-  if (!userStore.userId || availableSetAsideCombinations.value.length === 0) return;
+  if (!userStore.userId || availableSetAsideCombinations.value.length === 0)
+    return;
   isActing.value = true;
   const best = [...availableSetAsideCombinations.value].sort(
     (a, b) =>
@@ -337,7 +402,9 @@ const handleSetAside = async () => {
     const response = await eventStore.wildEncounterFarkleSetAside(
       userStore.userId,
       best.dice_indices,
-      best.type === "one_for_all" ? targetElement.value ?? undefined : undefined,
+      best.type === "one_for_all"
+        ? (targetElement.value ?? undefined)
+        : undefined,
     );
     updateFromTurnResult(response?.result);
   } catch (error) {
@@ -349,16 +416,19 @@ const handleSetAside = async () => {
 
 const handleSetAsideTargetElement = async () => {
   if (!userStore.userId || !farkleState.value || !targetElement.value) return;
-  const indices = farkleState.value.dice.map((d, i) => ({ d, i }))
+  const indices = farkleState.value.dice
+    .map((d, i) => ({ d, i }))
     .filter(
-      ({ d }) =>
-        !d.is_set_aside && d.current_result === targetElement.value,
+      ({ d }) => !d.is_set_aside && d.current_result === targetElement.value,
     )
     .map(({ i }) => i);
   if (indices.length < 1) return;
   isActing.value = true;
   try {
-    const response = await eventStore.wildEncounterFarkleSetAside(userStore.userId, indices);
+    const response = await eventStore.wildEncounterFarkleSetAside(
+      userStore.userId,
+      indices,
+    );
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed target-element set aside:", error);
@@ -369,9 +439,16 @@ const handleSetAsideTargetElement = async () => {
 
 const handleContinue = async () => {
   if (!userStore.userId) return;
+  const indicesToAnimate = (farkleState.value?.dice ?? [])
+    .map((die, index) => ({ die, index }))
+    .filter(({ die }) => !die.is_set_aside)
+    .map(({ index }) => index);
   isActing.value = true;
   try {
-    const response = await eventStore.wildEncounterFarkleContinue(userStore.userId);
+    const response = await eventStore.wildEncounterFarkleContinue(
+      userStore.userId,
+    );
+    scheduleForcedDiceAnimation(indicesToAnimate);
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter continue:", error);
@@ -441,9 +518,8 @@ onMounted(async () => {
         eventStore.wildEncounterData.elemental_id,
       );
 
-      detectedCombinations.value = (
-        farkleState.value?.detected_combinations ?? []
-      ) as Combination[];
+      detectedCombinations.value = (farkleState.value?.detected_combinations ??
+        []) as Combination[];
     }
   } catch (error) {
     console.error("Failed to load encounter data:", error);

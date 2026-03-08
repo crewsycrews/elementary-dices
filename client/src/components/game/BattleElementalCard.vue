@@ -1,6 +1,6 @@
 <template>
   <div
-    class="battle-elemental-card rounded-lg border-2 p-3 transition-all duration-300"
+    class="battle-elemental-card rounded-lg border-2 p-2 transition-all duration-300"
     :class="[
       borderColorClass,
       isBuffed ? 'ring-2 ring-green-400 animate-pulse' : '',
@@ -8,24 +8,24 @@
     ]"
   >
     <!-- Element + Level Badge -->
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-xl">{{ elementEmoji }}</span>
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-lg">{{ elementEmoji }}</span>
       <span
-        class="text-xs font-bold bg-black/60 text-white px-2 py-0.5 rounded"
+        class="text-[11px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded"
       >
         Lv.{{ member.level }}
       </span>
     </div>
 
     <!-- Name -->
-    <h4 class="font-bold text-sm truncate mb-2">{{ member.name }}</h4>
+    <h4 class="font-bold text-xs truncate mb-1.5">{{ member.name }}</h4>
 
     <!-- Power Display -->
     <div class="flex items-center justify-between">
       <span class="text-xs text-muted-foreground">Power</span>
-      <div class="flex items-center gap-1">
+      <div class="flex items-center gap-0.5">
         <span
-          class="font-bold text-lg transition-all duration-500"
+          class="font-bold text-base transition-all duration-500"
           :class="powerChangeClass"
         >
           {{ displayPower }}
@@ -43,7 +43,7 @@
     <!-- Target Arrow Indicator -->
     <div
       v-if="showTarget && targetName"
-      class="mt-2 pt-2 border-t border-border"
+      class="mt-1.5 pt-1.5 border-t border-border"
     >
       <div class="flex items-center gap-1 text-xs text-muted-foreground">
         <span>→</span>

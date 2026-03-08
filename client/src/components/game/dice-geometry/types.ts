@@ -24,11 +24,11 @@ export interface DiceFace {
  * Element emoji mapping for rendering elemental faces
  */
 export const ELEMENT_EMOJI: Record<string, string> = {
-  fire: '🔥',
-  water: '🌊',
-  air: '💨',
-  earth: '⛰️',
-  lightning: '⚡',
+  fire: "",
+  water: "",
+  air: "",
+  earth: "",
+  lightning: "",
 };
 
 /**
@@ -58,7 +58,7 @@ export interface DiceGeometry {
    * Used to angle the die for better viewing (e.g., d20 tilted for optimal perspective)
    */
   wrapperRotation?: Rotation;
-  
+
   /** Base width of the die in pixels */
   width: number;
   /** Base height of the die in pixels */
@@ -68,7 +68,7 @@ export interface DiceGeometry {
 /**
  * Supported dice types in the game
  */
-export type DiceType = 'd4' | 'd6' | 'd10' | 'd12' | 'd20';
+export type DiceType = "d4" | "d6" | "d10" | "d12" | "d20";
 
 /**
  * Mapping of dice types to their maximum values

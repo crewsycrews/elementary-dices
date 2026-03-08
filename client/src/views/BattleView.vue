@@ -1,14 +1,5 @@
-<template>
-  <div class="container mx-auto p-4 md:p-6 space-y-6">
-    <!-- Back Button -->
-    <button
-      @click="router.push('/')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors mb-4"
-    >
-      <span class="text-xl">&larr;</span>
-      <span class="font-semibold">Back</span>
-    </button>
-
+﻿<template>
+  <div class="container mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
       <div class="text-6xl mb-4">&#x23F3;</div>
@@ -31,16 +22,28 @@
     </div>
 
     <!-- Battle Content -->
-    <div v-else class="space-y-6">
+    <div v-else class="space-y-4 md:space-y-5">
       <!-- Header -->
-      <div class="text-center">
-        <h1 class="text-3xl font-bold mb-1">PvP Battle!</h1>
-        <p class="text-muted-foreground">
-          vs {{ eventStore.pvpData?.opponent_name }}
-          <span v-if="eventStore.pvpData?.potential_reward" class="ml-2">
-            | Reward: {{ eventStore.pvpData?.potential_reward }}
-          </span>
-        </p>
+      <div class="grid grid-cols-[auto_1fr_auto] items-start gap-3">
+        <button
+          @click="router.push('/')"
+          class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <span class="text-xl">&larr;</span>
+          <span class="font-semibold">Back</span>
+        </button>
+
+        <div class="text-center">
+          <h1 class="text-3xl font-bold mb-1">PvP Battle!</h1>
+          <p class="text-muted-foreground">
+            vs {{ eventStore.pvpData?.opponent_name }}
+            <span v-if="eventStore.pvpData?.potential_reward" class="ml-2">
+              | Reward: {{ eventStore.pvpData?.potential_reward }}
+            </span>
+          </p>
+        </div>
+
+        <span class="w-14" aria-hidden="true"></span>
       </div>
 
       <!-- ==================== PHASE 1: TARGETING ==================== -->
@@ -62,17 +65,17 @@
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
           :show-targets="true"
           :target-lines="battle.targetLines.value"
-        />
-
-        <div class="flex justify-center">
-          <button
-            @click="handleStartBattle"
-            :disabled="isStarting"
-            class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
-          >
-            {{ isStarting ? "Starting..." : "Start Battle!" }}
-          </button>
-        </div>
+        >
+          <template #centerActions>
+            <button
+              @click="handleStartBattle"
+              :disabled="isStarting"
+              class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+            >
+              {{ isStarting ? "Starting..." : "Start Battle!" }}
+            </button>
+          </template>
+        </BattleArena>
       </template>
 
       <!-- ==================== PHASE: CHOOSE ELEMENT ==================== -->
@@ -94,25 +97,27 @@
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
-        />
-
-        <div class="flex justify-center gap-3 flex-wrap">
-          <button
-            v-for="el in battle.getPartyElementsPresent()"
-            :key="el"
-            @click="handleChooseElement(el)"
-            :disabled="isChoosing"
-            class="flex flex-col items-center gap-1 px-5 py-3 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
-          >
-            <span class="text-3xl">{{
-              battle.getElementConfig(el).emoji
-            }}</span>
-            <span class="text-sm font-semibold capitalize">{{ el }}</span>
-            <span class="text-xs text-muted-foreground">
-              {{ getPartyCountForElement(el) }} in party
-            </span>
-          </button>
-        </div>
+        >
+          <template #centerActions>
+            <div class="flex justify-center gap-2 flex-wrap max-w-md">
+              <button
+                v-for="el in battle.getPartyElementsPresent()"
+                :key="el"
+                @click="handleChooseElement(el)"
+                :disabled="isChoosing"
+                class="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
+              >
+                <span class="text-2xl">{{
+                  battle.getElementConfig(el).emoji
+                }}</span>
+                <span class="text-sm font-semibold capitalize">{{ el }}</span>
+                <span class="text-[11px] text-muted-foreground leading-tight">
+                  {{ getPartyCountForElement(el) }} in party
+                </span>
+              </button>
+            </div>
+          </template>
+        </BattleArena>
       </template>
 
       <!-- ==================== PHASE: PLAYER TURN ==================== -->
@@ -129,7 +134,111 @@
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
-        />
+        >
+          <template #centerActions>
+            <div class="w-full max-w-md rounded-xl border border-border/60 bg-card/40 p-3 space-y-3">
+              <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
+                <FarkleDiceRow
+                  :dice="battle.farkleDice.value"
+                  :selected-indices="battle.selectedDiceIndices.value"
+                  :force-animate-indices="forcedAnimationIndices"
+                  :force-animate-nonce="forceAnimationNonce"
+                  @toggle-select="battle.toggleDiceSelection($event)"
+                  @rolling-start="isDiceAnimating = true"
+                  @rolling-complete="isDiceAnimating = false"
+                />
+
+                <CombinationDisplay
+                  :combinations="battle.detectedCombinations.value"
+                  :selectable="false"
+                  :show-empty="true"
+                />
+
+                <div
+                  v-if="battle.activeCombinations.value.length > 0"
+                  class="space-y-1"
+                >
+                  <p
+                    class="text-xs font-bold text-muted-foreground uppercase tracking-wide text-center"
+                  >
+                    Set aside:
+                  </p>
+                  <CombinationDisplay
+                    :combinations="battle.activeCombinations.value"
+                    :selectable="false"
+                  />
+                </div>
+              </div>
+
+              <div class="flex justify-center" v-if="battle.canRoll.value">
+                <button
+                  @click="handleFarkleRoll"
+                  :disabled="isBusy"
+                  class="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+                >
+                  {{ isBusy ? "Rolling..." : "&#x1F3B2; Roll all dice!" }}
+                </button>
+              </div>
+
+              <div
+                v-if="battle.farkleDice.value.length > 0 && !battle.isBusted.value"
+                class="flex flex-wrap justify-center gap-2"
+              >
+                <button
+                  v-if="battle.canReroll.value"
+                  @click="handleFarkleReroll"
+                  :disabled="
+                    isBusy || battle.selectedDiceIndices.value.length === 0
+                  "
+                  class="px-3 py-1.5 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
+                >Reroll ({{ battle.selectedDiceIndices.value.length }})</button>
+
+                <button
+                  v-if="battle.canSetAside.value"
+                  @click="handleSetAside"
+                  :disabled="isBusy"
+                  class="px-3 py-1.5 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50 text-sm"
+                >Set aside combo</button>
+
+                <button
+                  v-if="canSetAsideChosenElement"
+                  @click="handleSetAsideChosenElement"
+                  :disabled="isBusy"
+                  class="px-3 py-1.5 bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
+                >
+                  {{ battle.getElementConfig(battle.setAsideElement.value!).emoji }}
+                  Set aside element
+                </button>
+
+                <button
+                  v-if="battle.canContinue.value"
+                  @click="handleFarkleContinue"
+                  :disabled="isBusy"
+                  class="px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
+                >
+                  &#x1F3B2; Roll remaining
+                </button>
+
+                <button
+                  v-if="
+                    battle.canEndTurn.value || battle.farkleTurnState.value !== null
+                  "
+                  @click="handleFarkleEndTurn"
+                  :disabled="isBusy || !canEndTurn"
+                  class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
+                >End Turn -></button>
+              </div>
+
+              <div v-if="battle.isBusted.value" class="flex justify-center">
+                <button
+                  @click="handleFarkleEndTurn"
+                  :disabled="isBusy"
+                  class="px-4 py-2 bg-card border border-border rounded-lg font-bold hover:bg-card/80 transition-all disabled:opacity-50"
+                >End Turn (no bonuses)</button>
+              </div>
+            </div>
+          </template>
+        </BattleArena>
 
         <!-- DICE RUSH Banner -->
         <div
@@ -137,7 +246,7 @@
           class="text-center py-3 bg-purple-500/20 rounded-xl border border-purple-500 animate-pulse"
         >
           <p class="text-lg font-bold text-purple-300">
-            &#x1F3B2; DICE RUSH! All 5 dice used — roll again!
+            &#x1F3B2; DICE RUSH! All 5 dice used — roll again or end turn.
           </p>
         </div>
 
@@ -154,125 +263,6 @@
           </p>
         </div>
 
-        <!-- Dice Row (shown after initial roll) -->
-        <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
-          <FarkleDiceRow
-            :dice="battle.farkleDice.value"
-            :selected-indices="battle.selectedDiceIndices.value"
-            @toggle-select="battle.toggleDiceSelection($event)"
-          />
-
-          <!-- Combinations detected -->
-          <CombinationDisplay
-            :combinations="battle.detectedCombinations.value"
-            :selectable="false"
-            :show-empty="true"
-          />
-
-          <!-- Currently set-aside combos -->
-          <div
-            v-if="battle.activeCombinations.value.length > 0"
-            class="space-y-1"
-          >
-            <p
-              class="text-xs font-bold text-muted-foreground uppercase tracking-wide"
-            >
-              Set aside:
-            </p>
-            <CombinationDisplay
-              :combinations="battle.activeCombinations.value"
-              :selectable="false"
-            />
-          </div>
-        </div>
-
-        <!-- Action Buttons -->
-        <div class="space-y-3">
-          <!-- Roll all 5 dice (initial roll or Dice Rush re-roll) -->
-          <div class="flex justify-center" v-if="battle.canRoll.value">
-            <button
-              @click="handleFarkleRoll"
-              :disabled="isActing"
-              class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
-            >
-              {{ isActing ? "Rolling..." : "&#x1F3B2; Roll all dice!" }}
-            </button>
-          </div>
-
-          <!-- Action row: Reroll / Set Aside / Continue / End Turn -->
-          <div
-            v-if="battle.farkleDice.value.length > 0 && !battle.isBusted.value"
-            class="flex flex-wrap justify-center gap-3"
-          >
-            <!-- Free Reroll -->
-            <button
-              v-if="battle.canReroll.value"
-              @click="handleFarkleReroll"
-              :disabled="
-                isActing || battle.selectedDiceIndices.value.length === 0
-              "
-              class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
-            >
-              ↺ Reroll selected ({{ battle.selectedDiceIndices.value.length }})
-            </button>
-
-            <!-- Set Aside best combination -->
-            <button
-              v-if="battle.canSetAside.value"
-              @click="handleSetAside"
-              :disabled="isActing"
-              class="px-4 py-2 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
-            >
-              ✓ Set aside best combo
-            </button>
-
-            <!-- Set Aside chosen element dice -->
-            <button
-              v-if="canSetAsideChosenElement"
-              @click="handleSetAsideChosenElement"
-              :disabled="isActing"
-              class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
-            >
-              {{
-                battle.getElementConfig(battle.setAsideElement.value!).emoji
-              }}
-              Set aside chosen element dice (+10%)
-            </button>
-
-            <!-- Roll Remaining -->
-            <button
-              v-if="battle.canContinue.value"
-              @click="handleFarkleContinue"
-              :disabled="isActing"
-              class="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50"
-            >
-              &#x1F3B2; Roll remaining dice
-            </button>
-
-            <!-- End Turn -->
-            <button
-              v-if="
-                battle.canEndTurn.value || battle.farkleTurnState.value !== null
-              "
-              @click="handleFarkleEndTurn"
-              :disabled="isActing || !canEndTurn"
-              class="px-4 py-2 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50"
-            >
-              End Turn →
-            </button>
-          </div>
-
-          <!-- End Turn for bust -->
-          <div v-if="battle.isBusted.value" class="flex justify-center">
-            <button
-              @click="handleFarkleEndTurn"
-              :disabled="isActing"
-              class="px-6 py-3 bg-card border border-border rounded-lg font-bold hover:bg-card/80 transition-all disabled:opacity-50"
-            >
-              End Turn (no bonuses)
-            </button>
-          </div>
-        </div>
       </template>
 
       <!-- ==================== PHASE: OPPONENT TURN (display) ==================== -->
@@ -492,7 +482,11 @@ const loading = ref(false);
 const isStarting = ref(false);
 const isChoosing = ref(false);
 const isActing = ref(false);
+const isDiceAnimating = ref(false);
+const forceAnimationNonce = ref(0);
+const forcedAnimationIndices = ref<number[]>([]);
 const showOpponentTurnResult = ref(false);
+const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 
 const ELEMENT_EMOJIS: Record<string, string> = {
   fire: "🔥",
@@ -521,6 +515,11 @@ function getPartyCountForElement(el: string): number {
   return battle.playerParty.value.filter((m) => m.element === el).length;
 }
 
+const scheduleForcedDiceAnimation = (indices: number[]) => {
+  forcedAnimationIndices.value = [...indices];
+  forceAnimationNonce.value += 1;
+};
+
 // Whether the player can set aside chosen-element dice without a combo
 const canSetAsideChosenElement = computed(() => {
   const el = battle.setAsideElement.value;
@@ -537,8 +536,13 @@ const canEndTurn = computed(() => {
   const turn = battle.farkleTurnState.value;
   if (!turn) return false;
   if (turn.busted) return true;
+  const hasAccumulatedDiceRushBonuses = Object.values(
+    turn.accumulated_dice_rush_bonuses ?? {},
+  ).some((bonus) => bonus > 0);
   return (
-    turn.active_combinations.length > 0 || turn.set_aside_element_bonus !== null
+    turn.active_combinations.length > 0 ||
+    turn.set_aside_element_bonus !== null ||
+    hasAccumulatedDiceRushBonuses
   );
 });
 
@@ -584,6 +588,12 @@ const handleFarkleRoll = async () => {
   try {
     const response = await eventStore.farkleRoll(userStore.userId);
     if (response?.result) {
+      const rolledDice = response.result.battle_state?.player_turn?.dice ?? [];
+      const indicesToAnimate = rolledDice
+        .map((die: { is_set_aside: boolean }, index: number) => ({ die, index }))
+        .filter(({ die }) => !die.is_set_aside)
+        .map(({ index }) => index);
+      scheduleForcedDiceAnimation(indicesToAnimate);
       battle.updateFromTurnResult(response.result as any);
     }
   } catch (error) {
@@ -603,6 +613,7 @@ const handleFarkleReroll = async () => {
   try {
     const response = await eventStore.farkleReroll(userStore.userId, indices);
     if (response?.result) {
+      scheduleForcedDiceAnimation(indices);
       battle.updateFromTurnResult(response.result as any);
     }
   } catch (error) {
@@ -676,10 +687,15 @@ const handleSetAsideChosenElement = async () => {
 // Roll remaining (non-set-aside) dice
 const handleFarkleContinue = async () => {
   if (!userStore.userId) return;
+  const indicesToAnimate = battle.farkleDice.value
+    .map((die, index) => ({ die, index }))
+    .filter(({ die }) => !die.is_set_aside)
+    .map(({ index }) => index);
   isActing.value = true;
   try {
     const response = await eventStore.farkleContinue(userStore.userId);
     if (response?.result) {
+      scheduleForcedDiceAnimation(indicesToAnimate);
       battle.updateFromTurnResult(response.result as any);
     }
   } catch (error) {
@@ -753,3 +769,5 @@ onMounted(async () => {
   }
 });
 </script>
+
+

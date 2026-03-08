@@ -83,10 +83,10 @@ const rarity = computed(() => props.diceType.rarity);
 // Dice color based on rarity
 const diceColorClass = computed(() => {
   const colors: Record<string, string> = {
-    green: 'bg-green-500 text-white',
-    blue: 'bg-blue-500 text-white',
-    purple: 'bg-purple-500 text-white',
-    gold: 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white',
+    common: 'bg-green-500 text-white',
+    rare: 'bg-blue-500 text-white',
+    epic: 'bg-purple-500 text-white',
+    legendary: 'bg-gradient-to-br from-yellow-400 to-yellow-600 text-white',
   };
   return colors[props.diceType.rarity] || 'bg-gray-500 text-white';
 });
@@ -94,10 +94,10 @@ const diceColorClass = computed(() => {
 // Rarity badge styling
 const rarityBadgeClass = computed(() => {
   const colors: Record<string, string> = {
-    green: 'bg-green-500/20 text-green-700',
-    blue: 'bg-blue-500/20 text-blue-700',
-    purple: 'bg-purple-500/20 text-purple-700',
-    gold: 'bg-yellow-500/20 text-yellow-700',
+    common: 'bg-green-500/20 text-green-700',
+    rare: 'bg-blue-500/20 text-blue-700',
+    epic: 'bg-purple-500/20 text-purple-700',
+    legendary: 'bg-yellow-500/20 text-yellow-700',
   };
   return colors[props.diceType.rarity] || 'bg-gray-500/20 text-gray-700';
 });

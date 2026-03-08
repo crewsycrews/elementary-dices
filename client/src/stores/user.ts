@@ -112,7 +112,11 @@ export const useUserStore = defineStore(
 
     // Google OAuth login - redirects to Google
     function loginWithGoogle() {
-      const apiUrl = import.meta.env.VITE_SERVER_URL || "http://localhost:3000";
+      const rawApiUrl =
+        import.meta.env.VITE_API_BASE_URL ||
+        import.meta.env.VITE_SERVER_URL ||
+        window.location.origin;
+      const apiUrl = rawApiUrl.replace(/\/+$/, "");
       window.location.href = `${apiUrl}/api/auth/google`;
     }
 

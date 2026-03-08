@@ -11,7 +11,7 @@ export async function up(knex: Knex): Promise<void> {
   });
 
   // Drop the unique constraint on (dice_notation, rarity)
-  // Multiple dice of the same notation+rarity can now exist (e.g. 5 green d4 variants)
+  // Multiple dice of the same notation+rarity can now exist (e.g. 5 common d4 variants)
   await knex.raw(
     'ALTER TABLE dice_types DROP CONSTRAINT IF EXISTS dice_types_dice_notation_rarity_unique'
   );

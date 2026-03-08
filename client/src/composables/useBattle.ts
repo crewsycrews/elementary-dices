@@ -116,12 +116,22 @@ export function useBattle() {
   );
 
   const canEndTurn = computed(
-    () =>
-      battlePhase.value === "player_turn" &&
-      farkleTurnState.value !== null &&
-      (activeCombinations.value.length > 0 ||
+    () => {
+      if (battlePhase.value !== "player_turn" || !farkleTurnState.value) {
+        return false;
+      }
+
+      const hasAccumulatedDiceRushBonuses = Object.values(
+        farkleTurnState.value.accumulated_dice_rush_bonuses ?? {},
+      ).some((bonus) => bonus > 0);
+
+      return (
+        activeCombinations.value.length > 0 ||
         farkleTurnState.value.set_aside_element_bonus !== null ||
-        isBusted.value),
+        hasAccumulatedDiceRushBonuses ||
+        isBusted.value
+      );
+    },
   );
 
   const totalPlayerPower = computed(() =>

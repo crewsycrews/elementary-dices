@@ -1,5 +1,6 @@
 import { DiceRepository } from './repository';
 import { NotFoundError, BadRequestError, ConflictError } from '../../shared/errors';
+import { db } from '../../db';
 import type {
   CreateDiceTypeData,
   UpdateDiceTypeData,
@@ -73,17 +74,57 @@ export class DiceService {
   async addPlayerDice(playerId: string, data: AddPlayerDiceData): Promise<PlayerDice> {
     // Verify dice type exists and get notation
     const diceType = await this.findDiceTypeById(data.dice_type_id);
+    let insertedDiceId: string | null = null;
 
-    // If equipping this dice, unequip the old one of same notation
-    if (data.is_equipped) {
-      await this.repository.unequipDiceByNotation(playerId, diceType.dice_notation);
+    await db.transaction(async (trx) => {
+      const user = await trx('users')
+        .where({ id: playerId })
+        .select('currency')
+        .first();
+
+      if (!user) {
+        throw new NotFoundError('User');
+      }
+
+      if (user.currency < diceType.price) {
+        throw new BadRequestError('Insufficient currency');
+      }
+
+      await trx('users')
+        .where({ id: playerId })
+        .decrement('currency', diceType.price);
+
+      // If equipping this dice, unequip the old one of same notation
+      if (data.is_equipped) {
+        await trx('player_dice')
+          .where({
+            player_id: playerId,
+            dice_notation: diceType.dice_notation,
+            is_equipped: true,
+          })
+          .update({ is_equipped: false });
+      }
+
+      const [inserted] = await trx('player_dice').insert({
+        player_id: playerId,
+        dice_type_id: data.dice_type_id,
+        is_equipped: data.is_equipped || false,
+        dice_notation: diceType.dice_notation,
+      }).returning('id');
+
+      insertedDiceId = inserted?.id ?? null;
+    });
+
+    if (!insertedDiceId) {
+      throw new NotFoundError('Player dice');
     }
 
-    // Add with dice_notation populated
-    return this.repository.addPlayerDice(playerId, {
-      ...data,
-      dice_notation: diceType.dice_notation,
-    });
+    const insertedDice = await this.findPlayerDiceById(insertedDiceId);
+    if (!insertedDice) {
+      throw new NotFoundError('Player dice');
+    }
+
+    return insertedDice;
   }
 
   async equipDice(id: string, playerId: string): Promise<PlayerDice> {

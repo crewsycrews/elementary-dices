@@ -1,5 +1,6 @@
 import { ItemRepository } from './repository';
 import { NotFoundError, BadRequestError } from '../../shared/errors';
+import { db } from '../../db';
 import type {
   CreateItemData,
   UpdateItemData,
@@ -67,10 +68,47 @@ export class ItemService {
   }
 
   async addInventoryItem(playerId: string, data: AddInventoryItemData): Promise<PlayerInventory> {
-    // Verify item exists
-    await this.findItemById(data.item_id);
+    // Verify item exists and charge currency for purchase.
+    const item = await this.findItemById(data.item_id);
+    const quantity = data.quantity || 1;
+    const totalCost = item.price * quantity;
 
-    return this.repository.addInventoryItem(playerId, data);
+    await db.transaction(async (trx) => {
+      const user = await trx('users')
+        .where({ id: playerId })
+        .select('currency')
+        .first();
+
+      if (!user) {
+        throw new NotFoundError('User');
+      }
+
+      if (user.currency < totalCost) {
+        throw new BadRequestError('Insufficient currency');
+      }
+
+      await trx('users')
+        .where({ id: playerId })
+        .decrement('currency', totalCost);
+
+      const existing = await trx('player_inventory')
+        .where({ player_id: playerId, item_id: data.item_id })
+        .first();
+
+      if (existing) {
+        await trx('player_inventory')
+          .where({ player_id: playerId, item_id: data.item_id })
+          .increment('quantity', quantity);
+      } else {
+        await trx('player_inventory').insert({
+          player_id: playerId,
+          item_id: data.item_id,
+          quantity,
+        });
+      }
+    });
+
+    return this.findInventoryItem(playerId, data.item_id);
   }
 
   async updateInventoryItem(

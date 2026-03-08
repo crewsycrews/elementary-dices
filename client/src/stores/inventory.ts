@@ -37,7 +37,7 @@ type PlayerInventoryItem = {
 type DiceType = {
   id: string;
   dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
-  rarity: "green" | "blue" | "purple" | "gold";
+  rarity: "common" | "rare" | "epic" | "legendary";
   name: string;
   faces: ("fire" | "water" | "earth" | "air" | "lightning")[];
   price: number;

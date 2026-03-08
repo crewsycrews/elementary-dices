@@ -1,20 +1,22 @@
 <template>
   <div class="container mx-auto p-6 space-y-6">
-    <!-- Back Button -->
+    <!-- Header -->
+    <div class="grid grid-cols-[auto_1fr_auto] items-start gap-3">
     <button
       @click="$router.push('/')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+      class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
       <span class="font-semibold">Back</span>
     </button>
 
-    <!-- Header -->
     <div class="text-center">
       <h1 class="text-3xl font-bold mb-2">🎲 Dice Collection</h1>
       <p class="text-muted-foreground">
         Manage and equip your dice for events and battles
       </p>
+    </div>
+      <span class="w-14" aria-hidden="true"></span>
     </div>
 
     <!-- Hand Dice Selector -->

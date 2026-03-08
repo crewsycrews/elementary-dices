@@ -12,11 +12,6 @@
       :value="result?.roll_value"
     />
 
-    <!-- Dice type label -->
-    <div class="dice-type-label">
-      <span class="text-muted">{{ diceType.toUpperCase() }}</span>
-    </div>
-
     <!-- Result -->
     <div
       v-if="showResult && showOutcome && result"
@@ -31,7 +26,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref } from "vue";
 import Dice3D from "./Dice3D.vue";
 
 export interface DiceRollResult {
@@ -40,11 +35,11 @@ export interface DiceRollResult {
 }
 
 const ELEMENT_EMOJI: Record<string, string> = {
-  fire: '\uD83D\uDD25',
-  water: '\uD83C\uDF0A',
-  air: '\uD83D\uDCA8',
-  earth: '\u26F0\uFE0F',
-  lightning: '\u26A1',
+  fire: "\uD83D\uDD25",
+  water: "\uD83C\uDF0A",
+  air: "\uD83D\uDCA8",
+  earth: "\u26F0\uFE0F",
+  lightning: "\u26A1",
 };
 
 const props = defineProps<{
@@ -93,7 +88,7 @@ const handleRollComplete = () => {
 
 // Get element label with emoji
 const getElementLabel = (element: string): string => {
-  const emoji = ELEMENT_EMOJI[element] ?? '';
+  const emoji = ELEMENT_EMOJI[element] ?? "";
   return `${emoji} ${element.charAt(0).toUpperCase() + element.slice(1)}`;
 };
 

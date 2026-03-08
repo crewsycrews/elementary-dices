@@ -1,16 +1,16 @@
 <template>
   <div class="battle-arena w-full">
     <!-- Battle Grid: Player vs Opponent -->
-    <div class="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-4 items-start">
+    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,18rem)_auto_minmax(0,18rem)] gap-3 md:gap-4 items-start justify-center">
       <!-- Player Party (Left) -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-bold text-blue-400">Your Party</h3>
+      <div class="w-full md:max-w-[18rem] md:justify-self-end space-y-1.5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-bold text-blue-400">Your Party</h3>
           <span class="text-sm font-bold text-blue-400">
             {{ totalPlayerPower.toFixed(1) }} PWR
           </span>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-1.5">
           <BattleElementalCard
             v-for="(member, index) in playerParty"
             :key="member.elemental_id + '-' + index"
@@ -30,21 +30,24 @@
         <div v-if="showTargets" class="mt-4 text-xs text-muted-foreground text-center">
           <div v-for="line in targetLines" :key="line.fromIndex" class="flex items-center gap-1 mb-1">
             <span>{{ playerParty[line.fromIndex]?.name }}</span>
-            <span class="text-muted-foreground">→</span>
+            <span class="text-muted-foreground">&#8594;</span>
             <span>{{ opponentParty[line.toIndex]?.name }}</span>
           </div>
+        </div>
+        <div v-if="slots.centerActions" class="mt-4 flex justify-center">
+          <slot name="centerActions" />
         </div>
       </div>
 
       <!-- Opponent Party (Right) -->
-      <div class="space-y-2">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-lg font-bold text-red-400">{{ opponentName }}</h3>
+      <div class="w-full md:max-w-[18rem] md:justify-self-start space-y-1.5">
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-base font-bold text-red-400">{{ opponentName }}</h3>
           <span class="text-sm font-bold text-red-400">
             {{ totalOpponentPower.toFixed(1) }} PWR
           </span>
         </div>
-        <div class="space-y-2">
+        <div class="space-y-1.5">
           <BattleElementalCard
             v-for="(member, index) in opponentParty"
             :key="member.elemental_id + '-' + index"
@@ -60,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, useSlots } from 'vue'
 import BattleElementalCard from './BattleElementalCard.vue'
 import type { BattlePartyMember } from '@/stores/event'
 
@@ -77,6 +80,8 @@ const props = defineProps<{
     defenderElement: string
   }>
 }>()
+
+const slots = useSlots()
 
 const totalPlayerPower = computed(() =>
   props.playerParty.reduce((sum, m) => sum + m.current_power, 0)

@@ -83,7 +83,7 @@ export class UserService {
       password_hash,
     });
 
-    // Populate player's inventory with 5 dice of each type (green rarity)
+    // Populate player's inventory with 5 dice of each type (common rarity)
     await this.giveStarterDice(user.id);
 
     return user;
@@ -167,10 +167,10 @@ export class UserService {
     return `hashed_${password}`;
   }
 
-  // Give new players 5 dice (one random green per notation - d4, d6, d10, d12, d20)
+  // Give new players 5 dice (one random common per notation - d4, d6, d10, d12, d20)
   async giveStarterDice(playerId: string): Promise<void> {
-    // Get all green (starter) dice types
-    const starterDiceTypes = await this.diceRepository.findDiceTypesByRarity('green');
+    // Get all common (starter) dice types
+    const starterDiceTypes = await this.diceRepository.findDiceTypesByRarity('common');
 
     // Group by notation, then pick a random one from each group
     const byNotation = new Map<string, typeof starterDiceTypes>();

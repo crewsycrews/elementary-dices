@@ -16,11 +16,11 @@ interface DiceSeedEntry {
 /**
  * Elemental faces dice seed data.
  *
- * d4  (green only, 5 variants) — 4 of 5 elements, each variant missing one
- * d6  (green only, 5 variants) — all 5 elements + 1 duplicate
- * d10 (green: 1 flat, blue: 5)  — green = 2 each, blue = one element at 3
- * d12 (green only, 5 variants)  — 2 each + 2 extras on one element
- * d20 (green: 1, blue: 5, purple: 5) — green = 4 each, blue = one at 5, purple = one at 6
+ * d4  (common only, 5 variants) — 4 of 5 elements, each variant missing one
+ * d6  (common only, 5 variants) — all 5 elements + 1 duplicate
+ * d10 (common: 1 flat, rare: 5)  — common = 2 each, rare = one element at 3
+ * d12 (common only, 5 variants)  — 2 each + 2 extras on one element
+ * d20 (common: 1, rare: 5, epic: 5) — common = 4 each, rare = one at 5, epic = one at 6
  */
 
 function repeat(el: Element, n: number): Element[] {
@@ -71,13 +71,13 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-// ─── d4 (green × 5) ────────────────────────────────────────────────
+// ─── d4 (common × 5) ────────────────────────────────────────────────
 function generateD4Variants(): DiceSeedEntry[] {
   return ELEMENTS.map((missing) => {
     const faces = shuffleNoAdjacent(ELEMENTS.filter((el) => el !== missing));
     return {
       dice_notation: "d4",
-      rarity: "green",
+      rarity: "common",
       name: `D4 No-${capitalize(missing)}`,
       faces,
       price: 50,
@@ -86,13 +86,13 @@ function generateD4Variants(): DiceSeedEntry[] {
   });
 }
 
-// ─── d6 (green × 5) ────────────────────────────────────────────────
+// ─── d6 (common × 5) ────────────────────────────────────────────────
 function generateD6Variants(): DiceSeedEntry[] {
   return ELEMENTS.map((doubled) => {
     const faces: Element[] = shuffleNoAdjacent([...ELEMENTS, doubled]);
     return {
       dice_notation: "d6",
-      rarity: "green",
+      rarity: "common",
       name: `D6 ${capitalize(doubled)}+`,
       faces,
       price: 60,
@@ -101,21 +101,21 @@ function generateD6Variants(): DiceSeedEntry[] {
   });
 }
 
-// ─── d10 (green × 1, blue × 5) ─────────────────────────────────────
+// ─── d10 (common × 1, rare × 5) ─────────────────────────────────────
 function generateD10Variants(): DiceSeedEntry[] {
   const variants: DiceSeedEntry[] = [];
 
-  // Green: flat 2 of each
+  // common: flat 2 of each
   variants.push({
     dice_notation: "d10",
-    rarity: "green",
+    rarity: "common",
     name: "D10 Balanced",
     faces: flatDistribution(2),
     price: 75,
     description: "A ten-sided die with 2 of each element.",
   });
 
-  // Blue: one element at 3, another drops to 1
+  // rare: one element at 3, another drops to 1
   for (const boosted of ELEMENTS) {
     const reducedIndex = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
     const reduced = ELEMENTS[reducedIndex];
@@ -128,7 +128,7 @@ function generateD10Variants(): DiceSeedEntry[] {
     }
     variants.push({
       dice_notation: "d10",
-      rarity: "blue",
+      rarity: "rare",
       name: `D10 ${capitalize(boosted)} Focus`,
       faces: shuffleNoAdjacent(faces),
       price: 225,
@@ -139,7 +139,7 @@ function generateD10Variants(): DiceSeedEntry[] {
   return variants;
 }
 
-// ─── d12 (green × 5) ───────────────────────────────────────────────
+// ─── d12 (common × 5) ───────────────────────────────────────────────
 function generateD12Variants(): DiceSeedEntry[] {
   // Base: 2 of each = 10 faces, + 2 extras on the boosted element
   return ELEMENTS.map((boosted) => {
@@ -149,7 +149,7 @@ function generateD12Variants(): DiceSeedEntry[] {
     }
     return {
       dice_notation: "d12",
-      rarity: "green",
+      rarity: "common",
       name: `D12 ${capitalize(boosted)}+`,
       faces: shuffleNoAdjacent(faces),
       price: 90,
@@ -158,21 +158,21 @@ function generateD12Variants(): DiceSeedEntry[] {
   });
 }
 
-// ─── d20 (green × 1, blue × 5, purple × 5) ────────────────────────
+// ─── d20 (common × 1, rare × 5, epic × 5) ────────────────────────
 function generateD20Variants(): DiceSeedEntry[] {
   const variants: DiceSeedEntry[] = [];
 
-  // Green: flat 4 of each
+  // common: flat 4 of each
   variants.push({
     dice_notation: "d20",
-    rarity: "green",
+    rarity: "common",
     name: "D20 Balanced",
     faces: flatDistribution(4),
     price: 125,
     description: "A twenty-sided die with 4 of each element.",
   });
 
-  // Blue: one element at 5 faces (6+3+4+4+3 would be wrong, let's do 5+3+4+4+4=20)
+  // rare: one element at 5 faces (6+3+4+4+3 would be wrong, let's do 5+3+4+4+4=20)
   for (const boosted of ELEMENTS) {
     const reducedIndex = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
     const reduced = ELEMENTS[reducedIndex];
@@ -185,7 +185,7 @@ function generateD20Variants(): DiceSeedEntry[] {
     }
     variants.push({
       dice_notation: "d20",
-      rarity: "blue",
+      rarity: "rare",
       name: `D20 ${capitalize(boosted)} Focus`,
       faces: shuffleNoAdjacent(faces),
       price: 375,
@@ -193,7 +193,7 @@ function generateD20Variants(): DiceSeedEntry[] {
     });
   }
 
-  // Purple: one element at 6 faces (6+3+3+4+4=20)
+  // epic: one element at 6 faces (6+3+3+4+4=20)
   for (const boosted of ELEMENTS) {
     const reducedIndex1 = (ELEMENTS.indexOf(boosted) + 1) % ELEMENTS.length;
     const reducedIndex2 = (ELEMENTS.indexOf(boosted) + 2) % ELEMENTS.length;
@@ -208,7 +208,7 @@ function generateD20Variants(): DiceSeedEntry[] {
     }
     variants.push({
       dice_notation: "d20",
-      rarity: "purple",
+      rarity: "epic",
       name: `D20 ${capitalize(boosted)} Mastery`,
       faces: shuffleNoAdjacent(faces),
       price: 1000,
@@ -242,3 +242,4 @@ export async function seed(knex: Knex): Promise<void> {
 
   await knex("dice_types").insert(diceTypes);
 }
+

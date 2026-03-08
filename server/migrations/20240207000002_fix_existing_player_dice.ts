@@ -13,10 +13,10 @@ export async function up(knex: Knex): Promise<void> {
           PARTITION BY pd.player_id, pd.dice_notation
           ORDER BY
             CASE dt.rarity
-              WHEN 'gold' THEN 1
-              WHEN 'purple' THEN 2
-              WHEN 'blue' THEN 3
-              WHEN 'green' THEN 4
+              WHEN 'legendary' THEN 1
+              WHEN 'epic' THEN 2
+              WHEN 'rare' THEN 3
+              WHEN 'common' THEN 4
             END,
             pd.id DESC
         ) as rn
@@ -32,7 +32,7 @@ export async function up(knex: Knex): Promise<void> {
   `);
 
   // Step 2: Fix players with no equipped dice
-  // Auto-equip one dice per notation (prefer green/starter rarity)
+  // Auto-equip one dice per notation (prefer common/starter rarity)
   const playersWithoutEquipped = await knex.raw(`
     SELECT DISTINCT player_id
     FROM player_dice pd1
@@ -45,7 +45,7 @@ export async function up(knex: Knex): Promise<void> {
   for (const row of playersWithoutEquipped.rows) {
     const playerId = row.player_id;
 
-    // For each notation, equip one dice (prefer green rarity)
+    // For each notation, equip one dice (prefer common rarity)
     await knex.raw(`
       WITH ranked_dice AS (
         SELECT
@@ -55,10 +55,10 @@ export async function up(knex: Knex): Promise<void> {
             PARTITION BY pd.dice_notation
             ORDER BY
               CASE dt.rarity
-                WHEN 'green' THEN 1
-                WHEN 'blue' THEN 2
-                WHEN 'purple' THEN 3
-                WHEN 'gold' THEN 4
+                WHEN 'common' THEN 1
+                WHEN 'rare' THEN 2
+                WHEN 'epic' THEN 3
+                WHEN 'legendary' THEN 4
               END,
               pd.id
           ) as rn
@@ -88,10 +88,10 @@ export async function up(knex: Knex): Promise<void> {
           ORDER BY
             pd.is_equipped DESC,
             CASE dt.rarity
-              WHEN 'gold' THEN 1
-              WHEN 'purple' THEN 2
-              WHEN 'blue' THEN 3
-              WHEN 'green' THEN 4
+              WHEN 'legendary' THEN 1
+              WHEN 'epic' THEN 2
+              WHEN 'rare' THEN 3
+              WHEN 'common' THEN 4
             END,
             pd.id
         ) as rn

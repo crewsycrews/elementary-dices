@@ -43,8 +43,8 @@ import {
   type Combination,
 } from "./farkle-battle-logic";
 
-type DiceRarity = "green" | "blue" | "purple" | "gold";
-const RARITY_ORDER: DiceRarity[] = ["green", "blue", "purple", "gold"];
+type DiceRarity = "common" | "rare" | "epic" | "legendary";
+const RARITY_ORDER: DiceRarity[] = ["common", "rare", "epic", "legendary"];
 
 function calculateSetAsideBonuses(
   dice: FarkleDie[],
@@ -788,18 +788,24 @@ export class EventService {
 
     const detected = detectCombinations(rolledDice);
     const previousTurnState = battleState.player_turn;
-    const isFirstRollOfTurn = !previousTurnState || !previousTurnState.has_used_reroll;
+    const isFirstRollOfTurn = !previousTurnState;
+    const hasUsedReroll = !isFirstRollOfTurn;
+    const busted = isBust(
+      rolledDice,
+      battleState.set_aside_element,
+      hasUsedReroll,
+    );
 
     battleState.player_turn = {
-      phase: isFirstRollOfTurn ? "can_reroll" : "set_aside",
+      phase: busted ? "done" : isFirstRollOfTurn ? "can_reroll" : "set_aside",
       dice: rolledDice,
-      has_used_reroll: !isFirstRollOfTurn,
+      has_used_reroll: hasUsedReroll,
       active_combinations: [],
       set_aside_element_bonus: null,
       accumulated_dice_rush_bonuses:
         previousTurnState?.accumulated_dice_rush_bonuses ?? {},
       is_dice_rush: false,
-      busted: false,
+      busted,
     };
 
     await this.farkleSessionRepo.updateState(sessionId, {
@@ -809,7 +815,7 @@ export class EventService {
     return {
       battle_state: battleState,
       detected_combinations: detected,
-      is_busted: false,
+      is_busted: busted,
       is_dice_rush: false,
     };
   }

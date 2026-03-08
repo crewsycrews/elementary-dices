@@ -3,13 +3,13 @@ import type { Knex } from 'knex';
 export async function up(knex: Knex): Promise<void> {
   // Create dice rarity enum
   await knex.raw(`
-    CREATE TYPE dice_rarity AS ENUM ('green', 'blue', 'purple', 'gold');
+    CREATE TYPE dice_rarity AS ENUM ('common', 'rare', 'epic', 'legendary');
   `);
 
   await knex.schema.createTable('dice_types', (table) => {
     table.uuid('id').primary().defaultTo(knex.raw('uuid_generate_v7()'));
     table.string('dice_notation', 10).notNullable(); // d4, d6, d10, d12, d20
-    table.enu('rarity', ['green', 'blue', 'purple', 'gold'], {
+    table.enu('rarity', ['common', 'rare', 'epic', 'legendary'], {
       useNative: true,
       enumName: 'dice_rarity',
       existingType: true,

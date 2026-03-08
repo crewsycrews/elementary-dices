@@ -89,7 +89,7 @@ const ELEMENT_EMOJI: Record<string, string> = {
 interface DiceTypeData {
   id: string;
   dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
-  rarity: "green" | "blue" | "purple" | "gold";
+  rarity: "common" | "rare" | "epic" | "legendary";
   name: string;
   description?: string;
   faces?: ("fire" | "water" | "earth" | "lightning" | "air")[];
@@ -139,13 +139,13 @@ const faceDistribution = computed(() => {
 
 const rarityClass = computed(() => {
   switch (props.dice.dice_type?.rarity) {
-    case "green":
+    case "common":
       return "bg-green-500/20 text-green-600";
-    case "blue":
+    case "rare":
       return "bg-blue-500/20 text-blue-600";
-    case "purple":
+    case "epic":
       return "bg-purple-500/20 text-purple-600";
-    case "gold":
+    case "legendary":
       return "bg-yellow-500/20 text-yellow-600";
     default:
       return "bg-gray-500/20 text-gray-600";

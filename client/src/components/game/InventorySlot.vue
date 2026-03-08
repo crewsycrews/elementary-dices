@@ -174,14 +174,10 @@ const slotClasses = computed(() => {
   }
 
   const rarityColors: Record<string, string> = {
-    common: 'border-gray-400',
+    common: 'border-green-500',
     rare: 'border-blue-500',
     epic: 'border-purple-500',
     legendary: 'border-yellow-500',
-    green: 'border-green-500',
-    blue: 'border-blue-500',
-    purple: 'border-purple-500',
-    gold: 'border-yellow-500',
   };
 
   return rarity.value ? rarityColors[rarity.value] : 'border-gray-400';
@@ -191,14 +187,10 @@ const backgroundClass = computed(() => {
   if (isEmpty.value) return 'bg-muted/30';
 
   const rarityBgs: Record<string, string> = {
-    common: 'bg-gray-500/10',
+    common: 'bg-green-500/10',
     rare: 'bg-blue-500/10',
     epic: 'bg-purple-500/10',
     legendary: 'bg-gradient-to-br from-yellow-400/20 to-orange-500/20',
-    green: 'bg-green-500/10',
-    blue: 'bg-blue-500/10',
-    purple: 'bg-purple-500/10',
-    gold: 'bg-gradient-to-br from-yellow-400/20 to-yellow-600/20',
   };
 
   return rarity.value ? rarityBgs[rarity.value] : 'bg-muted/30';
@@ -206,14 +198,10 @@ const backgroundClass = computed(() => {
 
 const rarityBadgeClass = computed(() => {
   const rarityColors: Record<string, string> = {
-    common: 'bg-gray-500/20 text-gray-700',
+    common: 'bg-green-500/20 text-green-700',
     rare: 'bg-blue-500/20 text-blue-700',
     epic: 'bg-purple-500/20 text-purple-700',
     legendary: 'bg-yellow-500/20 text-yellow-700',
-    green: 'bg-green-500/20 text-green-700',
-    blue: 'bg-blue-500/20 text-blue-700',
-    purple: 'bg-purple-500/20 text-purple-700',
-    gold: 'bg-yellow-500/20 text-yellow-700',
   };
 
   return rarity.value ? rarityColors[rarity.value] : 'bg-gray-500/20 text-gray-700';

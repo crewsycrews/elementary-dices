@@ -19,10 +19,10 @@ export const StatsSchema = t.Object({
 
 // Dice rarity
 export const DiceRarity = t.Union([
-  t.Literal("green"),
-  t.Literal("blue"),
-  t.Literal("purple"),
-  t.Literal("gold"),
+  t.Literal("common"),
+  t.Literal("rare"),
+  t.Literal("epic"),
+  t.Literal("legendary"),
 ]);
 
 // Item rarity
