@@ -35,6 +35,7 @@
         <div class="text-center">
           <h1 class="text-3xl font-bold mb-2">Wild Encounter</h1>
           <div
+            v-if="!captureResult"
             class="inline-block px-4 py-2 rounded-lg font-semibold"
             :class="
               getDifficultyClass(
@@ -43,22 +44,24 @@
             "
           >
             Capture difficulty:
-            {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
+            {{
+              eventStore.wildEncounterData?.capture_difficulty?.toUpperCase()
+            }}
           </div>
         </div>
         <span class="w-14" aria-hidden="true"></span>
       </div>
 
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-        <div class="space-y-4">
+      <div class="flex flex-col gap-6 items-center">
+        <div class="space-y-4 flex flex-col">
           <ElementalCard
-            v-if="wildElemental"
+            v-if="wildElemental && canRoll && !captureResult"
             :elemental="wildElemental"
-            :show-stats="true"
+            :show-stats="false"
             :show-description="true"
           />
 
-          <div class="space-y-2">
+          <div v-if="canRoll && !captureResult" class="space-y-2">
             <label class="text-sm font-semibold">Use Item (Optional)</label>
             <select
               v-model="selectedItem"
@@ -79,8 +82,18 @@
           </div>
 
           <button
+            v-if="canRoll && !captureResult"
+            @click="handleRoll"
+            :disabled="isBusy"
+            class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+          >
+            {{ isBusy ? "ROLLING..." : "Start capturing" }}
+          </button>
+
+          <button
             @click="handleSkipEncounter"
             :disabled="isBusy || !!captureResult"
+            v-if="!captureResult"
             class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
           >
             Skip Encounter
@@ -144,20 +157,6 @@
             </div>
 
             <div class="space-y-3">
-              <div v-if="canRoll" class="space-y-4">
-                <DiceInventoryPanel :disabled="isBusy">
-                  <template #hand-center>
-                    <button
-                      @click="handleRoll"
-                      :disabled="isBusy"
-                      class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
-                    >
-                      {{ isBusy ? "ROLLING..." : "ROLL" }}
-                    </button>
-                  </template>
-                </DiceInventoryPanel>
-              </div>
-
               <div class="flex flex-wrap gap-3">
                 <button
                   v-if="canReroll"
@@ -487,7 +486,7 @@ const handleSkipEncounter = async () => {
   try {
     await apiCall(
       () =>
-        api.api.events["wild-encounter"].skip.post({
+        api.api["wild-encounters"].skip.post({
           player_id: userId,
         }),
       { successMessage: "Encounter skipped" },

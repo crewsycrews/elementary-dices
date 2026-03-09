@@ -470,8 +470,46 @@ export class EventService {
    * Start a battle (legacy endpoint compatibility).
    */
   async startBattle(playerId: string): Promise<FarkleBattleState> {
-    const { battleState } = await this.getFarkleBattle(playerId);
-    return battleState;
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+    if (!currentEvent || currentEvent.event_type !== "pvp_battle") {
+      throw new BadRequestError("No active PvP battle event");
+    }
+    if (!currentEvent.battle_id) {
+      throw new BadRequestError("Invalid battle event");
+    }
+
+    const session = await this.farkleSessionRepo.findSessionByEvent(
+      "pvp_battle",
+      currentEvent.battle_id,
+    );
+    if (session) {
+      const state = await this.farkleSessionRepo.getState(session.id);
+      const battleState = state?.meta?.battle_state as FarkleBattleState | undefined;
+      if (!battleState) {
+        throw new BadRequestError("Battle state not initialized");
+      }
+      if (battleState.player_turn) {
+        battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
+      }
+      return battleState;
+    }
+
+    const battle = await this.battleRepo.findById(currentEvent.battle_id);
+    if (!battle) {
+      throw new NotFoundError("Battle event");
+    }
+    const seed =
+      (battle.opponent_party_data?.seed_battle_state as FarkleBattleState | undefined) ?? null;
+    if (!seed) {
+      throw new BadRequestError("Battle seed data is missing");
+    }
+
+    return {
+      ...seed,
+      phase: "choose_element",
+      set_aside_element: null,
+      player_turn: null,
+    };
   }
 
   // ======================================================================

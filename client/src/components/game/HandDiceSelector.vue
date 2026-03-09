@@ -6,7 +6,7 @@
     <p
       class="text-sm md:text-base text-muted-foreground text-center font-semibold"
     >
-      Select your dice
+      Change your equipped dice
     </p>
 
     <!-- Hand with Dice Container -->
@@ -43,17 +43,12 @@
             :value="diceType.maxValue || 4"
             :scale="selectedDiceType === diceType.type ? 0.4 : 0.3"
             :show-shadow="true"
-            :affinity="diceAffinities[diceType.type] as any"
+            :affinity="diceAffinities[diceType.type]"
             :element-faces="diceFaces[diceType.type]"
           />
         </div>
       </div>
     </div>
-
-    <!-- Hint Text -->
-    <p class="text-xs text-muted-foreground text-center">
-      Click on a dice to select it for your next roll
-    </p>
   </div>
 </template>
 
@@ -103,10 +98,10 @@ const groupedDice = computed(() => {
 
 // Get the primary face element of the first equipped dice for each type
 const diceAffinities = computed(() => {
-  const result: Record<string, string | undefined> = {};
+  const result: Record<string, "fire" | "water" | "earth" | "air" | "lightning" | undefined> = {};
   for (const [type, dice] of Object.entries(groupedDice.value)) {
     const faces = (dice[0] as any)?.dice_type?.faces as string[] | undefined;
-    result[type] = faces?.[0];
+    result[type] = faces?.[0] as "fire" | "water" | "earth" | "air" | "lightning" | undefined;
   }
   return result;
 });

@@ -1,11 +1,11 @@
 <template>
   <div
-    class="elemental-card relative rounded-lg border-2 overflow-hidden transition-all duration-200 hover:shadow-lg flex flex-col"
+    class="elemental-card relative rounded-lg border-2 overflow-auto transition-all duration-200 hover:shadow-lg flex flex-col"
     :class="[
       elementBorderColor,
       isSelectable ? 'cursor-pointer hover:scale-105' : '',
       isSelected ? 'ring-4 ring-primary' : '',
-      isDraggable ? 'cursor-move' : ''
+      isDraggable ? 'cursor-move' : '',
     ]"
     :draggable="isDraggable"
     @click="handleClick"
@@ -20,7 +20,9 @@
     </div>
 
     <!-- Image -->
-    <div class="aspect-square bg-gradient-to-br from-muted to-background p-4 flex items-center justify-center h-96">
+    <div
+      class="aspect-square bg-gradient-to-br from-muted to-background p-4 flex items-center justify-center h-56"
+    >
       <img
         v-if="elemental.image_url"
         :src="elemental.image_url"
@@ -48,14 +50,13 @@
       </div>
 
       <!-- Stats Display -->
-      <StatsDisplay
-        v-if="showStats"
-        :stats="displayStats"
-        :compact="compact"
-      />
+      <StatsDisplay v-if="showStats" :stats="displayStats" :compact="compact" />
 
       <!-- Description -->
-      <p v-if="!compact && elemental.description" class="text-xs text-muted-foreground line-clamp-2">
+      <p
+        v-if="!compact && elemental.description"
+        class="text-xs text-muted-foreground line-clamp-2"
+      >
         {{ elemental.description }}
       </p>
 
@@ -66,9 +67,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import type { ElementalSchema, StatsSchema } from '@elementary-dices/shared/schemas';
-import StatsDisplay from './StatsDisplay.vue';
+import { computed } from "vue";
+import type {
+  ElementalSchema,
+  StatsSchema,
+} from "@elementary-dices/shared/schemas";
+import StatsDisplay from "./StatsDisplay.vue";
 
 interface Props {
   elemental: typeof ElementalSchema.static;
@@ -83,7 +87,7 @@ interface Props {
 
 const props = withDefaults(defineProps<Props>(), {
   compact: false,
-  showStats: true,
+  showStats: false,
   isSelectable: false,
   isSelected: false,
   isDraggable: false,
@@ -102,30 +106,30 @@ const displayStats = computed(() => props.stats || props.elemental.base_stats);
 const elementBorderColor = computed(() => {
   const primaryElement = props.elemental.element_types[0];
   const colors: Record<string, string> = {
-    fire: 'border-red-500',
-    water: 'border-blue-500',
-    earth: 'border-green-600',
-    air: 'border-cyan-400',
-    lightning: 'border-yellow-400',
+    fire: "border-red-500",
+    water: "border-blue-500",
+    earth: "border-green-600",
+    air: "border-cyan-400",
+    lightning: "border-yellow-400",
   };
-  return colors[primaryElement] || 'border-gray-400';
+  return colors[primaryElement] || "border-gray-400";
 });
 
 // Get badge colors for element types
 const getElementBadgeColor = (element: string) => {
   const colors: Record<string, string> = {
-    fire: 'bg-red-500/20 text-red-700 dark:text-red-300',
-    water: 'bg-blue-500/20 text-blue-700 dark:text-blue-300',
-    earth: 'bg-green-600/20 text-green-700 dark:text-green-300',
-    air: 'bg-cyan-400/20 text-cyan-700 dark:text-cyan-300',
-    lightning: 'bg-yellow-400/20 text-yellow-700 dark:text-yellow-300',
+    fire: "bg-red-500/20 text-red-700 dark:text-red-300",
+    water: "bg-blue-500/20 text-blue-700 dark:text-blue-300",
+    earth: "bg-green-600/20 text-green-700 dark:text-green-300",
+    air: "bg-cyan-400/20 text-cyan-700 dark:text-cyan-300",
+    lightning: "bg-yellow-400/20 text-yellow-700 dark:text-yellow-300",
   };
-  return colors[element] || 'bg-gray-400/20 text-gray-700';
+  return colors[element] || "bg-gray-400/20 text-gray-700";
 };
 
 const handleClick = () => {
   if (props.isSelectable) {
-    emit('click', props.elemental);
+    emit("click", props.elemental);
   }
 };
 
@@ -133,16 +137,16 @@ const handleDragStart = (event: DragEvent) => {
   if (!props.isDraggable || !props.playerElementalId) return;
 
   if (event.dataTransfer) {
-    event.dataTransfer.effectAllowed = 'move';
-    event.dataTransfer.setData('playerElementalId', props.playerElementalId);
-    event.dataTransfer.setData('source', 'backpack');
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("playerElementalId", props.playerElementalId);
+    event.dataTransfer.setData("source", "backpack");
   }
 
-  emit('dragStart', props.playerElementalId);
+  emit("dragStart", props.playerElementalId);
 };
 
 const handleDragEnd = () => {
-  emit('dragEnd');
+  emit("dragEnd");
 };
 </script>
 

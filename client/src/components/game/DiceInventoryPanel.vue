@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-4">
+  <div class="space-y-4 flex flex-row">
     <div class="relative w-fit mx-auto">
       <HandDiceSelector
         :selected-dice-type="selectedDiceType"
