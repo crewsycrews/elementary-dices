@@ -2,9 +2,12 @@
     encode zstd gzip
     root * /usr/share/caddy
 
-    @api path /api/*
-    reverse_proxy @api server:3000
+    handle /api/* {
+        reverse_proxy server:3000
+    }
 
-    try_files {path} /index.html
-    file_server
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
 }
