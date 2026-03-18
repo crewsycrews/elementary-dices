@@ -30,7 +30,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       cookie.access_token.set({
         value: accessToken,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: 15 * 60, // 15 minutes
         path: "/",
@@ -39,7 +39,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       cookie.refresh_token.set({
         value: refreshToken,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60, // 7 days
         path: "/",
@@ -67,7 +67,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     cookie.access_token.set({
       value: accessToken,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
       maxAge: 15 * 60,
       path: "/",
@@ -76,7 +76,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     cookie.refresh_token.set({
       value: refreshToken,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60,
       path: "/",
@@ -96,7 +96,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     cookie.state.set({
       value: state,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
       maxAge: 15 * 60, // 15 minutes
       path: "/",
@@ -105,7 +105,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     cookie.code_verifier.set({
       value: codeVerifier,
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: false,
       sameSite: "lax",
       maxAge: 15 * 60, // 15 minutes
       path: "/",
@@ -142,7 +142,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       cookie.access_token.set({
         value: accessToken,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: 15 * 60, // 15 minutes
         path: "/",
@@ -151,7 +151,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       cookie.refresh_token.set({
         value: refreshToken,
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: false,
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60, // 7 days
         path: "/",

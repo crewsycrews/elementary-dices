@@ -2,6 +2,7 @@ import { Elysia, t } from "elysia";
 import { UserService } from "./service";
 import { CreateUserDTO, UpdateUserDTO, UpdateCurrencyDTO } from "./models";
 import { requireAuth } from "../auth/middleware";
+import { AuthService } from "../auth/service";
 import { UnauthorizedError } from "../../shared/errors";
 import type { AccessTokenPayload } from "../auth/models";
 
@@ -112,6 +113,7 @@ const protectedUsersRoutes = new Elysia()
 // Main users module with public routes
 export const usersModule = new Elysia({ prefix: "/api/users" })
   .decorate("userService", new UserService())
+  .decorate("authService", new AuthService())
 
   // Public routes
   // Get all users (public for now - could be restricted later)
@@ -135,8 +137,30 @@ export const usersModule = new Elysia({ prefix: "/api/users" })
   // Create new user (registration - public)
   .post(
     "/",
-    async ({ body, userService }) => {
-      const user = await userService.create(body);
+    async ({ body, userService, authService, cookie }) => {
+      await userService.create(body);
+
+      const { user, accessToken, refreshToken } =
+        await authService.loginWithPassword(body.username, body.password);
+
+      cookie.access_token.set({
+        value: accessToken,
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 15 * 60, // 15 minutes
+        path: "/",
+      });
+
+      cookie.refresh_token.set({
+        value: refreshToken,
+        httpOnly: true,
+        secure: false,
+        sameSite: "lax",
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+        path: "/",
+      });
+
       return { user };
     },
     {
