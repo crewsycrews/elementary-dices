@@ -1,5 +1,6 @@
 :80 {
     encode zstd gzip
+    root * /usr/share/caddy
 
     @api path /api/*
     reverse_proxy @api server:3000
