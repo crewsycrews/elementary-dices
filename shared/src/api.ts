@@ -10,9 +10,14 @@ type ViteEnv = {
 };
 
 const viteEnv = (import.meta as ImportMeta & { env?: ViteEnv }).env;
+type BrowserLikeGlobal = typeof globalThis & {
+  location?: { origin?: string };
+};
+const runtimeGlobal = globalThis as BrowserLikeGlobal;
 const apiBaseUrl =
   viteEnv?.VITE_API_BASE_URL ??
-  (typeof window !== "undefined" ? window.location.origin : "http://localhost:3000");
+  runtimeGlobal.location?.origin ??
+  "http://localhost:3000";
 
 /**
  * The API type that will be used by Eden for type-safe client generation

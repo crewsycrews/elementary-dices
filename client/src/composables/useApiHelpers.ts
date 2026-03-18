@@ -22,14 +22,13 @@ import type { BaseStats } from '@elementary-dices/shared/types'
  * 2. Kebab-case paths: api.api.players[userId]['start-game'].post()
  *
  * These wrappers provide explicit return types so consumers get full type inference.
- * All @ts-expect-error comments are centralized here instead of scattered across stores.
  */
 export const playerApi = {
   /**
    * Get all elementals for a specific player
    */
   getElementals(playerId: string): Promise<EdenResponse<ApiPlayerElementalsResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals.get()
   },
 
@@ -37,7 +36,7 @@ export const playerApi = {
    * Get active party for a player
    */
   getParty(playerId: string): Promise<EdenResponse<ApiPlayerPartyResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals.party.get()
   },
 
@@ -45,7 +44,7 @@ export const playerApi = {
    * Get backpack for a player
    */
   getBackpack(playerId: string): Promise<EdenResponse<ApiPlayerBackpackResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals.backpack.get()
   },
 
@@ -61,7 +60,7 @@ export const playerApi = {
       current_stats?: BaseStats
     }
   ): Promise<EdenResponse<ApiPlayerElementalResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals[elementalId].patch(updates)
   },
 
@@ -69,7 +68,7 @@ export const playerApi = {
     playerId: string,
     elementalId: string,
   ): Promise<EdenResponse<ApiPlayerElementalResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals[elementalId].delete()
   },
 
@@ -77,7 +76,7 @@ export const playerApi = {
    * Start game - roll for first elemental
    */
   startGame(playerId: string): Promise<EdenResponse<ApiStartGameResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer kebab-case paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this kebab-case dynamic route access
     return api.api.players[playerId]['start-game'].post()
   },
 
@@ -88,7 +87,7 @@ export const playerApi = {
     playerId: string,
     body: { position1: number; position2: number }
   ): Promise<EdenResponse<ApiSwapPartyResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals.swap.post(body)
   },
 
@@ -99,7 +98,7 @@ export const playerApi = {
     playerId: string,
     body: { elemental_ids: string[] }
   ): Promise<EdenResponse<ApiCombineElementalsResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].elementals.combine.post(body)
   },
 }
@@ -113,7 +112,7 @@ export const eventApi = {
    * Get current event for player
    */
   getCurrentEvent(playerId: string): Promise<EdenResponse<ApiEventResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].events.current.get()
   },
 
@@ -125,7 +124,7 @@ export const eventApi = {
     eventId: string,
     body: { dice_type_id: string; context: string }
   ): Promise<EdenResponse<ApiDiceRollResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].events[eventId].roll.post(body)
   },
 
@@ -137,7 +136,7 @@ export const eventApi = {
     eventId: string,
     body: { action: string; roll_id?: string; item_id?: string }
   ): Promise<EdenResponse<ApiResolveEventResponse>> {
-    // @ts-expect-error Eden Treaty doesn't infer dynamic paths, but runtime works correctly
+    // @ts-ignore Eden Treaty typing does not infer this dynamic route access
     return api.api.players[playerId].events[eventId].resolve.post(body)
   },
 }

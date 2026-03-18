@@ -19,7 +19,9 @@ COPY shared ./shared
 ARG VITE_API_BASE_URL
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-RUN bun --filter @elementary-dices/client build
+RUN rm -f shared/tsconfig.tsbuildinfo \
+  && bun --filter @elementary-dices/shared build \
+  && bun --filter @elementary-dices/client build
 
 
 FROM dependency-resolver AS backend-runner

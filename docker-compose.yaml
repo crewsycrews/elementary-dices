@@ -14,7 +14,7 @@ services:
       timeout: 5s
       retries: 10
     ports:
-      - "5432:5432"
+      - "5434:5432"
 
   server:
     build:
@@ -31,8 +31,8 @@ services:
       DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       CLIENT_URL: ${CLIENT_URL:-http://localhost}
       SERVER_URL: ${SERVER_URL:-http://localhost}
-      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
-      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-local-dev-google-client-id}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-local-dev-google-client-secret}
       GOOGLE_REDIRECT_URI: ${GOOGLE_REDIRECT_URI:-http://localhost/api/auth/google/callback}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-change_me_access_secret}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change_me_refresh_secret}
