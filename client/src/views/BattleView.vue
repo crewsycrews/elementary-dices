@@ -589,10 +589,12 @@ const handleFarkleRoll = async () => {
     const response = await eventStore.farkleRoll(userStore.userId);
     if (response?.result) {
       const rolledDice = response.result.battle_state?.player_turn?.dice ?? [];
-      const indicesToAnimate = rolledDice
-        .map((die: { is_set_aside: boolean }, index: number) => ({ die, index }))
-        .filter(({ die }) => !die.is_set_aside)
-        .map(({ index }) => index);
+      const indicesToAnimate: number[] = [];
+      rolledDice.forEach((die: { is_set_aside: boolean }, index: number) => {
+        if (!die.is_set_aside) {
+          indicesToAnimate.push(index);
+        }
+      });
       scheduleForcedDiceAnimation(indicesToAnimate);
       battle.updateFromTurnResult(response.result as any);
     }
@@ -769,5 +771,3 @@ onMounted(async () => {
   }
 });
 </script>
-
-

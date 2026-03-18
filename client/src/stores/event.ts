@@ -175,6 +175,57 @@ export type WildEncounterFarkleTurnResult = {
 }
 
 type EventData = WildEncounterData | MerchantData | PvPData
+type FarkleSessionEventData = EventData & {
+  farkle_session_id?: string
+  farkle_initialized?: boolean
+}
+type ApiResponse<T> = { data?: T }
+type PostRoute<TBody, TResponse = unknown> = {
+  post: (body: TBody) => Promise<ApiResponse<TResponse>>
+}
+type GetRoute<TResponse = unknown> = {
+  get: (params?: unknown) => Promise<ApiResponse<TResponse>>
+}
+
+type GameApiRoutes = {
+  events: {
+    options: GetRoute<{ options: EventOptions }>
+    create: PostRoute<{ player_id: string; event_type: EventType }, { event: EventResponse }>
+    current: Record<string, GetRoute<{ event: EventResponse | null }>>
+  }
+  battles: {
+    start: PostRoute<{ player_id: string }, { battle_state?: FarkleBattleState }>
+    farkle: {
+      init: PostRoute<
+        { player_id: string; event_type: EventType; event_id: string; set_aside_element: string },
+        { result?: { farkle_session_id: string; battle_state?: FarkleBattleState } }
+      >
+      roll: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
+      reroll: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices_to_reroll: number[] }, { result?: FarkleTurnResult }>
+      ['set-aside']: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices: number[]; one_for_all_element?: string }, { result?: FarkleTurnResult }>
+      continue: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
+      ['end-turn']: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
+    }
+  }
+  ['wild-encounters']: {
+    resolve: PostRoute<{ player_id: string; dice_roll_id: string; item_id?: string }, { result: { can_continue: boolean } }>
+    skip: PostRoute<{ player_id: string }, { result: { can_continue: boolean } }>
+    farkle: {
+      init: PostRoute<
+        { player_id: string; event_type: EventType; event_id: string; set_aside_element: string },
+        { result?: { farkle_session_id: string; farkle_state?: WildEncounterFarkleState } }
+      >
+      roll: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: WildEncounterFarkleTurnResult }>
+      reroll: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices_to_reroll: number[] }, { result?: WildEncounterFarkleTurnResult }>
+      ['set-aside']: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices: number[]; one_for_all_element?: string }, { result?: WildEncounterFarkleTurnResult }>
+      continue: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: WildEncounterFarkleTurnResult }>
+      ['end-turn']: PostRoute<{ player_id: string; farkle_session_id: string; item_id?: string }, { result?: WildEncounterFarkleTurnResult }>
+    }
+  }
+  merchants: {
+    leave: PostRoute<{ player_id: string }, { result: { can_continue: boolean } }>
+  }
+}
 
 type EventResponse = {
   event_type: EventType
@@ -188,6 +239,8 @@ type EventOptions = {
 }
 
 export const useEventStore = defineStore('event', () => {
+  const getApiRoutes = (apiClient: ReturnType<typeof useApi>['api']) =>
+    apiClient.api as unknown as GameApiRoutes
   // State
   const currentEvent = ref<EventResponse | null>(null)
   const eventHistory = ref<Array<{ event_type: EventType; timestamp: Date }>>([])
@@ -232,7 +285,7 @@ export const useEventStore = defineStore('event', () => {
     const response =
       currentEvent.value.event_type === 'pvp_battle'
         ? await apiCall(
-            () => (api.api.battles.farkle as any).init.post({
+            () => getApiRoutes(api).battles.farkle.init.post({
               player_id: playerId,
               event_type: currentEvent.value!.event_type,
               event_id: eventId,
@@ -241,7 +294,7 @@ export const useEventStore = defineStore('event', () => {
             { silent: true }
           )
         : await apiCall(
-            () => (api.api['wild-encounters'].farkle as any).init.post({
+            () => getApiRoutes(api)['wild-encounters'].farkle.init.post({
               player_id: playerId,
               event_type: currentEvent.value!.event_type,
               event_id: eventId,
@@ -255,8 +308,8 @@ export const useEventStore = defineStore('event', () => {
       | undefined
 
     if (result?.farkle_session_id) {
-      ;(data as any).farkle_session_id = result.farkle_session_id
-      ;(data as any).farkle_initialized = true
+      ;(data as FarkleSessionEventData).farkle_session_id = result.farkle_session_id
+      ;(data as FarkleSessionEventData).farkle_initialized = true
     }
     if (result?.battle_state && currentEvent.value?.event_type === 'pvp_battle') {
       ;(data as PvPData).battle_state = result.battle_state
@@ -286,7 +339,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events.options.get(),
+        () => getApiRoutes(api).events.options.get(),
         { silent: true }
       )
       eventOptions.value = (response.data?.options as EventOptions) ?? null
@@ -302,7 +355,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events.create.post({ player_id: playerId, event_type: eventType }),
+        () => getApiRoutes(api).events.create.post({ player_id: playerId, event_type: eventType }),
         { silent: false }
       )
 
@@ -334,7 +387,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api['wild-encounters'].resolve.post({
+        () => getApiRoutes(api)['wild-encounters'].resolve.post({
           player_id: playerId,
           dice_roll_id: diceRollId,
           item_id: itemId,
@@ -361,7 +414,7 @@ export const useEventStore = defineStore('event', () => {
         throw new Error('No active PvP battle')
       }
       const response = await apiCall(
-        () => api.api.battles.start.post({ player_id: playerId }),
+        () => getApiRoutes(api).battles.start.post({ player_id: playerId }),
         { silent: true }
       )
       const state = response.data?.battle_state as FarkleBattleState | undefined
@@ -396,7 +449,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => api.api.battles.farkle.roll.post({
+        () => getApiRoutes(api).battles.farkle.roll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -421,7 +474,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.battles.farkle as any).reroll.post({
+        () => getApiRoutes(api).battles.farkle.reroll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
@@ -451,7 +504,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.battles.farkle as any)['set-aside'].post({
+        () => getApiRoutes(api).battles.farkle['set-aside'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices: diceIndices,
@@ -478,7 +531,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.battles.farkle as any).continue.post({
+        () => getApiRoutes(api).battles.farkle.continue.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -503,7 +556,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api.battles.farkle as any)['end-turn'].post({
+        () => getApiRoutes(api).battles.farkle['end-turn'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -527,7 +580,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api['wild-encounters'].skip.post({
+        () => getApiRoutes(api)['wild-encounters'].skip.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Encounter skipped' }
@@ -561,7 +614,7 @@ export const useEventStore = defineStore('event', () => {
       }
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => api.api['wild-encounters'].farkle.roll.post({
+        () => getApiRoutes(api)['wild-encounters'].farkle.roll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -586,7 +639,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api['wild-encounters'].farkle as any).reroll.post({
+        () => getApiRoutes(api)['wild-encounters'].farkle.reroll.post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices_to_reroll: diceIndicesToReroll,
@@ -616,7 +669,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api['wild-encounters'].farkle as any)['set-aside'].post({
+        () => getApiRoutes(api)['wild-encounters'].farkle['set-aside'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           dice_indices: diceIndices,
@@ -643,7 +696,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api['wild-encounters'].farkle as any).continue.post({
+        () => getApiRoutes(api)['wild-encounters'].farkle.continue.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -668,7 +721,7 @@ export const useEventStore = defineStore('event', () => {
     try {
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
-        () => (api.api['wild-encounters'].farkle as any)['end-turn'].post({
+        () => getApiRoutes(api)['wild-encounters'].farkle['end-turn'].post({
           player_id: playerId,
           farkle_session_id: sessionId,
           item_id: itemId,
@@ -697,7 +750,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.merchants.leave.post({
+        () => getApiRoutes(api).merchants.leave.post({
           player_id: playerId,
         }),
         { silent: false, successMessage: 'Left merchant' }
@@ -719,7 +772,7 @@ export const useEventStore = defineStore('event', () => {
 
     try {
       const response = await apiCall(
-        () => api.api.events.current[playerId].get(),
+        () => getApiRoutes(api).events.current[playerId].get(),
         { silent: true }
       )
 

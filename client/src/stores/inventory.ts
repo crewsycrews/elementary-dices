@@ -219,7 +219,7 @@ export const useInventoryStore = defineStore(
         );
 
         if (response.data) {
-          shopDice.value = response.data.diceTypes as DiceType[];
+          shopDice.value = response.data.diceTypes as unknown as DiceType[];
         }
       } catch (error) {
         console.error("Failed to fetch shop dice:", error);

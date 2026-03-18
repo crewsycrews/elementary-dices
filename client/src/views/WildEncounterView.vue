@@ -222,7 +222,6 @@ import {
 import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
-import { useApi } from "@/composables/useApi";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
@@ -233,7 +232,6 @@ const eventStore = useEventStore();
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
-const { api, apiCall } = useApi();
 
 const loading = ref(false);
 const isActing = ref(false);
@@ -484,14 +482,7 @@ const handleSkipEncounter = async () => {
   if (!userId) return;
 
   try {
-    await apiCall(
-      () =>
-        api.api["wild-encounters"].skip.post({
-          player_id: userId,
-        }),
-      { successMessage: "Encounter skipped" },
-    );
-    eventStore.clearEvent();
+    await eventStore.skipWildEncounter(userId);
     router.push("/");
   } catch (error) {
     console.error("Failed to skip encounter:", error);

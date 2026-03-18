@@ -98,7 +98,6 @@ import { useRouter } from "vue-router";
 import { useEventStore } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useInventoryStore } from "@/stores/inventory";
-import { useApi } from "@/composables/useApi";
 import ShopCard from "@/components/game/ShopCard.vue";
 import DiceShopCard from "@/components/game/DiceShopCard.vue";
 
@@ -106,7 +105,6 @@ const router = useRouter();
 const eventStore = useEventStore();
 const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
-const { api, apiCall } = useApi();
 
 const loading = ref(false);
 
@@ -154,16 +152,7 @@ const handleLeaveMerchant = async () => {
   if (!userId) return;
 
   try {
-    await apiCall(
-      () => api.api.merchants.leave.post({
-        player_id: userId,
-      }),
-      { successMessage: "Left merchant" },
-    );
-
-    // Clear event from store
-    eventStore.clearEvent();
-
+    await eventStore.leaveMerchant(userId);
     router.push("/");
   } catch (error) {
     console.error("Failed to leave merchant:", error);

@@ -56,6 +56,7 @@ Frontend:
 Shared package:
 - Keep cross-package contracts in `shared/src`.
 - When changing API response shapes, update both server handlers and consuming client code.
+- Prefer full type-safety through the Elysia Eden client end-to-end; avoid `any` and `@ts-expect-error` for API calls unless there is a documented, temporary blocker.
 
 ## Change Rules
 
