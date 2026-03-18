@@ -42,6 +42,7 @@ FROM caddy:2-alpine AS frontend-runner
 
 COPY client/Caddyfile /etc/caddy/Caddyfile
 COPY --from=builder /app/client/dist /usr/share/caddy
+COPY client/assets /usr/share/caddy/assets
 
 EXPOSE 80
 
