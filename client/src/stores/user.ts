@@ -25,6 +25,7 @@ export const useUserStore = defineStore(
     const username = ref<string>("");
     const email = ref<string>("");
     const currency = ref<number>(0);
+    const favoriteDiceId = ref<string | null>(null);
     const stats = ref<UserProfile["stats"] | null>(null);
 
     // Computed
@@ -45,6 +46,7 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency;
+          favoriteDiceId.value = user.favorite_dice_id ?? null;
           stats.value = user.stats;
 
           // Initialize event state from server when fetching user
@@ -75,6 +77,7 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency;
+          favoriteDiceId.value = (user as any).favorite_dice_id ?? null;
           return response.data.user;
         }
       } catch (error) {
@@ -97,6 +100,7 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency;
+          favoriteDiceId.value = (user as any).favorite_dice_id ?? null;
 
           // Initialize event state from server after login
           const eventStore = useEventStore();
@@ -135,6 +139,7 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency || 0;
+          favoriteDiceId.value = (user as any).favorite_dice_id ?? null;
 
           // Initialize event state from server after OAuth login
           const eventStore = useEventStore();
@@ -163,6 +168,7 @@ export const useUserStore = defineStore(
           username.value = user.username;
           email.value = user.email;
           currency.value = user.currency || 0;
+          favoriteDiceId.value = (user as any).favorite_dice_id ?? null;
 
           return user;
         }
@@ -214,12 +220,37 @@ export const useUserStore = defineStore(
       }
     }
 
+    async function updateFavoriteDice(playerDiceId: string) {
+      const currentUserId = userId.value;
+      if (!currentUserId) return;
+
+      const { api, apiCall } = useApi();
+
+      try {
+        const response = await apiCall(
+          () =>
+            api.api.users[currentUserId].patch({
+              favorite_dice_id: playerDiceId,
+            } as any),
+          { silent: true },
+        );
+
+        if (response.data) {
+          favoriteDiceId.value = (response.data.user as any).favorite_dice_id ?? null;
+        }
+      } catch (error) {
+        console.error("Failed to update favorite dice:", error);
+        throw error;
+      }
+    }
+
     // Clear local state without backend call (for session expiration)
     function clearLocalState() {
       userId.value = null;
       username.value = "";
       email.value = "";
       currency.value = 0;
+      favoriteDiceId.value = null;
       stats.value = null;
 
       // Clear event state
@@ -250,6 +281,7 @@ export const useUserStore = defineStore(
       username,
       email,
       currency,
+      favoriteDiceId,
       stats,
       // Computed
       isAuthenticated,
@@ -262,6 +294,7 @@ export const useUserStore = defineStore(
       getCurrentUser,
       refreshAccessToken,
       updateCurrency,
+      updateFavoriteDice,
       clearLocalState,
       logout,
     };
@@ -270,7 +303,7 @@ export const useUserStore = defineStore(
     persist: {
       key: "elementary-dices-user",
       storage: localStorage,
-      paths: ["userId", "username", "email", "currency", "stats"], // Only persist these fields
+      paths: ["userId", "username", "email", "currency", "favoriteDiceId", "stats"], // Only persist these fields
     },
   },
 );

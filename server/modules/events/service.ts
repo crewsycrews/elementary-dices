@@ -26,6 +26,8 @@ import { DiceRollService } from "../dice-rolls/service";
 import {
   buildPartyMember,
   computeTargetAssignments,
+  simulateCombatRound,
+  calculateTotalPower,
   type BattlePartyMember,
   type ElementType,
 } from "./battle-logic";
@@ -36,6 +38,9 @@ import {
   applyBonusesToParty,
   mergeBonuses,
   countSoloSetAsideElementDice,
+  collectSetAsideElements,
+  collectCombinationElements,
+  resolveDeploymentIndices,
   isDiceRush,
   isBust,
   type FarkleDie,
@@ -45,6 +50,10 @@ import {
 
 type DiceRarity = "common" | "rare" | "epic" | "legendary";
 const RARITY_ORDER: DiceRarity[] = ["common", "rare", "epic", "legendary"];
+const PVP_REWARD_MULTIPLIER = 0.25;
+const PVP_REWARD_MIN = 25;
+const PVP_REWARD_MAX = 500;
+const MIN_BATTLE_HP = 120;
 
 function calculateSetAsideBonuses(
   dice: FarkleDie[],
@@ -70,6 +79,24 @@ function calculateSetAsideBonuses(
   }
 
   return bonuses;
+}
+
+function toElementSet(values: ElementType[]): ElementType[] {
+  return [...new Set(values)];
+}
+
+interface WildBattleState {
+  player_health: number;
+  enemy_health: number;
+  player_party: BattlePartyMember[];
+  enemy_party: BattlePartyMember[];
+  combat_log: Array<Record<string, unknown>>;
+  round: number;
+}
+
+function calculatePvPReward(opponentPowerLevel: number): number {
+  const scaled = Math.floor(opponentPowerLevel * PVP_REWARD_MULTIPLIER);
+  return Math.max(PVP_REWARD_MIN, Math.min(PVP_REWARD_MAX, scaled));
 }
 
 export class EventService {
@@ -304,6 +331,8 @@ export class EventService {
       has_used_reroll: false,
       active_combinations: [],
       set_aside_element_bonus: null,
+      accumulated_combination_elements: [],
+      accumulated_set_aside_elements: [],
       is_dice_rush: false,
       busted: false,
       detected_combinations: [],
@@ -317,13 +346,19 @@ export class EventService {
       has_used_reroll: state.has_used_reroll,
       active_combinations: (state.active_combinations ?? []) as any,
       set_aside_element_bonus: (state.set_aside_element_bonus as ElementType) ?? null,
+      accumulated_combination_elements: [],
+      accumulated_set_aside_elements: [],
       is_dice_rush: state.is_dice_rush,
       busted: state.busted,
       detected_combinations: (state.detected_combinations ?? []) as any,
     };
   }
 
-  private async saveWildFarkleState(sessionId: string, state: WildEncounterFarkleState) {
+  private async saveWildFarkleState(
+    sessionId: string,
+    state: WildEncounterFarkleState,
+    meta?: Record<string, unknown>,
+  ) {
     await this.farkleSessionRepo.updateState(sessionId, {
       phase: state.phase,
       has_used_reroll: state.has_used_reroll,
@@ -333,11 +368,68 @@ export class EventService {
       dice_state: state.dice,
       active_combinations: state.active_combinations as any[],
       detected_combinations: state.detected_combinations as any[],
+      ...(meta ? { meta } : {}),
     });
   }
 
+  private async buildInitialWildBattleState(
+    playerId: string,
+    encounteredElemental: {
+      id: string;
+      name: string;
+      level: number;
+      element_types: string[];
+      base_stats?: { attack?: number; health?: number };
+    },
+  ): Promise<WildBattleState> {
+    const playerElementals = await db("player_elementals")
+      .where({ player_id: playerId, is_in_active_party: true })
+      .leftJoin("elementals", "player_elementals.elemental_id", "elementals.id")
+      .select(
+        "elementals.id as elemental_id",
+        "elementals.name",
+        "elementals.level",
+        "elementals.element_types",
+        "elementals.base_stats",
+        "player_elementals.id as player_elemental_id",
+      )
+      .orderBy("player_elementals.party_position", "asc");
+
+    const playerParty = playerElementals.map((pe: any) =>
+      buildPartyMember(
+        {
+          id: pe.elemental_id,
+          name: pe.name,
+          level: pe.level,
+          element_types: pe.element_types,
+          base_stats: pe.base_stats,
+        },
+        pe.player_elemental_id,
+      ),
+    );
+
+    const enemyParty = [
+      buildPartyMember({
+        id: encounteredElemental.id,
+        name: encounteredElemental.name,
+        level: encounteredElemental.level,
+        element_types: encounteredElemental.element_types,
+        base_stats: encounteredElemental.base_stats,
+      }),
+    ];
+
+    return {
+      player_health: MIN_BATTLE_HP,
+      enemy_health: MIN_BATTLE_HP,
+      player_party: playerParty,
+      enemy_party: enemyParty,
+      combat_log: [],
+      round: 1,
+    };
+  }
+
   /**
-   * Generate a PvP battle event with Farkle battle state (v2).
+   * Generate a PvP battle event with v3 battle state.
    */
   private async generatePvPBattle(playerId: string): Promise<{
     response: EventResponse;
@@ -355,6 +447,7 @@ export class EventService {
         "elementals.name",
         "elementals.level",
         "elementals.element_types",
+        "elementals.base_stats",
         "player_elementals.id as player_elemental_id",
       )
       .orderBy("player_elementals.party_position", "asc");
@@ -367,6 +460,7 @@ export class EventService {
           name: pe.name,
           level: pe.level,
           element_types: pe.element_types,
+          base_stats: pe.base_stats,
         },
         pe.player_elemental_id,
       ),
@@ -376,7 +470,9 @@ export class EventService {
     const playerPartyLevels = playerParty.map((member) => member.level);
     const opponentParty = await this.generateOpponentParty(playerPartyLevels);
     const opponentName = this.generateOpponentName();
-    const opponentPowerLevel = opponentParty.reduce((sum, m) => sum + m.base_power, 0);
+    const opponentPowerLevel = Math.round(
+      opponentParty.reduce((sum, m) => sum + m.base_attack + m.max_health, 0),
+    );
 
     // Compute target assignments (for targeting phase display)
     const assigned = computeTargetAssignments(playerParty, opponentParty);
@@ -402,9 +498,12 @@ export class EventService {
       opponent_turn_result: null,
       player_bonuses_total: {},
       opponent_bonuses_total: {},
+      player_health: MIN_BATTLE_HP,
+      opponent_health: MIN_BATTLE_HP,
+      combat_log: [],
     };
 
-    const potentialReward = Math.floor(opponentPowerLevel * 10);
+    const potentialReward = calculatePvPReward(opponentPowerLevel);
 
     const data: PvPData = {
       opponent_name: opponentName,
@@ -433,9 +532,9 @@ export class EventService {
    * Generate an AI opponent party that mirrors the player's party levels.
    */
   private async generateOpponentParty(playerPartyLevels: number[]): Promise<BattlePartyMember[]> {
-    // Get all base elementals from DB
+    // Get all elementals from DB and group them by level so AI mirrors player tier.
     const allElementals = await db("elementals")
-      .select("id", "name", "level", "element_types")
+      .select("id", "name", "level", "element_types", "base_stats")
       .orderByRaw("RANDOM()");
 
     if (allElementals.length === 0) {
@@ -447,18 +546,45 @@ export class EventService {
       throw new BadRequestError("Player party is empty");
     }
 
-    // Pick random elementals, then set each member level to match the player's slot level
+    const elementalsByLevel = allElementals.reduce<Record<number, any[]>>((acc, elemental) => {
+      const level = Number(elemental.level);
+      if (!acc[level]) acc[level] = [];
+      acc[level].push(elemental);
+      return acc;
+    }, {});
+
+    const availableLevels = Object.keys(elementalsByLevel)
+      .map(Number)
+      .filter((level) => Number.isFinite(level))
+      .sort((a, b) => a - b);
+
+    if (availableLevels.length === 0) {
+      throw new BadRequestError("No elementals available for opponent party");
+    }
+
+    const findClosestAvailableLevel = (targetLevel: number): number => {
+      return availableLevels.reduce((closest, candidate) => {
+        const candidateDistance = Math.abs(candidate - targetLevel);
+        const closestDistance = Math.abs(closest - targetLevel);
+        return candidateDistance < closestDistance ? candidate : closest;
+      }, availableLevels[0]);
+    };
+
+    // Pick random elementals from matching level pools (with nearest-level fallback).
     const party: BattlePartyMember[] = [];
 
     for (let i = 0; i < partySize; i++) {
-      // Pick from available elementals, cycling through the list
-      const elemental = allElementals[i % allElementals.length];
-      const level = Math.max(1, Math.min(4, playerPartyLevels[i]));
+      const requestedLevel = Math.max(1, Math.min(4, playerPartyLevels[i]));
+      const levelPool =
+        elementalsByLevel[requestedLevel] ??
+        elementalsByLevel[findClosestAvailableLevel(requestedLevel)];
+      const elemental = levelPool[Math.floor(Math.random() * levelPool.length)];
       const member = buildPartyMember({
         id: elemental.id,
         name: elemental.name,
-        level,
+        level: elemental.level,
         element_types: elemental.element_types,
+        base_stats: elemental.base_stats,
       });
       party.push(member);
     }
@@ -490,6 +616,8 @@ export class EventService {
       }
       if (battleState.player_turn) {
         battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
+        battleState.player_turn.accumulated_combination_elements ??= [];
+        battleState.player_turn.accumulated_set_aside_elements ??= [];
       }
       return battleState;
     }
@@ -579,6 +707,10 @@ export class EventService {
         set_aside_element: setAsideElement,
       });
       const initial = this.createInitialWildEncounterFarkleState();
+      const wildBattleState = await this.buildInitialWildBattleState(
+        playerId,
+        elemental as any,
+      );
       await this.farkleSessionRepo.createState(existingSession.id, {
         phase: initial.phase,
         has_used_reroll: initial.has_used_reroll,
@@ -588,7 +720,7 @@ export class EventService {
         dice_state: initial.dice,
         active_combinations: initial.active_combinations as any[],
         detected_combinations: initial.detected_combinations as any[],
-        meta: {},
+        meta: { wild_battle_state: wildBattleState },
       });
 
       return {
@@ -706,6 +838,8 @@ export class EventService {
     }
     if (battleState.player_turn) {
       battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
+      battleState.player_turn.accumulated_combination_elements ??= [];
+      battleState.player_turn.accumulated_set_aside_elements ??= [];
     }
     return { battle: battle!, battleState, sessionId: session.id };
   }
@@ -876,6 +1010,10 @@ export class EventService {
       set_aside_element_bonus: null,
       accumulated_dice_rush_bonuses:
         previousTurnState?.accumulated_dice_rush_bonuses ?? {},
+      accumulated_combination_elements:
+        previousTurnState?.accumulated_combination_elements ?? [],
+      accumulated_set_aside_elements:
+        previousTurnState?.accumulated_set_aside_elements ?? [],
       is_dice_rush: false,
       busted,
     };
@@ -1039,6 +1177,19 @@ export class EventService {
       }
       turn.active_combinations = allCombos;
     }
+    const currentSetAsideElements = collectSetAsideElements(turn.dice);
+    const currentCombinationElements = collectCombinationElements(
+      turn.active_combinations,
+    );
+    turn.accumulated_set_aside_elements = toElementSet([
+      ...(turn.accumulated_set_aside_elements ?? []),
+      ...currentSetAsideElements,
+    ]);
+    turn.accumulated_combination_elements = toElementSet([
+      ...(turn.accumulated_combination_elements ?? []),
+      ...currentCombinationElements,
+    ]);
+
     const soloSetAsideCount = countSoloSetAsideElementDice(
       turn.dice,
       turn.active_combinations,
@@ -1138,8 +1289,8 @@ export class EventService {
 
   /**
    * Player ends their Farkle turn.
-   * Applies accumulated bonuses, runs opponent AI turn, advances turn counter.
-   * After turn 3 for both sides → auto-resolve battle.
+   * Commits bonuses, resolves hidden deployments, runs combat round.
+   * Battle ends only when either player health reaches zero.
    */
   async farkleEndTurn(playerId: string): Promise<{
     battle_state: FarkleBattleState;
@@ -1157,8 +1308,9 @@ export class EventService {
 
     const turn = battleState.player_turn;
 
-    // Calculate turn bonuses from active combinations + solo set-aside element
     let turnBonuses: Partial<Record<ElementType, number>> = {};
+    let playerDeployableElements: ElementType[] = [];
+    let playerCombinationElements: ElementType[] = [];
 
     if (turn && !turn.busted) {
       turnBonuses = mergeBonuses(
@@ -1171,72 +1323,99 @@ export class EventService {
         battleState.set_aside_element,
       );
       turnBonuses = mergeBonuses(turnBonuses, currentSetAsideBonuses);
-    }
-    // If busted: turnBonuses stays empty
 
-    // Merge into total accumulated bonuses
-    battleState.player_bonuses_total = mergeBonuses(
-      battleState.player_bonuses_total,
+      playerDeployableElements = toElementSet([
+        ...(turn.accumulated_set_aside_elements ?? []),
+        ...collectSetAsideElements(turn.dice),
+      ]);
+      playerCombinationElements = toElementSet([
+        ...(turn.accumulated_combination_elements ?? []),
+        ...collectCombinationElements(turn.active_combinations),
+      ]);
+    }
+
+    battleState.player_bonuses_total = turnBonuses;
+    battleState.player_party = applyBonusesToParty(
+      battleState.player_party,
       turnBonuses,
     );
 
-    // Apply total accumulated bonuses to player party
-    battleState.player_party = applyBonusesToParty(
-      battleState.player_party,
-      battleState.player_bonuses_total,
-    );
-
-    battleState.player_turns_done += 1;
-    battleState.player_turn = null;
-
-    // Run opponent AI turn
     const opponentEquippedDice = await this.getOpponentFarkleDice();
     const opponentSetAsideEl =
       (battleState.opponent_set_aside_element as ElementType) ?? "fire";
     const opponentResult = simulateOpponentTurn(opponentEquippedDice, opponentSetAsideEl);
+    battleState.opponent_turn_result = opponentResult;
 
-    // Merge opponent bonuses
-    battleState.opponent_bonuses_total = mergeBonuses(
-      battleState.opponent_bonuses_total,
-      opponentResult.bonuses_applied as Partial<Record<ElementType, number>>,
-    );
-
+    battleState.opponent_bonuses_total =
+      opponentResult.bonuses_applied as Partial<Record<ElementType, number>>;
     battleState.opponent_party = applyBonusesToParty(
       battleState.opponent_party,
       battleState.opponent_bonuses_total,
     );
 
-    battleState.opponent_turn_result = opponentResult;
-    battleState.opponent_turns_done += 1;
+    const playerDeploymentIndices = resolveDeploymentIndices(
+      battleState.player_party,
+      playerDeployableElements,
+      playerCombinationElements,
+    );
+    const opponentDeploymentIndices = resolveDeploymentIndices(
+      battleState.opponent_party,
+      opponentResult.deployable_elements,
+      opponentResult.combination_elements,
+    );
 
-    // Check if we've completed all 3 turns
+    const combatResult = simulateCombatRound(
+      {
+        round: battleState.current_turn,
+        player_party: battleState.player_party,
+        opponent_party: battleState.opponent_party,
+        player_health: battleState.player_health,
+        opponent_health: battleState.opponent_health,
+      },
+      {
+        player: {
+          health: battleState.player_health,
+          deployed_indices: playerDeploymentIndices,
+        },
+        opponent: {
+          health: battleState.opponent_health,
+          deployed_indices: opponentDeploymentIndices,
+        },
+      },
+      10,
+    );
+
+    battleState.player_party = combatResult.player_party;
+    battleState.opponent_party = combatResult.opponent_party;
+    battleState.player_health = combatResult.player_health;
+    battleState.opponent_health = combatResult.opponent_health;
+    battleState.combat_log = [...(battleState.combat_log ?? []), ...combatResult.log];
+    battleState.last_player_deployment = playerDeploymentIndices;
+    battleState.last_opponent_deployment = opponentDeploymentIndices;
+
+    battleState.player_turns_done += 1;
+    battleState.opponent_turns_done += 1;
+    battleState.player_turn = null;
+
     const isResolved =
-      battleState.player_turns_done >= 3 &&
-      battleState.opponent_turns_done >= 3;
+      battleState.player_health <= 0 || battleState.opponent_health <= 0;
 
     let result: NonNullable<BattleRollResult["result"]> | undefined;
 
     if (isResolved) {
       battleState.phase = "resolved";
 
-      // Calculate final powers (already applied via bonuses)
-      const playerTotal = battleState.player_party.reduce(
-        (s, m) => s + m.current_power,
-        0,
-      );
-      const opponentTotal = battleState.opponent_party.reduce(
-        (s, m) => s + m.current_power,
-        0,
-      );
+      const playerTotal = calculateTotalPower(battleState.player_party);
+      const opponentTotal = calculateTotalPower(battleState.opponent_party);
 
       let winner: "player" | "opponent" | "draw";
-      if (playerTotal > opponentTotal) winner = "player";
-      else if (opponentTotal > playerTotal) winner = "opponent";
+      if (battleState.player_health > battleState.opponent_health) winner = "player";
+      else if (battleState.opponent_health > battleState.player_health) winner = "opponent";
       else winner = "draw";
 
       battleState.winner = winner;
-      battleState.player_total_power = playerTotal;
-      battleState.opponent_total_power = opponentTotal;
+      battleState.player_total_attack = playerTotal;
+      battleState.opponent_total_attack = opponentTotal;
 
       const victory = winner === "player" || winner === "draw";
       result = await this.resolveBattleOutcome(
@@ -1250,8 +1429,7 @@ export class EventService {
       );
       await this.farkleSessionRepo.resolveSession(sessionId);
     } else {
-      // Advance turn counter, go back to player_turn phase
-      battleState.current_turn = Math.min(3, battleState.player_turns_done + 1);
+      battleState.current_turn += 1;
       battleState.phase = "player_turn";
     }
 
@@ -1303,7 +1481,7 @@ export class EventService {
     let downgradedElementalId: string | undefined = undefined;
 
     if (victory) {
-      reward = Math.floor(opponentPowerLevel * 10);
+      reward = calculatePvPReward(opponentPowerLevel);
       message = `Victory! You defeated ${opponentName} and earned ${reward} currency.`;
 
       await db("users")
@@ -1417,8 +1595,8 @@ export class EventService {
     return {
       victory,
       message,
-      player_total_power: playerPower,
-      opponent_total_power: opponentPower,
+      player_total_attack: playerPower,
+      opponent_total_attack: opponentPower,
       reward,
       penalty,
       can_continue: true,
@@ -1598,6 +1776,7 @@ export class EventService {
           const sessionState = await this.farkleSessionRepo.getState(farkleSession.id);
           if (sessionState) {
             (data as any).farkle_state = this.mapStateRowToWildFarkleState(sessionState);
+            (data as any).wild_battle_state = sessionState.meta?.wild_battle_state;
           }
           (data as any).farkle_initialized = true;
           (data as any).farkle_session_id = farkleSession.id;
@@ -1605,7 +1784,7 @@ export class EventService {
 
         return {
           event_type: "wild_encounter",
-          description: `A wild ${elemental.name} appeared! Use the Farkle capture flow and optional items to attempt capture.`,
+          description: `A wild ${elemental.name} appeared! Roll, deploy, and defeat it in battle to capture.`,
           data,
         };
       }
@@ -1618,7 +1797,7 @@ export class EventService {
           throw new NotFoundError("Battle event");
         }
 
-        const potentialReward = Math.floor(battle.opponent_power_level * 10);
+        const potentialReward = calculatePvPReward(battle.opponent_power_level);
 
         const data: PvPData = {
           event_id: battle.id as any,
@@ -1723,6 +1902,7 @@ export class EventService {
     elemental: any;
     targetElement: ElementType;
     farkleState: WildEncounterFarkleState;
+    wildBattleState: WildBattleState;
     sessionId: string;
   }> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
@@ -1759,11 +1939,16 @@ export class EventService {
     if (!state) {
       throw new BadRequestError("Farkle state is not initialized");
     }
+    const wildBattleState = state.meta?.wild_battle_state as WildBattleState | undefined;
+    if (!wildBattleState) {
+      throw new BadRequestError("Wild battle state is not initialized");
+    }
 
     return {
       wildEncounter,
       elemental,
       targetElement,
+      wildBattleState,
       sessionId: session.id,
       farkleState: this.mapStateRowToWildFarkleState(state),
     };
@@ -2030,33 +2215,82 @@ export class EventService {
     is_resolved: boolean;
     result: WildEncounterResult;
   }> {
-    const { sessionId, wildEncounter, elemental, targetElement, farkleState } =
+    const {
+      sessionId,
+      wildEncounter,
+      elemental,
+      targetElement,
+      farkleState,
+      wildBattleState,
+    } =
       await this.getWildEncounterForFarkle(playerId);
 
     if (farkleState.phase === "initial_roll") {
       throw new BadRequestError("Roll dice before ending the encounter");
     }
 
-    const elementalCount = (await db("player_elementals")
-      .where({ player_id: playerId })
-      .count("* as count")
-      .first()) as { count: string | number } | undefined;
+    let turnBonuses: Partial<Record<ElementType, number>> = {};
+    let deployableElements: ElementType[] = [];
+    let combinationElements: ElementType[] = [];
 
-    if (elementalCount && Number(elementalCount.count) >= 15) {
-      throw new BadRequestError("Maximum elemental capacity reached (15)");
+    if (!farkleState.busted) {
+      const currentSetAsideBonuses = calculateSetAsideBonuses(
+        farkleState.dice,
+        farkleState.active_combinations as Combination[],
+        targetElement,
+      );
+      turnBonuses = mergeBonuses(turnBonuses, currentSetAsideBonuses);
+      deployableElements = collectSetAsideElements(farkleState.dice);
+      combinationElements = collectCombinationElements(
+        farkleState.active_combinations as Combination[],
+      );
     }
 
-    const targetDiceSetAside = farkleState.dice.filter(
-      (d) => d.is_set_aside && d.current_result === targetElement,
-    ).length;
-    const hasTargetElementCombination =
-      (farkleState.active_combinations as Combination[]).some((combo) =>
-        combo.elements.includes(targetElement),
-      );
-    const hasTwoOrMoreTargetSetAsideDice = targetDiceSetAside >= 2;
-    const success =
-      !farkleState.busted &&
-      (hasTwoOrMoreTargetSetAsideDice || hasTargetElementCombination);
+    const buffedPlayerParty = applyBonusesToParty(
+      wildBattleState.player_party,
+      turnBonuses,
+    );
+    const playerDeployment = resolveDeploymentIndices(
+      buffedPlayerParty,
+      deployableElements,
+      combinationElements,
+    );
+    const enemyDeployment = wildBattleState.enemy_party
+      .map((member, index) =>
+        !member.is_destroyed && member.current_health > 0 ? index : -1,
+      )
+      .filter((idx) => idx >= 0);
+
+    const combatResult = simulateCombatRound(
+      {
+        round: wildBattleState.round,
+        player_party: buffedPlayerParty,
+        opponent_party: wildBattleState.enemy_party,
+        player_health: wildBattleState.player_health,
+        opponent_health: wildBattleState.enemy_health,
+      },
+      {
+        player: {
+          health: wildBattleState.player_health,
+          deployed_indices: playerDeployment,
+        },
+        opponent: {
+          health: wildBattleState.enemy_health,
+          deployed_indices: enemyDeployment,
+        },
+      },
+      10,
+    );
+
+    wildBattleState.player_party = combatResult.player_party;
+    wildBattleState.enemy_party = combatResult.opponent_party;
+    wildBattleState.player_health = combatResult.player_health;
+    wildBattleState.enemy_health = combatResult.opponent_health;
+    wildBattleState.combat_log = [
+      ...wildBattleState.combat_log,
+      ...combatResult.log,
+    ];
+    wildBattleState.round += 1;
 
     let elementalCaught:
       | {
@@ -2066,7 +2300,19 @@ export class EventService {
         }
       | undefined;
 
+    const success = wildBattleState.enemy_health <= 0;
+    const failed = wildBattleState.player_health <= 0;
+
     if (success) {
+      const elementalCount = (await db("player_elementals")
+        .where({ player_id: playerId })
+        .count("* as count")
+        .first()) as { count: string | number } | undefined;
+
+      if (elementalCount && Number(elementalCount.count) >= 15) {
+        throw new BadRequestError("Maximum elemental capacity reached (15)");
+      }
+
       const [playerElemental] = await db("player_elementals")
         .insert({
           player_id: playerId,
@@ -2105,7 +2351,7 @@ export class EventService {
           .where({ player_id: playerId })
           .increment("unique_elementals_collected", 1);
       }
-    } else {
+    } else if (failed) {
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
         outcome: "defeat",
@@ -2113,27 +2359,49 @@ export class EventService {
       });
     }
 
-    await this.repository.clearCurrentEvent(playerId);
-    await this.farkleSessionRepo.resolveSession(sessionId);
+    const isResolved = success || failed;
+    if (isResolved) {
+      await this.repository.clearCurrentEvent(playerId);
+      await this.farkleSessionRepo.resolveSession(sessionId);
+      farkleState.phase = "resolved";
+      farkleState.detected_combinations = [];
+    } else {
+      // Start next turn loop.
+      farkleState.phase = "initial_roll";
+      farkleState.dice = [];
+      farkleState.has_used_reroll = false;
+      farkleState.active_combinations = [];
+      farkleState.set_aside_element_bonus = null;
+      farkleState.is_dice_rush = false;
+      farkleState.busted = false;
+      farkleState.detected_combinations = [];
+    }
 
-    farkleState.phase = "resolved";
-    farkleState.detected_combinations = [];
+    await this.saveWildFarkleState(sessionId, farkleState, {
+      wild_battle_state: wildBattleState,
+    });
 
-    const result: WildEncounterResult = {
-      success,
-      message: success
-        ? `Successfully captured ${elemental.name}! It has been added to your collection.`
-        : `Failed to capture ${elemental.name}. The elemental escaped!`,
-      elemental_caught: elementalCaught,
-      can_continue: true,
-    };
+    const result: WildEncounterResult = isResolved
+      ? {
+          success,
+          message: success
+            ? `Successfully captured ${elemental.name}! It has been added to your collection.`
+            : `Failed to capture ${elemental.name}. The elemental overpowered your party.`,
+          elemental_caught: elementalCaught,
+          can_continue: true,
+        }
+      : {
+          success: false,
+          message: "Battle continues. Roll again to deploy elementals.",
+          can_continue: false,
+        };
 
     return {
       farkle_state: farkleState,
       detected_combinations: [],
       is_busted: farkleState.busted,
-      is_dice_rush: farkleState.is_dice_rush,
-      is_resolved: true,
+      is_dice_rush: false,
+      is_resolved: isResolved,
       result,
     };
   }

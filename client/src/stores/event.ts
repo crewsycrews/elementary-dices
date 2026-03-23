@@ -39,9 +39,13 @@ export type BattlePartyMember = {
   elemental_id: string
   name: string
   element: string
+  elements: string[]
   level: number
-  base_power: number
-  current_power: number
+  base_attack: number
+  current_attack: number
+  max_health: number
+  current_health: number
+  is_destroyed: boolean
   target_index: number
 }
 
@@ -69,6 +73,8 @@ export type FarkleTurnState = {
   active_combinations: Combination[]
   set_aside_element_bonus: string | null
   accumulated_dice_rush_bonuses?: Record<string, number>
+  accumulated_combination_elements?: string[]
+  accumulated_set_aside_elements?: string[]
   is_dice_rush: boolean
   busted: boolean
 }
@@ -89,6 +95,8 @@ export type OpponentTurnResult = {
   combination: Combination | null
   set_aside_element_used: boolean
   bonuses_applied: Record<string, number>
+  deployable_elements: string[]
+  combination_elements: string[]
   busted: boolean
 }
 
@@ -105,9 +113,14 @@ export type FarkleBattleState = {
   opponent_turn_result: OpponentTurnResult | null
   player_bonuses_total: Record<string, number>
   opponent_bonuses_total: Record<string, number>
+  player_health: number
+  opponent_health: number
+  combat_log: Array<Record<string, unknown>>
+  last_player_deployment?: number[]
+  last_opponent_deployment?: number[]
   winner?: 'player' | 'opponent' | 'draw'
-  player_total_power?: number
-  opponent_total_power?: number
+  player_total_attack?: number
+  opponent_total_attack?: number
 }
 
 // Legacy type kept for backward compatibility
@@ -138,8 +151,8 @@ type PvPData = {
 export type BattleResult = {
   victory: boolean
   message: string
-  player_total_power: number
-  opponent_total_power: number
+  player_total_attack: number
+  opponent_total_attack: number
   reward?: number
   penalty?: {
     downgraded_elemental?: string

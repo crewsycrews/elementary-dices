@@ -41,6 +41,11 @@
             class="px-2 py-0.5 bg-primary text-primary-foreground rounded-full text-xs font-bold"
             >✓</span
           >
+          <span
+            v-if="isFavorite"
+            class="px-2 py-0.5 bg-amber-500/20 text-amber-600 rounded-full text-xs font-bold"
+            >★ Favorite</span
+          >
         </div>
 
         <!-- Faces row -->
@@ -69,6 +74,12 @@
       @click.stop="$emit('unequip')"
     >
       Unequip
+    </button>
+    <button
+      class="w-full py-1.5 text-sm border-2 border-border rounded-md font-bold hover:bg-muted transition-all"
+      @click.stop="$emit('setFavorite')"
+    >
+      {{ isFavorite ? "Favorite Dice" : "Set as Favorite" }}
     </button>
   </div>
 </template>
@@ -103,8 +114,13 @@ interface PlayerDice {
   dice_type?: DiceTypeData;
 }
 
-const props = defineProps<{ dice: PlayerDice }>();
-defineEmits<{ equip: []; unequip: [] }>();
+const props = withDefaults(
+  defineProps<{ dice: PlayerDice; isFavorite?: boolean }>(),
+  {
+    isFavorite: false,
+  },
+);
+defineEmits<{ equip: []; unequip: []; setFavorite: [] }>();
 
 const diceType = computed<DiceType>(
   () => (props.dice.dice_type?.dice_notation ?? "d6") as DiceType,
@@ -136,6 +152,8 @@ const faceDistribution = computed(() => {
   }
   return counts;
 });
+
+const isFavorite = computed(() => props.isFavorite);
 
 const rarityClass = computed(() => {
   switch (props.dice.dice_type?.rarity) {

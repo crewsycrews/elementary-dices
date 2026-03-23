@@ -29,7 +29,6 @@ const eventStore = useEventStore()
 
 const navigationRoutes = computed(() => [
   { name: 'Dashboard', label: 'Dashboard' },
-  { name: 'Inventory', label: 'Inventory' },
   { name: 'Shop', label: 'Shop' },
   {
     name: 'Event',

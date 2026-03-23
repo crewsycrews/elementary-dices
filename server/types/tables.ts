@@ -33,6 +33,7 @@ interface UserRow {
   email: string;
   password_hash: string | null;
   currency: number;
+  favorite_dice_id: string | null;
   updated_at: Date;
   email_verified: boolean;
   last_login_at: Date | null;

@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
+import { useUserStore } from "@/stores/user";
 import type { DiceRoll } from "@elementary-dices/shared";
 
 // Types based on backend schemas
@@ -55,6 +56,8 @@ type PlayerDice = {
 export const useInventoryStore = defineStore(
   "inventory",
   () => {
+    const userStore = useUserStore();
+
     // State
     const playerItems = ref<PlayerInventoryItem[]>([]);
     const playerDice = ref<PlayerDice[]>([]);
@@ -66,6 +69,21 @@ export const useInventoryStore = defineStore(
     const equippedDice = computed(() =>
       playerDice.value.filter((d) => d.is_equipped),
     );
+
+    const favoriteDice = computed(() => {
+      const byId =
+        playerDice.value.find((dice) => dice.id === userStore.favoriteDiceId) ??
+        null;
+      if (byId) return byId;
+
+      const ownedD20 =
+        playerDice.value.find(
+          (dice) => dice.dice_type?.dice_notation === "d20",
+        ) ?? null;
+      if (ownedD20) return ownedD20;
+
+      return playerDice.value[0] ?? null;
+    });
 
     const getEquippedDiceByNotation = (notation: string) => {
       return playerDice.value.find(
@@ -286,6 +304,10 @@ export const useInventoryStore = defineStore(
       }
     }
 
+    async function setFavoriteDice(playerDiceId: string) {
+      await userStore.updateFavoriteDice(playerDiceId);
+    }
+
     return {
       // State
       playerItems,
@@ -295,6 +317,7 @@ export const useInventoryStore = defineStore(
       lastRoll,
       // Computed
       equippedDice,
+      favoriteDice,
       captureItems,
       consumableItems,
       buffItems,
@@ -309,6 +332,7 @@ export const useInventoryStore = defineStore(
       fetchShopDice,
       purchaseDice,
       equipDice,
+      setFavoriteDice,
       updateLastRoll,
     };
   },

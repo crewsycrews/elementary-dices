@@ -31,6 +31,7 @@ const COMBINATION_LABELS: Record<string, string> = {
   one_for_all: "One-For-All",
   full_house: "Full House",
 };
+const MIN_BATTLE_HP = 120;
 
 export function useBattle() {
   // State
@@ -60,6 +61,12 @@ export function useBattle() {
   );
   const opponentBonusesTotal = computed(
     () => battleState.value?.opponent_bonuses_total ?? {},
+  );
+  const playerHealth = computed(
+    () => battleState.value?.player_health ?? MIN_BATTLE_HP,
+  );
+  const opponentHealth = computed(
+    () => battleState.value?.opponent_health ?? MIN_BATTLE_HP,
   );
   const opponentTurnResult = computed(
     () => battleState.value?.opponent_turn_result ?? null,
@@ -135,11 +142,11 @@ export function useBattle() {
   );
 
   const totalPlayerPower = computed(() =>
-    playerParty.value.reduce((sum, m) => sum + m.current_power, 0),
+    playerParty.value.reduce((sum, m) => sum + m.current_attack, 0),
   );
 
   const totalOpponentPower = computed(() =>
-    opponentParty.value.reduce((sum, m) => sum + m.current_power, 0),
+    opponentParty.value.reduce((sum, m) => sum + m.current_attack, 0),
   );
 
   // Target lines (from targeting phase)
@@ -251,6 +258,8 @@ export function useBattle() {
     setAsideElement,
     playerBonusesTotal,
     opponentBonusesTotal,
+    playerHealth,
+    opponentHealth,
     opponentTurnResult,
     farkleTurnState,
     farkleDice,

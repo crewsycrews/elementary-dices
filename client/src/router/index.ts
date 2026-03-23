@@ -22,6 +22,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/event-choice",
+    name: "EventChoice",
+    component: () => import("@/views/EventChoiceView.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/battle",
     name: "Battle",
     component: () => import("@/views/BattleView.vue"),
@@ -54,7 +60,7 @@ const routes = [
   {
     path: "/inventory",
     name: "Inventory",
-    component: () => import("@/views/InventoryView.vue"),
+    redirect: "/",
     meta: { requiresAuth: true },
   },
   {

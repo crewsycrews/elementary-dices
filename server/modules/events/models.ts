@@ -87,9 +87,13 @@ export const BattlePartyMemberDTO = t.Object({
   elemental_id: t.String(),
   name: t.String(),
   element: t.String(),
+  elements: t.Array(t.String()),
   level: t.Number(),
-  base_power: t.Number(),
-  current_power: t.Number(),
+  base_attack: t.Number(),
+  current_attack: t.Number(),
+  max_health: t.Number(),
+  current_health: t.Number(),
+  is_destroyed: t.Boolean(),
   target_index: t.Number(),
 });
 
@@ -129,8 +133,8 @@ export const BattleStateDTO = t.Object({
   player_rolls_done: t.Number(),
   opponent_rolls_done: t.Number(),
   winner: t.Optional(t.String()),
-  player_total_power: t.Optional(t.Number()),
-  opponent_total_power: t.Optional(t.Number()),
+  player_total_attack: t.Optional(t.Number()),
+  opponent_total_attack: t.Optional(t.Number()),
 });
 
 // Event Resolution DTOs
@@ -181,8 +185,8 @@ export const BattleRollResultDTO = t.Object({
     t.Object({
       victory: t.Boolean(),
       message: t.String(),
-      player_total_power: t.Number(),
-      opponent_total_power: t.Number(),
+      player_total_attack: t.Number(),
+      opponent_total_attack: t.Number(),
       reward: t.Optional(t.Number()),
       penalty: t.Optional(
         t.Object({
@@ -246,6 +250,8 @@ export const FarkleTurnStateDTO = t.Object({
   active_combinations: t.Array(FarkleCombinationDTO),
   set_aside_element_bonus: t.Nullable(t.String()),
   accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
+  accumulated_combination_elements: t.Optional(t.Array(t.String())),
+  accumulated_set_aside_elements: t.Optional(t.Array(t.String())),
   is_dice_rush: t.Boolean(),
   busted: t.Boolean(),
 });
@@ -263,9 +269,14 @@ export const FarkleBattleStateDTO = t.Object({
   opponent_turn_result: t.Nullable(t.Any()),
   player_bonuses_total: t.Record(t.String(), t.Number()),
   opponent_bonuses_total: t.Record(t.String(), t.Number()),
+  player_health: t.Number(),
+  opponent_health: t.Number(),
+  combat_log: t.Array(t.Any()),
+  last_player_deployment: t.Optional(t.Array(t.Number())),
+  last_opponent_deployment: t.Optional(t.Array(t.Number())),
   winner: t.Optional(t.String()),
-  player_total_power: t.Optional(t.Number()),
-  opponent_total_power: t.Optional(t.Number()),
+  player_total_attack: t.Optional(t.Number()),
+  opponent_total_attack: t.Optional(t.Number()),
 });
 
 export const FarkleTurnResultDTO = t.Object({
@@ -278,8 +289,8 @@ export const FarkleTurnResultDTO = t.Object({
     t.Object({
       victory: t.Boolean(),
       message: t.String(),
-      player_total_power: t.Number(),
-      opponent_total_power: t.Number(),
+      player_total_attack: t.Number(),
+      opponent_total_attack: t.Number(),
       reward: t.Optional(t.Number()),
       penalty: t.Optional(
         t.Object({

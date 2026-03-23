@@ -26,8 +26,10 @@
           v-for="dice in diceOfSelectedType"
           :key="dice.id"
           :dice="dice"
+          :is-favorite="favoriteDiceId === dice.id"
           @equip="handleEquipDice(dice)"
           @unequip="handleUnequipDice(dice)"
+          @set-favorite="handleSetFavoriteDice(dice)"
         />
       </div>
 
@@ -67,6 +69,7 @@ const userStore = useUserStore();
 const uiStore = useUIStore();
 
 const selectedDiceType = ref<string | null>(null);
+const favoriteDiceId = computed(() => userStore.favoriteDiceId);
 
 const diceOfSelectedType = computed(() => {
   if (!selectedDiceType.value) return [];
@@ -93,6 +96,22 @@ const handleEquipDice = async (dice: any) => {
 const handleUnequipDice = async (dice: any) => {
   if (!dice.is_equipped) return;
   uiStore.showToast("Dice is currently equipped. Equip another dice to replace it.", "info");
+};
+
+const handleSetFavoriteDice = async (dice: any) => {
+  if (!userStore.userId) return;
+  if (favoriteDiceId.value === dice.id) return;
+
+  try {
+    await inventoryStore.setFavoriteDice(dice.id);
+    uiStore.showToast(
+      `${dice.dice_type?.dice_notation?.toUpperCase()} set as favorite!`,
+      "success",
+    );
+  } catch (error) {
+    console.error("Failed to set favorite dice:", error);
+    uiStore.showToast("Failed to set favorite dice", "error");
+  }
 };
 
 watch(

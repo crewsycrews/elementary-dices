@@ -17,27 +17,50 @@
       </span>
     </div>
 
+    <div v-if="statusLabel" class="mb-1.5">
+      <span
+        class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+        :class="statusClass"
+      >
+        {{ statusLabel }}
+      </span>
+    </div>
+
     <!-- Name -->
     <h4 class="font-bold text-xs truncate mb-1.5">{{ member.name }}</h4>
 
-    <!-- Power Display -->
+    <!-- Attack Display -->
     <div class="flex items-center justify-between">
-      <span class="text-xs text-muted-foreground">Power</span>
+      <span class="text-xs text-muted-foreground">ATK</span>
       <div class="flex items-center gap-0.5">
         <span
           class="font-bold text-base transition-all duration-500"
           :class="powerChangeClass"
         >
-          {{ displayPower }}
+          {{ displayAttack }}
         </span>
         <span
           v-if="powerDiff !== 0"
           class="text-xs font-bold"
           :class="powerDiff > 0 ? 'text-green-400' : 'text-red-400'"
         >
-          {{ powerDiff > 0 ? "+" : "" }}{{ powerDiff.toFixed(1) }}
+          {{ powerDiff > 0 ? "+" : "" }}{{ powerDiff.toFixed(0) }}
         </span>
       </div>
+    </div>
+
+    <div class="flex items-center justify-between mt-1">
+      <span class="text-xs text-muted-foreground">HP</span>
+      <span class="text-xs font-semibold" :class="member.is_destroyed ? 'text-red-400' : ''">
+        {{ member.current_health }}/{{ member.max_health }}
+      </span>
+    </div>
+    <div class="mt-1 h-1.5 rounded bg-muted overflow-hidden">
+      <div
+        class="h-full transition-all duration-300"
+        :class="member.is_destroyed ? 'bg-red-500' : 'bg-emerald-500'"
+        :style="{ width: `${healthPct}%` }"
+      ></div>
     </div>
 
     <!-- Target Arrow Indicator -->
@@ -63,6 +86,7 @@ const props = defineProps<{
   isTargeted?: boolean;
   showTarget?: boolean;
   targetName?: string;
+  deploymentState?: "deployed" | "bench" | null;
 }>();
 
 const ELEMENT_CONFIG: Record<string, { emoji: string; borderColor: string }> = {
@@ -82,17 +106,39 @@ const borderColorClass = computed(
     ELEMENT_CONFIG[props.member.element]?.borderColor ?? "border-gray-500/60",
 );
 
-const displayPower = computed(() => props.member.current_power.toFixed(1));
+const displayAttack = computed(() => props.member.current_attack.toFixed(0));
 
 const powerDiff = computed(
-  () => props.member.current_power - props.member.base_power,
+  () => props.member.current_attack - props.member.base_attack,
 );
 
-const previousPower = ref(props.member.current_power);
+const healthPct = computed(() => {
+  if (props.member.max_health <= 0) return 0;
+  return Math.max(
+    0,
+    Math.min(100, (props.member.current_health / props.member.max_health) * 100),
+  );
+});
+
+const statusLabel = computed(() => {
+  if (props.member.is_destroyed) return "Destroyed";
+  if (props.deploymentState === "deployed") return "Deployed";
+  if (props.deploymentState === "bench") return "Bench";
+  return "";
+});
+
+const statusClass = computed(() => {
+  if (props.member.is_destroyed) return "bg-red-500/20 text-red-300";
+  if (props.deploymentState === "deployed") return "bg-blue-500/20 text-blue-300";
+  if (props.deploymentState === "bench") return "bg-muted text-muted-foreground";
+  return "";
+});
+
+const previousPower = ref(props.member.current_attack);
 const powerChangeClass = ref("");
 
 watch(
-  () => props.member.current_power,
+  () => props.member.current_attack,
   (newVal, oldVal) => {
     if (newVal > oldVal) {
       powerChangeClass.value = "text-green-400 scale-110";

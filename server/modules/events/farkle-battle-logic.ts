@@ -1,18 +1,5 @@
 /**
- * Pure Farkle battle mechanics for the v2 battle system.
- *
- * Players roll 5 equipped dice per turn, form elemental combinations,
- * and accumulate percentage-based power bonuses over 3 turns.
- *
- * Combinations:
- *   Triplet (3 same):       +30% to that element
- *   Quartet (4 same):       +40% to that element
- *   All-For-One (5 same):   +50% to that element
- *   One-For-All (all diff): +30% to a chosen element
- *   Full House (3+2):       +35% to triplet element, +25% to pair element
- *
- * Set-aside element: +10% to matching party members when that die is set aside solo.
- * Bonuses accumulate additively. base_power is fixed; current_power = base_power * (1 + total_pct).
+ * Pure Farkle helpers used by the v3 battle system.
  */
 
 import {
@@ -65,6 +52,8 @@ export interface FarkleTurnState {
   set_aside_element_bonus: ElementType | null; // die set aside solo (chosen element)
   // Sum of bonuses banked from completed Dice Rush cycles in the same turn.
   accumulated_dice_rush_bonuses: Partial<Record<ElementType, number>>;
+  accumulated_combination_elements: ElementType[];
+  accumulated_set_aside_elements: ElementType[];
   is_dice_rush: boolean;
   busted: boolean;
 }
@@ -82,16 +71,21 @@ export interface FarkleBattleState {
   opponent_party: BattlePartyMember[];
   set_aside_element: ElementType | null;
   opponent_set_aside_element: ElementType | null;
-  current_turn: number; // 1-3
+  current_turn: number; // battle round
   player_turns_done: number;
   opponent_turns_done: number;
   player_turn: FarkleTurnState | null;
   opponent_turn_result: OpponentTurnResult | null;
   player_bonuses_total: Partial<Record<ElementType, number>>;
   opponent_bonuses_total: Partial<Record<ElementType, number>>;
+  player_health: number;
+  opponent_health: number;
+  combat_log: Array<Record<string, unknown>>;
+  last_player_deployment?: number[];
+  last_opponent_deployment?: number[];
   winner?: "player" | "opponent" | "draw";
-  player_total_power?: number;
-  opponent_total_power?: number;
+  player_total_attack?: number;
+  opponent_total_attack?: number;
 }
 
 export interface OpponentTurnResult {
@@ -99,6 +93,8 @@ export interface OpponentTurnResult {
   combination: Combination | null;
   set_aside_element_used: boolean;
   bonuses_applied: Partial<Record<ElementType, number>>;
+  deployable_elements: ElementType[];
+  combination_elements: ElementType[];
   busted: boolean;
 }
 
@@ -237,8 +233,7 @@ export function selectBestCombination(
 }
 
 /**
- * Apply accumulated percentage bonuses to a party.
- * current_power = base_power * (1 + total_bonus_pct_for_that_element)
+ * Apply percentage bonuses to current attack values.
  */
 export function applyBonusesToParty(
   party: BattlePartyMember[],
@@ -248,7 +243,10 @@ export function applyBonusesToParty(
     const pct = bonuses[member.element] ?? 0;
     return {
       ...member,
-      current_power: Math.round(member.base_power * (1 + pct) * 10) / 10,
+      current_attack: Math.max(
+        1,
+        Math.round(member.base_attack * (1 + pct)),
+      ),
     };
   });
 }
@@ -337,6 +335,12 @@ export function simulateOpponentTurn(
     combination: best,
     set_aside_element_used: setAsideElementUsed,
     bonuses_applied: bonusesApplied,
+    deployable_elements: best
+      ? [...new Set(best.elements)]
+      : setAsideElementUsed
+        ? [setAsideElement]
+        : [],
+    combination_elements: best ? [...new Set(best.elements)] : [],
     busted: !best && !setAsideElementUsed,
   };
 }
@@ -358,14 +362,67 @@ export function isBust(
   hasUsedReroll: boolean,
 ): boolean {
   if (!hasUsedReroll) return false; // still has free reroll, not busted yet
-  const activeDice = dice.filter((d) => !d.is_set_aside);
-  const combos = detectCombinations(activeDice);
-  if (combos.length > 0) return false;
+
+  const activeIndices = dice
+    .map((die, index) => ({ die, index }))
+    .filter(({ die }) => !die.is_set_aside)
+    .map(({ index }) => index);
+  const activeDice = activeIndices.map((idx) => dice[idx]);
+
+  // Regroup rule: set-aside dice can be combined with newly rolled dice.
+  // A non-bust opportunity exists if ANY valid combo uses at least one active die.
+  const regroupedCombos = detectCombinations(dice);
+  const hasComboUsingActiveDie = regroupedCombos.some((combo) =>
+    combo.dice_indices.some((idx) => activeIndices.includes(idx)),
+  );
+  if (hasComboUsingActiveDie) return false;
+
+  // Chosen set-aside element can still be banked solo from active dice.
   if (
     setAsideElement &&
     activeDice.some((d) => d.current_result === setAsideElement)
   ) {
-    return false; // can still set aside the chosen element die
+    return false;
   }
   return true;
+}
+
+export function collectSetAsideElements(
+  dice: FarkleDie[],
+): ElementType[] {
+  return [...new Set(dice.filter((d) => d.is_set_aside).map((d) => d.current_result))];
+}
+
+export function collectCombinationElements(
+  combos: Combination[],
+): ElementType[] {
+  return [...new Set(combos.flatMap((combo) => combo.elements))];
+}
+
+export function resolveDeploymentIndices(
+  party: BattlePartyMember[],
+  deployableElements: ElementType[],
+  combinationElements: ElementType[],
+): number[] {
+  const deployable = new Set(deployableElements);
+  const comboSet = new Set(combinationElements);
+
+  const result: number[] = [];
+  party.forEach((member, index) => {
+    if (member.is_destroyed || member.current_health <= 0) {
+      return;
+    }
+    if (!deployable.has(member.element)) {
+      return;
+    }
+    if (member.level >= 3) {
+      const allElementsPresent = member.elements.every((el) => comboSet.has(el));
+      if (!allElementsPresent) {
+        return;
+      }
+    }
+    result.push(index);
+  });
+
+  return result;
 }

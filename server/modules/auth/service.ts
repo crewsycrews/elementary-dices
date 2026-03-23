@@ -318,6 +318,7 @@ export class AuthService {
       username: user.username,
       email: user.email,
       currency: user.currency,
+      favorite_dice_id: user.favorite_dice_id ?? null,
       emailVerified: user.email_verified ?? false,
       lastLoginAt: user.last_login_at
         ? new Date(user.last_login_at).toISOString()

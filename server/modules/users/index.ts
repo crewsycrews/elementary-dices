@@ -1,6 +1,10 @@
 import { Elysia, t } from "elysia";
 import { UserService } from "./service";
-import { CreateUserDTO, UpdateUserDTO, UpdateCurrencyDTO } from "./models";
+import {
+  CreateUserDTO,
+  UpdateUserDTO,
+  UpdateCurrencyDTO,
+} from "./models";
 import { requireAuth } from "../auth/middleware";
 import { AuthService } from "../auth/service";
 import { UnauthorizedError } from "../../shared/errors";

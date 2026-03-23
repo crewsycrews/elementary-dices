@@ -1,7 +1,14 @@
 import { UserRepository } from './repository';
 import { DiceRepository } from '../dice/repository';
 import { NotFoundError, ConflictError, BadRequestError, UnauthorizedError } from '../../shared/errors';
-import type { CreateUserData, UpdateUserData, User, UserProfile, UpdateCurrencyData, LoginData } from './models';
+import type {
+  CreateUserData,
+  UpdateUserData,
+  User,
+  UserProfile,
+  UpdateCurrencyData,
+  LoginData,
+} from './models';
 
 export class UserService {
   constructor(
@@ -109,6 +116,13 @@ export class UserService {
       }
     }
 
+    if (data.favorite_dice_id) {
+      const playerDice = await this.diceRepository.findPlayerDiceById(data.favorite_dice_id);
+      if (!playerDice || playerDice.player_id !== id) {
+        throw new BadRequestError('This dice does not belong to the player');
+      }
+    }
+
     const updateData: any = { ...data };
 
     // Hash password if updating
@@ -192,5 +206,17 @@ export class UserService {
 
     // Batch insert all starter dice at once
     await this.diceRepository.addMultiplePlayerDice(playerId, diceToAdd);
+
+    // Default favorite dice for new users is d20
+    const favoriteD20 = await this.diceRepository.findEquippedDiceByNotation(playerId, 'd20');
+    if (favoriteD20) {
+      await this.repository.updateFavoriteDice(playerId, favoriteD20.id);
+      return;
+    }
+
+    const firstOwnedDice = (await this.diceRepository.findPlayerDice(playerId))[0];
+    if (firstOwnedDice) {
+      await this.repository.updateFavoriteDice(playerId, firstOwnedDice.id);
+    }
   }
 }

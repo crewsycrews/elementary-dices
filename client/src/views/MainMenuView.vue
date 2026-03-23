@@ -24,7 +24,7 @@
       <div class="area-event flex justify-center items-center">
         <MainMenuButton
           title="Current Event"
-          :icon="eventStore.isEventActive ? '⚡' : '🎲'"
+          :icon="eventStore.isEventActive ? '⚡' : '✨'"
           :subtitle="
             eventStore.isEventActive
               ? getEventTypeLabel(eventStore.currentEvent?.event_type || '')
@@ -54,10 +54,9 @@
       <!-- Central Dice Display (center) -->
       <div class="area-dice flex justify-center items-center">
         <CentralDiceDisplay
-          :last-roll="lastRoll"
+          :dice-notation="favoriteDiceNotation"
           :spinning="isRolling"
-          :element-faces="lastRollFaces"
-          :label="`Your last roll: ${lastRoll?.roll_value || 'None'}.`"
+          :element-faces="favoriteDiceFaces"
         />
       </div>
 
@@ -66,10 +65,9 @@
         <MainMenuButton
           title="Inventory"
           icon="🎒"
-          :subtitle="`${inventoryStore.playerItems.length} items`"
-          :badge="inventoryStore.playerItems.length"
+          subtitle="Temporarily disabled"
           icon-color="text-green-500"
-          @click="navigateTo('inventory')"
+          :disabled="true"
         />
       </div>
 
@@ -84,15 +82,6 @@
         />
       </div>
     </div>
-
-    <!-- Subtitle hint -->
-    <p class="text-xs text-muted-foreground mt-8 text-center">
-      {{
-        eventStore.isEventActive
-          ? "Click Current Event to continue"
-          : "Click any section to begin"
-      }}
-    </p>
   </div>
 </template>
 
@@ -117,18 +106,12 @@ const eventStore = useEventStore();
 const showStartGameModal = ref(false);
 const isRolling = ref(false);
 
-const lastRoll = computed(() => inventoryStore.lastRoll);
-
-// Derive faces from the dice used for the last roll
-const lastRollDice = computed(() => {
-  if (!lastRoll.value) return null;
-  return inventoryStore.playerDice.find(
-    (d) => d.dice_type_id === lastRoll.value!.dice_type_id,
-  ) ?? null;
-});
-
-const lastRollFaces = computed(
-  () => (lastRollDice.value?.dice_type as any)?.faces as string[] | undefined,
+const favoriteDice = computed(() => inventoryStore.favoriteDice);
+const favoriteDiceNotation = computed(
+  () => favoriteDice.value?.dice_type?.dice_notation ?? "d20",
+);
+const favoriteDiceFaces = computed(
+  () => (favoriteDice.value?.dice_type as any)?.faces as string[] | undefined,
 );
 
 // Handle onboarding completion
@@ -167,61 +150,10 @@ const handleEventClick = async () => {
   } else {
     // Check if player has active party
     if (elementalsStore.activeParty.length === 0) {
-      alert(
-        "You need at least one elemental in your party to trigger an event!",
-      );
       router.push("/party");
       return;
     }
-
-    // Let player choose which eligible event to create
-    try {
-      isRolling.value = true;
-
-      const options = await eventStore.getEventOptions();
-      const available = options?.available ?? [];
-      if (available.length === 0) {
-        isRolling.value = false;
-        alert("No event types are currently available.");
-        return;
-      }
-
-      const labels: Record<string, string> = {
-        wild_encounter: "Wild encounter",
-        pvp_battle: "PvP battle",
-        merchant: "Merchant",
-      };
-      const promptText = `Choose an event:\n${available
-        .map((type, index) => `${index + 1}. ${labels[type] ?? type} (${type})`)
-        .join("\n")}\n\nEnter number or event id:`;
-      const input = window.prompt(promptText, available[0]);
-      if (!input) {
-        isRolling.value = false;
-        return;
-      }
-
-      const normalized = input.trim();
-      const fromNumber = Number(normalized);
-      const selectedType =
-        Number.isFinite(fromNumber) && fromNumber >= 1 && fromNumber <= available.length
-          ? available[fromNumber - 1]
-          : (normalized as "wild_encounter" | "pvp_battle" | "merchant");
-      if (!available.includes(selectedType)) {
-        isRolling.value = false;
-        alert("Invalid event selection.");
-        return;
-      }
-
-      await eventStore.createEvent(userStore.userId!, selectedType);
-
-      setTimeout(() => {
-        isRolling.value = false;
-        router.push(getEventRoute());
-      }, 2000);
-    } catch (error) {
-      isRolling.value = false;
-      console.error("Failed to trigger event:", error);
-    }
+    router.push("/event-choice");
   }
 };
 
@@ -246,8 +178,7 @@ onMounted(async () => {
         showStartGameModal.value = true;
       }
 
-      // Load inventory
-      await inventoryStore.fetchPlayerItems(userStore.userId);
+      // Load dice inventory
       await inventoryStore.fetchPlayerDice(userStore.userId);
     } catch (error) {
       console.error("Failed to load main menu data:", error);

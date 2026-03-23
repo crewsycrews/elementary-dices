@@ -81,6 +81,7 @@ export const UserSchema = t.Object({
   username: t.String({ minLength: 3, maxLength: 20 }),
   email: t.String({ format: "email" }),
   currency: t.Integer({ minimum: 0 }),
+  favorite_dice_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
   updated_at: t.String({ format: "date-time" }),
 });
 
@@ -95,6 +96,7 @@ export const UpdateUserSchema = t.Partial(
     username: t.String({ minLength: 3, maxLength: 20 }),
     email: t.String({ format: "email" }),
     password: t.String({ minLength: 8 }),
+    favorite_dice_id: t.Nullable(t.String({ format: "uuid" })),
   }),
 );
 
@@ -349,9 +351,13 @@ export const BattlePartyMemberSchema = t.Object({
   elemental_id: t.String({ format: "uuid" }),
   name: t.String(),
   element: ElementType,
+  elements: t.Array(ElementType),
   level: t.Integer({ minimum: 1, maximum: 4 }),
-  base_power: t.Number(),
-  current_power: t.Number(),
+  base_attack: t.Number(),
+  current_attack: t.Number(),
+  max_health: t.Number(),
+  current_health: t.Number(),
+  is_destroyed: t.Boolean(),
   target_index: t.Integer(),
 });
 
@@ -381,8 +387,8 @@ export const BattleStateSchema = t.Object({
   player_rolls_done: t.Integer({ minimum: 0, maximum: 3 }),
   opponent_rolls_done: t.Integer({ minimum: 0, maximum: 3 }),
   winner: t.Optional(t.Union([t.Literal("player"), t.Literal("opponent"), t.Literal("draw")])),
-  player_total_power: t.Optional(t.Number()),
-  opponent_total_power: t.Optional(t.Number()),
+  player_total_attack: t.Optional(t.Number()),
+  opponent_total_attack: t.Optional(t.Number()),
 });
 
 // Legacy Battle Schema (kept for backwards compatibility if needed)
@@ -503,6 +509,8 @@ export const FarkleTurnStateSchema = t.Object({
   active_combinations: t.Array(CombinationSchema),
   set_aside_element_bonus: t.Nullable(ElementType),
   accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
+  accumulated_combination_elements: t.Optional(t.Array(ElementType)),
+  accumulated_set_aside_elements: t.Optional(t.Array(ElementType)),
   is_dice_rush: t.Boolean(),
   busted: t.Boolean(),
 });
@@ -512,6 +520,8 @@ export const OpponentTurnResultSchema = t.Object({
   combination: t.Nullable(CombinationSchema),
   set_aside_element_used: t.Boolean(),
   bonuses_applied: t.Record(t.String(), t.Number()),
+  deployable_elements: t.Array(ElementType),
+  combination_elements: t.Array(ElementType),
   busted: t.Boolean(),
 });
 
@@ -529,18 +539,23 @@ export const FarkleBattleStateSchema = t.Object({
   opponent_party: t.Array(BattlePartyMemberSchema),
   set_aside_element: t.Nullable(ElementType),
   opponent_set_aside_element: t.Nullable(ElementType),
-  current_turn: t.Integer({ minimum: 1, maximum: 3 }),
-  player_turns_done: t.Integer({ minimum: 0, maximum: 3 }),
-  opponent_turns_done: t.Integer({ minimum: 0, maximum: 3 }),
+  current_turn: t.Integer({ minimum: 1 }),
+  player_turns_done: t.Integer({ minimum: 0 }),
+  opponent_turns_done: t.Integer({ minimum: 0 }),
   player_turn: t.Nullable(FarkleTurnStateSchema),
   opponent_turn_result: t.Nullable(OpponentTurnResultSchema),
   player_bonuses_total: t.Record(t.String(), t.Number()),
   opponent_bonuses_total: t.Record(t.String(), t.Number()),
+  player_health: t.Integer({ minimum: 0 }),
+  opponent_health: t.Integer({ minimum: 0 }),
+  combat_log: t.Array(t.Record(t.String(), t.Any())),
+  last_player_deployment: t.Optional(t.Array(t.Integer())),
+  last_opponent_deployment: t.Optional(t.Array(t.Integer())),
   winner: t.Optional(
     t.Union([t.Literal("player"), t.Literal("opponent"), t.Literal("draw")]),
   ),
-  player_total_power: t.Optional(t.Number()),
-  opponent_total_power: t.Optional(t.Number()),
+  player_total_attack: t.Optional(t.Number()),
+  opponent_total_attack: t.Optional(t.Number()),
 });
 
 // Export all schemas for convenience

@@ -6,9 +6,12 @@
       <div class="w-full md:max-w-[18rem] md:justify-self-end space-y-1.5">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-base font-bold text-blue-400">Your Party</h3>
-          <span class="text-sm font-bold text-blue-400">
-            {{ totalPlayerPower.toFixed(1) }} PWR
-          </span>
+          <div class="text-right">
+            <p class="text-sm font-bold text-blue-400">{{ playerHealth }} HP</p>
+            <p class="text-[11px] text-muted-foreground">
+              {{ playerAliveCount }}/{{ playerParty.length }} alive
+            </p>
+          </div>
         </div>
         <div class="space-y-1.5">
           <BattleElementalCard
@@ -18,6 +21,7 @@
             :is-buffed="isElementBuffed(member.element)"
             :show-target="showTargets"
             :target-name="getTargetName(member, 'player')"
+            :deployment-state="getDeploymentState(index, 'player')"
           />
         </div>
       </div>
@@ -43,9 +47,12 @@
       <div class="w-full md:max-w-[18rem] md:justify-self-start space-y-1.5">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-base font-bold text-red-400">{{ opponentName }}</h3>
-          <span class="text-sm font-bold text-red-400">
-            {{ totalOpponentPower.toFixed(1) }} PWR
-          </span>
+          <div class="text-right">
+            <p class="text-sm font-bold text-red-400">{{ opponentHealth }} HP</p>
+            <p class="text-[11px] text-muted-foreground">
+              {{ opponentAliveCount }}/{{ opponentParty.length }} alive
+            </p>
+          </div>
         </div>
         <div class="space-y-1.5">
           <BattleElementalCard
@@ -55,6 +62,7 @@
             :is-buffed="isElementBuffed(member.element)"
             :show-target="showTargets"
             :target-name="getTargetName(member, 'opponent')"
+            :deployment-state="getDeploymentState(index, 'opponent')"
           />
         </div>
       </div>
@@ -71,8 +79,12 @@ const props = defineProps<{
   playerParty: BattlePartyMember[]
   opponentParty: BattlePartyMember[]
   opponentName: string
+  playerHealth?: number
+  opponentHealth?: number
   showTargets?: boolean
   buffedElement?: string | null
+  playerDeployedIndices?: number[] | null
+  opponentDeployedIndices?: number[] | null
   targetLines?: Array<{
     fromIndex: number
     toIndex: number
@@ -83,12 +95,14 @@ const props = defineProps<{
 
 const slots = useSlots()
 
-const totalPlayerPower = computed(() =>
-  props.playerParty.reduce((sum, m) => sum + m.current_power, 0)
+const MIN_BATTLE_HP = 120
+const playerHealth = computed(() => props.playerHealth ?? MIN_BATTLE_HP)
+const opponentHealth = computed(() => props.opponentHealth ?? MIN_BATTLE_HP)
+const playerAliveCount = computed(
+  () => props.playerParty.filter((m) => !m.is_destroyed).length
 )
-
-const totalOpponentPower = computed(() =>
-  props.opponentParty.reduce((sum, m) => sum + m.current_power, 0)
+const opponentAliveCount = computed(
+  () => props.opponentParty.filter((m) => !m.is_destroyed).length
 )
 
 function isElementBuffed(element: string): boolean {
@@ -101,5 +115,20 @@ function getTargetName(member: BattlePartyMember, side: 'player' | 'opponent'): 
   if (member.target_index < 0) return ''
   const targets = side === 'player' ? props.opponentParty : props.playerParty
   return targets[member.target_index]?.name ?? ''
+}
+
+function getDeploymentState(
+  index: number,
+  side: 'player' | 'opponent'
+): 'deployed' | 'bench' | null {
+  const deployed =
+    side === 'player'
+      ? (props.playerDeployedIndices ?? [])
+      : (props.opponentDeployedIndices ?? [])
+
+  if (deployed.length === 0) {
+    return null
+  }
+  return deployed.includes(index) ? 'deployed' : 'bench'
 }
 </script>

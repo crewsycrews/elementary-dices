@@ -5,12 +5,9 @@
     <!-- Turn counter -->
     <div class="flex flex-col items-center">
       <span class="text-xs text-muted-foreground uppercase tracking-wide"
-        >Turn</span
+        >Round</span
       >
-      <span class="text-2xl font-bold"
-        >{{ currentTurn
-        }}<span class="text-muted-foreground text-lg">/3</span></span
-      >
+      <span class="text-2xl font-bold">{{ currentTurn }}</span>
     </div>
 
     <!-- Divider -->

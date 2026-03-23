@@ -38,22 +38,18 @@
             v-if="!captureResult"
             class="inline-block px-4 py-2 rounded-lg font-semibold"
             :class="
-              getDifficultyClass(
-                eventStore.wildEncounterData?.capture_difficulty,
-              )
+              getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)
             "
           >
             Capture difficulty:
-            {{
-              eventStore.wildEncounterData?.capture_difficulty?.toUpperCase()
-            }}
+            {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
           </div>
         </div>
         <span class="w-14" aria-hidden="true"></span>
       </div>
 
       <div class="flex flex-col gap-6 items-center">
-        <div class="space-y-4 flex flex-col">
+        <div class="space-y-4 flex flex-col w-full max-w-md">
           <ElementalCard
             v-if="wildElemental && canRoll && !captureResult"
             :elemental="wildElemental"
@@ -70,38 +66,75 @@
             <span class="text-sm font-semibold capitalize">{{ targetElement }}</span>
           </div>
 
-          <div v-if="canRoll && !captureResult" class="space-y-2">
-            <label class="text-sm font-semibold">Use Item (Optional)</label>
-            <select
-              v-model="selectedItem"
-              class="w-full p-3 border rounded-lg bg-background"
-              :disabled="isBusy || !!captureResult"
-            >
-              <option value="">No item</option>
-              <option
-                v-for="item in captureItems"
-                :key="item.item_id"
-                :value="item.item_id"
-              >
-                {{ item.item?.name }} (x{{ item.quantity }}) - +{{
-                  getCaptureBonus(item)
-                }}
-              </option>
-            </select>
-          </div>
-
           <button
             v-if="canRoll && !captureResult"
             @click="handleRoll"
             :disabled="isBusy"
             class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
           >
-            {{ isBusy ? "ROLLING..." : "Start capturing" }}
+            {{ isBusy ? "ROLLING..." : "Start round" }}
           </button>
-
         </div>
 
-        <div class="space-y-4">
+        <div
+          v-if="wildBattleState && !captureResult"
+          class="w-full max-w-6xl space-y-3"
+        >
+          <BattleArena
+            :player-party="wildBattleState.player_party"
+            :opponent-party="wildBattleState.enemy_party"
+            :player-health="wildBattleState.player_health"
+            :opponent-health="wildBattleState.enemy_health"
+            :opponent-name="wildElemental?.name ?? 'Wild Elemental'"
+          />
+
+          <div class="rounded-xl border border-border bg-card/40 p-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+              <p>
+                Current round:
+                <span class="font-semibold">{{ wildBattleState.round }}</span>
+              </p>
+              <p>
+                Resolved rounds:
+                <span class="font-semibold">{{ roundsResolved }}</span>
+              </p>
+            </div>
+            <p v-if="roundStatusMessage" class="mt-2 text-sm text-muted-foreground">
+              {{ roundStatusMessage }}
+            </p>
+          </div>
+
+          <div
+            v-if="lastRoundSummary"
+            class="rounded-xl border border-border bg-card/40 p-4 space-y-1.5 text-sm"
+          >
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">
+              Round {{ lastRoundSummary.round }} summary
+            </p>
+            <p>
+              First attacker:
+              <span class="font-semibold">{{
+                lastRoundSummary.firstAttacker === "player" ? "You" : "Wild"
+              }}</span>
+            </p>
+            <p>
+              You took
+              <span class="font-semibold text-red-300">{{
+                lastRoundSummary.playerHealthDamage
+              }}</span>
+              direct HP damage.
+            </p>
+            <p>
+              Wild took
+              <span class="font-semibold text-blue-300">{{
+                lastRoundSummary.opponentHealthDamage
+              }}</span>
+              direct HP damage.
+            </p>
+          </div>
+        </div>
+
+        <div class="space-y-4 w-full max-w-2xl">
           <div
             v-if="captureResult"
             class="p-6 rounded-lg"
@@ -112,11 +145,13 @@
             "
           >
             <h2 class="text-2xl font-bold mb-2">
-              {{
-                captureResult.success ? "Capture Successful" : "Capture Failed"
-              }}
+              {{ captureResult.success ? "Capture Successful" : "Capture Failed" }}
             </h2>
-            <p class="text-lg mb-4">{{ captureResult.message }}</p>
+            <p class="text-lg mb-2">{{ captureResult.message }}</p>
+            <p v-if="finalHealthSummary" class="text-sm text-muted-foreground">
+              Final HP: You {{ finalHealthSummary.player }} / Wild
+              {{ finalHealthSummary.enemy }}
+            </p>
 
             <div
               v-if="captureResult.success && captureResult.elemental_caught"
@@ -140,6 +175,10 @@
 
           <template v-else>
             <div v-if="farkleState?.dice?.length" class="space-y-3">
+              <div class="flex justify-end">
+                <DiceCombinationsHint />
+              </div>
+
               <FarkleDiceRow
                 :dice="farkleState.dice"
                 :selected-indices="selectedDiceIndices"
@@ -207,7 +246,7 @@
                     : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50'
                 "
               >
-                Resolve Capture
+                Deploy &amp; Resolve Round
               </button>
             </div>
           </template>
@@ -231,6 +270,7 @@ import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
 import {
   useEventStore,
+  type BattlePartyMember,
   type Combination,
   type WildEncounterFarkleState,
 } from "@/stores/event";
@@ -238,9 +278,10 @@ import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
 import ElementalCard from "@/components/game/ElementalCard.vue";
+import BattleArena from "@/components/game/BattleArena.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
-import DiceInventoryPanel from "@/components/game/DiceInventoryPanel.vue";
+import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -251,15 +292,30 @@ const inventoryStore = useInventoryStore();
 const loading = ref(false);
 const isActing = ref(false);
 const isDiceAnimating = ref(false);
-const selectedItem = ref("");
 const selectedDiceIndices = ref<number[]>([]);
 const forceAnimationNonce = ref(0);
 const forcedAnimationIndices = ref<number[]>([]);
 const captureResult = ref<any>(null);
+const roundStatusMessage = ref<string | null>(null);
 const detectedCombinations = ref<Combination[]>([]);
 const wildElemental = ref<any>(null);
 
-const captureItems = computed(() => inventoryStore.captureItems);
+type WildBattleCombatLogEntry = {
+  round: number;
+  step: number;
+  side: "player" | "opponent";
+  target: "unit" | "player";
+  damage: number;
+};
+
+type WildBattleState = {
+  player_health: number;
+  enemy_health: number;
+  player_party: BattlePartyMember[];
+  enemy_party: BattlePartyMember[];
+  combat_log: WildBattleCombatLogEntry[];
+  round: number;
+};
 
 const farkleState = computed(
   () =>
@@ -267,6 +323,73 @@ const farkleState = computed(
       | WildEncounterFarkleState
       | undefined) ?? null,
 );
+
+const wildBattleState = computed<WildBattleState | null>(() => {
+  const data = eventStore.wildEncounterData as
+    | ({ wild_battle_state?: WildBattleState } & Record<string, unknown>)
+    | null;
+  return data?.wild_battle_state ?? null;
+});
+
+const combatLogEntries = computed<WildBattleCombatLogEntry[]>(() => {
+  const raw = (wildBattleState.value?.combat_log ?? []) as Array<
+    Partial<WildBattleCombatLogEntry>
+  >;
+  return raw
+    .filter(
+      (entry): entry is WildBattleCombatLogEntry =>
+        typeof entry.round === "number" &&
+        typeof entry.step === "number" &&
+        (entry.side === "player" || entry.side === "opponent") &&
+        (entry.target === "unit" || entry.target === "player") &&
+        typeof entry.damage === "number",
+    )
+    .sort((a, b) => a.round - b.round || a.step - b.step);
+});
+
+const roundsResolved = computed(() => {
+  return new Set(combatLogEntries.value.map((entry) => entry.round)).size;
+});
+
+const lastResolvedRoundNumber = computed<number | null>(() => {
+  if (combatLogEntries.value.length === 0) return null;
+  return Math.max(...combatLogEntries.value.map((entry) => entry.round));
+});
+
+const lastRoundLogs = computed(() => {
+  if (!lastResolvedRoundNumber.value) return [] as WildBattleCombatLogEntry[];
+  return combatLogEntries.value.filter(
+    (entry) => entry.round === lastResolvedRoundNumber.value,
+  );
+});
+
+const lastRoundSummary = computed(() => {
+  if (lastRoundLogs.value.length === 0 || !lastResolvedRoundNumber.value) {
+    return null;
+  }
+  const firstAttacker = lastRoundLogs.value[0].side;
+  const playerHealthDamage = lastRoundLogs.value
+    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0);
+  const opponentHealthDamage = lastRoundLogs.value
+    .filter((entry) => entry.side === "player" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0);
+
+  return {
+    round: lastResolvedRoundNumber.value,
+    firstAttacker,
+    playerHealthDamage,
+    opponentHealthDamage,
+  };
+});
+
+const finalHealthSummary = computed(() => {
+  if (!captureResult.value || !wildBattleState.value) return null;
+  return {
+    player: wildBattleState.value.player_health,
+    enemy: wildBattleState.value.enemy_health,
+  };
+});
 
 const targetElement = computed(
   () =>
@@ -355,8 +478,6 @@ const ELEMENT_EMOJIS: Record<string, string> = {
 const getElementEmoji = (element: string): string =>
   ELEMENT_EMOJIS[element] ?? "❓";
 
-const getCaptureBonus = (item: any): number => item.effect?.capture_bonus || 0;
-
 const getDifficultyClass = (difficulty?: string) => {
   switch (difficulty) {
     case "easy":
@@ -394,6 +515,7 @@ const updateFromTurnResult = (result: any) => {
 const handleRoll = async () => {
   if (!userStore.userId) return;
   isActing.value = true;
+  roundStatusMessage.value = null;
   try {
     const response = await eventStore.wildEncounterFarkleRoll(userStore.userId);
     const rolledDice = response?.result?.farkle_state?.dice ?? [];
@@ -504,16 +626,27 @@ const handleEndTurn = async () => {
   try {
     const response = await eventStore.wildEncounterFarkleEndTurn(
       userStore.userId,
-      selectedItem.value || undefined,
     );
-    captureResult.value = response?.result?.result ?? null;
 
-    if (captureResult.value?.success) {
-      await elementalsStore.fetchPlayerElementals(userStore.userId);
+    const turnResult = response?.result;
+    updateFromTurnResult(turnResult);
+
+    if (turnResult?.is_resolved) {
+      captureResult.value = turnResult.result ?? null;
+      roundStatusMessage.value = null;
+
+      if (captureResult.value?.success) {
+        await elementalsStore.fetchPlayerElementals(userStore.userId);
+      }
+      return;
     }
-    if (selectedItem.value) {
-      await inventoryStore.fetchPlayerItems(userStore.userId);
-    }
+
+    roundStatusMessage.value =
+      turnResult?.result?.message ?? "Battle continues. Roll again.";
+
+    await eventStore.initializeEventState(userStore.userId);
+    detectedCombinations.value = (farkleState.value?.detected_combinations ??
+      []) as Combination[];
   } catch (error) {
     console.error("Failed to resolve encounter:", error);
   } finally {
@@ -545,7 +678,6 @@ onMounted(async () => {
     await elementalsStore.fetchAllElementals();
     await elementalsStore.fetchPlayerElementals(userStore.userId);
     await inventoryStore.fetchPlayerDice(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
 
     if (eventStore.isWildEncounter && eventStore.wildEncounterData) {
       wildElemental.value = await elementalsStore.getElementalById(

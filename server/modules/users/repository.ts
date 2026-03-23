@@ -6,13 +6,13 @@ export class UserRepository {
 
   async findAll(): Promise<User[]> {
     return db(this.table)
-      .select('id', 'username', 'email', 'currency', 'updated_at')
+      .select('id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at')
       .orderBy('username', 'asc');
   }
 
   async findById(id: string): Promise<User | null> {
     const [user] = await db(this.table)
-      .select('id', 'username', 'email', 'currency', 'updated_at')
+      .select('id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at')
       .where({ id })
       .limit(1);
     return user || null;
@@ -20,7 +20,7 @@ export class UserRepository {
 
   async findByUsername(username: string): Promise<User | null> {
     const [user] = await db(this.table)
-      .select('id', 'username', 'email', 'currency', 'updated_at')
+      .select('id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at')
       .where({ username })
       .limit(1);
     return user || null;
@@ -28,7 +28,7 @@ export class UserRepository {
 
   async findByEmail(email: string): Promise<User | null> {
     const [user] = await db(this.table)
-      .select('id', 'username', 'email', 'currency', 'updated_at')
+      .select('id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at')
       .where({ email })
       .limit(1);
     return user || null;
@@ -38,7 +38,7 @@ export class UserRepository {
     username: string
   ): Promise<(User & { password_hash: string }) | null> {
     const [user] = await db(this.table)
-      .select('id', 'username', 'email', 'currency', 'updated_at', 'password_hash')
+      .select('id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at', 'password_hash')
       .where({ username })
       .limit(1);
     return user || null;
@@ -51,7 +51,7 @@ export class UserRepository {
         email: data.email,
         password_hash: data.password_hash,
       })
-      .returning(['id', 'username', 'email', 'currency', 'updated_at']);
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
     return user;
   }
 
@@ -59,7 +59,7 @@ export class UserRepository {
     const [user] = await db(this.table)
       .where({ id })
       .update(data)
-      .returning(['id', 'username', 'email', 'currency', 'updated_at']);
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
     return user || null;
   }
 
@@ -67,7 +67,7 @@ export class UserRepository {
     const [user] = await db(this.table)
       .where({ id })
       .update({ currency: amount })
-      .returning(['id', 'username', 'email', 'currency', 'updated_at']);
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
     return user || null;
   }
 
@@ -75,7 +75,7 @@ export class UserRepository {
     const [user] = await db(this.table)
       .where({ id })
       .increment('currency', amount)
-      .returning(['id', 'username', 'email', 'currency', 'updated_at']);
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
     return user || null;
   }
 
@@ -83,7 +83,15 @@ export class UserRepository {
     const [user] = await db(this.table)
       .where({ id })
       .decrement('currency', amount)
-      .returning(['id', 'username', 'email', 'currency', 'updated_at']);
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
+    return user || null;
+  }
+
+  async updateFavoriteDice(id: string, favoriteDiceId: string | null): Promise<User | null> {
+    const [user] = await db(this.table)
+      .where({ id })
+      .update({ favorite_dice_id: favoriteDiceId })
+      .returning(['id', 'username', 'email', 'currency', 'favorite_dice_id', 'updated_at']);
     return user || null;
   }
 

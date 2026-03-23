@@ -62,6 +62,8 @@
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
+          :player-health="battle.playerHealth.value"
+          :opponent-health="battle.opponentHealth.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
           :show-targets="true"
           :target-lines="battle.targetLines.value"
@@ -89,13 +91,15 @@
           <p class="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
             Pick one element. Dice showing this element can always be set aside
             for a
-            <strong>+10% power bonus</strong>, even without a combination.
+            <strong>+10% attack bonus</strong>, even without a combination.
           </p>
         </div>
 
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
+          :player-health="battle.playerHealth.value"
+          :opponent-health="battle.opponentHealth.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
         >
           <template #centerActions>
@@ -128,16 +132,27 @@
           :bonuses-total="battle.playerBonusesTotal.value"
           :set-aside-element="battle.setAsideElement.value"
         />
+        <p class="text-center text-xs text-muted-foreground">
+          Battle continues until one player reaches 0 HP.
+        </p>
 
         <!-- Battle Arena -->
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
+          :player-health="battle.playerHealth.value"
+          :opponent-health="battle.opponentHealth.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
+          :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
+          :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
         >
           <template #centerActions>
             <div class="w-full max-w-md rounded-xl border border-border/60 bg-card/40 p-3 space-y-3">
               <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
+                <div class="flex justify-end">
+                  <DiceCombinationsHint />
+                </div>
+
                 <FarkleDiceRow
                   :dice="battle.farkleDice.value"
                   :selected-indices="battle.selectedDiceIndices.value"
@@ -222,7 +237,7 @@
                   :disabled="isBusy"
                   class="px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
                 >
-                  &#x1F3B2; Roll remaining
+                  &#x1F3B2; Roll undeployed dice
                 </button>
 
                 <button
@@ -232,7 +247,7 @@
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy || !canEndTurn"
                   class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
-                >End Turn -></button>
+                >Deploy &amp; Resolve Round</button>
               </div>
 
               <div
@@ -243,8 +258,11 @@
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy"
                   class="px-4 py-2 bg-card border border-border rounded-lg font-bold hover:bg-card/80 transition-all disabled:opacity-50"
-                >End Turn (no bonuses)</button>
+                >Deploy &amp; Resolve Round (no bonuses)</button>
               </div>
+              <p v-if="!canEndTurn && !battle.isBusted.value" class="text-center text-xs text-muted-foreground">
+                Set aside a valid combination or chosen element before deploying.
+              </p>
             </div>
           </template>
         </BattleArena>
@@ -268,77 +286,93 @@
             &#x1F4A5; BUST! No combinations — all turn bonuses lost.
           </p>
           <p class="text-sm text-muted-foreground mt-1">
-            End your turn to continue.
+            Deploy now to resolve this round.
           </p>
         </div>
+        <div v-if="lastRoundSummary" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">
+              Round {{ lastRoundSummary.round }} resolved
+            </p>
+            <p class="text-sm">
+              First attacker:
+              <span class="font-semibold">
+                {{ lastRoundSummary.firstAttacker === "player" ? "You" : eventStore.pvpData?.opponent_name ?? "Opponent" }}
+              </span>
+            </p>
+            <p class="text-sm">
+              Your deployment:
+              <span class="font-semibold">{{ deployedPlayerNames }}</span>
+            </p>
+            <p class="text-sm">
+              Opponent deployment:
+              <span class="font-semibold">{{ deployedOpponentNames }}</span>
+            </p>
+          </div>
+          <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">Round impact</p>
+            <p class="text-sm text-red-300">
+              You took {{ lastRoundSummary.playerHealthDamage }} direct HP damage
+            </p>
+            <p class="text-sm text-blue-300">
+              Opponent took {{ lastRoundSummary.opponentHealthDamage }} direct HP damage
+            </p>
+            <p class="text-sm">
+              Units destroyed: You lost {{ lastRoundSummary.playerUnitsDestroyed }}, Opponent lost {{ lastRoundSummary.opponentUnitsDestroyed }}
+            </p>
+          </div>
+        </div>
 
-      </template>
-
-      <!-- ==================== PHASE: OPPONENT TURN (display) ==================== -->
-      <template
-        v-if="showOpponentTurnResult && battle.opponentTurnResult.value"
-      >
-        <div class="max-w-md mx-auto space-y-4">
-          <div class="text-center">
-            <div class="inline-block px-4 py-2 bg-red-500/10 rounded-lg">
-              <span class="text-sm font-bold text-red-400"
-                >Opponent's Turn</span
-              >
+        <div
+          v-if="battle.opponentTurnResult.value"
+          class="rounded-xl border border-border bg-card/40 p-4 space-y-3"
+        >
+          <div class="flex items-center justify-between">
+            <p class="text-sm font-bold text-red-400">Opponent private roll (revealed after resolution)</p>
+            <button
+              @click="isCombatHistoryOpen = !isCombatHistoryOpen"
+              class="text-xs px-2 py-1 rounded border border-border hover:bg-card transition-colors"
+            >
+              {{ isCombatHistoryOpen ? "Hide combat log" : "Show combat log" }}
+            </button>
+          </div>
+          <div class="flex justify-center gap-2 flex-wrap">
+            <div
+              v-for="(die, i) in battle.opponentTurnResult.value.dice"
+              :key="i"
+              class="w-10 h-10 rounded-lg border border-border bg-card flex items-center justify-center text-xl"
+            >
+              {{ getElementEmoji(die.current_result) }}
             </div>
           </div>
-
-          <div class="p-4 rounded-xl border border-border bg-card/50 space-y-3">
-            <!-- Opponent dice results -->
-            <div class="flex justify-center gap-2">
-              <div
-                v-for="(die, i) in battle.opponentTurnResult.value.dice"
-                :key="i"
-                class="w-12 h-12 rounded-lg border border-border bg-card flex items-center justify-center text-2xl"
-              >
-                {{ getElementEmoji(die.current_result) }}
-              </div>
-            </div>
-
-            <!-- Result summary -->
-            <div class="text-center">
-              <div
-                v-if="battle.opponentTurnResult.value.busted"
-                class="text-red-400 font-bold"
-              >
-                Opponent busted! No bonuses.
-              </div>
-              <div
-                v-else-if="battle.opponentTurnResult.value.combination"
-                class="space-y-1"
-              >
-                <p class="font-bold text-sm">
-                  {{
-                    getCombinationLabel(
-                      battle.opponentTurnResult.value.combination,
-                    )
-                  }}!
-                </p>
-                <div class="flex justify-center gap-3 text-sm">
-                  <span
-                    v-for="(pct, el) in battle.opponentTurnResult.value
-                      .bonuses_applied"
-                    :key="el"
-                    class="text-red-300"
-                  >
-                    {{ getElementEmoji(el) }} +{{
-                      Math.round(Number(pct) * 100)
-                    }}%
-                  </span>
-                </div>
-              </div>
-              <div
-                v-else-if="
-                  battle.opponentTurnResult.value.set_aside_element_used
-                "
-                class="text-yellow-400 text-sm"
-              >
-                Opponent used their set-aside element (+10%)
-              </div>
+          <div class="text-center text-sm">
+            <span v-if="battle.opponentTurnResult.value.busted" class="text-red-400 font-semibold">
+              Opponent busted this round.
+            </span>
+            <span v-else-if="battle.opponentTurnResult.value.combination" class="font-semibold">
+              {{ getCombinationLabel(battle.opponentTurnResult.value.combination) }} activated.
+            </span>
+            <span v-else-if="battle.opponentTurnResult.value.set_aside_element_used" class="text-yellow-400">
+              Set-aside element bonus applied.
+            </span>
+          </div>
+          <div
+            v-if="isCombatHistoryOpen && lastRoundLogs.length > 0"
+            class="space-y-2 max-h-64 overflow-y-auto rounded-lg border border-border/60 p-2"
+          >
+            <div
+              v-for="entry in lastRoundLogs"
+              :key="`${entry.round}-${entry.step}-${entry.side}-${entry.attacker_index}`"
+              class="text-xs rounded-md bg-card/70 p-2"
+            >
+              <span class="font-semibold">Step {{ entry.step }}:</span>
+              {{ entry.attacker_name }} ({{ getElementEmoji(entry.attacker_element) }})
+              attacked
+              <span v-if="entry.target === 'unit'">
+                {{ entry.defender_name }} ({{ getElementEmoji(entry.defender_element ?? "") }})
+              </span>
+              <span v-else>player HP</span>
+              for <span class="font-semibold">{{ entry.damage }}</span>.
             </div>
           </div>
         </div>
@@ -355,39 +389,61 @@
           <div
             class="p-8 rounded-xl"
             :class="
-              battle.battleResult.value?.victory
+              isVictory
                 ? 'bg-green-500/10 border-2 border-green-500'
                 : 'bg-red-500/10 border-2 border-red-500'
             "
           >
             <div class="text-7xl mb-4">
               {{
-                battle.battleResult.value?.victory ? "&#x1F3C6;" : "&#x1F480;"
+                isVictory ? "&#x1F3C6;" : "&#x1F480;"
               }}
             </div>
             <h2 class="text-3xl font-bold mb-2">
-              {{ battle.battleResult.value?.victory ? "Victory!" : "Defeat!" }}
+              {{ isVictory ? "Victory!" : "Defeat!" }}
             </h2>
             <p class="text-lg text-muted-foreground">
-              {{ battle.battleResult.value?.message }}
+              {{ resolvedMessage }}
+            </p>
+            <p class="text-sm text-muted-foreground mt-1">
+              Final HP: You {{ battle.playerHealth.value }} / Opponent {{ battle.opponentHealth.value }}
             </p>
 
-            <!-- Power Comparison -->
+            <!-- Core Summary -->
             <div class="grid grid-cols-2 gap-4 mt-6">
-              <div class="p-4 bg-blue-500/10 rounded-lg">
-                <p class="text-sm text-muted-foreground mb-1">Your Power</p>
-                <p class="text-3xl font-bold text-blue-400">
-                  {{
-                    battle.battleResult.value?.player_total_power?.toFixed(1)
-                  }}
+              <div class="p-4 bg-blue-500/10 rounded-lg space-y-1">
+                <p class="text-sm text-muted-foreground">Damage to Opponent HP</p>
+                <p class="text-3xl font-bold text-blue-400">{{ totalOpponentHealthDamage }}</p>
+                <p class="text-xs text-muted-foreground">
+                  Opponent units destroyed: {{ totalOpponentUnitsDestroyed }}
                 </p>
               </div>
-              <div class="p-4 bg-red-500/10 rounded-lg">
-                <p class="text-sm text-muted-foreground mb-1">Opponent Power</p>
-                <p class="text-3xl font-bold text-red-400">
-                  {{
-                    battle.battleResult.value?.opponent_total_power?.toFixed(1)
-                  }}
+              <div class="p-4 bg-red-500/10 rounded-lg space-y-1">
+                <p class="text-sm text-muted-foreground">Damage to Your HP</p>
+                <p class="text-3xl font-bold text-red-400">{{ totalPlayerHealthDamage }}</p>
+                <p class="text-xs text-muted-foreground">
+                  Your units destroyed: {{ totalPlayerUnitsDestroyed }}
+                </p>
+              </div>
+            </div>
+
+            <div class="p-4 bg-card/40 border border-border rounded-lg">
+              <p class="text-xs uppercase tracking-wide text-muted-foreground">Battle length</p>
+              <p class="text-2xl font-bold">{{ roundsResolved }} rounds</p>
+            </div>
+
+            <!-- Legacy Attack Snapshot -->
+            <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+              <div>
+                <p class="font-bold mb-1">Remaining attack (you)</p>
+                <p class="text-blue-300 font-semibold">
+                  {{ battle.battleResult.value?.player_total_attack?.toFixed(0) ?? "—" }}
+                </p>
+              </div>
+              <div>
+                <p class="font-bold mb-1">Remaining attack (opponent)</p>
+                <p class="text-red-300 font-semibold">
+                  {{ battle.battleResult.value?.opponent_total_attack?.toFixed(0) ?? "—" }}
                 </p>
               </div>
             </div>
@@ -427,7 +483,7 @@
             <!-- Reward -->
             <div
               v-if="
-                battle.battleResult.value?.victory &&
+                isVictory &&
                 battle.battleResult.value?.reward
               "
               class="mt-4 p-3 bg-yellow-500/10 rounded-lg"
@@ -441,7 +497,7 @@
             <!-- Penalty -->
             <div
               v-if="
-                !battle.battleResult.value?.victory &&
+                !isVictory &&
                 battle.battleResult.value?.penalty?.downgraded_elemental
               "
               class="mt-4 p-3 bg-orange-500/10 rounded-lg"
@@ -478,6 +534,7 @@ import BattleArena from "@/components/game/BattleArena.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 import FarkleBonusTracker from "@/components/game/FarkleBonusTracker.vue";
+import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 import type { Combination } from "@/stores/event";
 
 const router = useRouter();
@@ -494,8 +551,23 @@ const isActing = ref(false);
 const isDiceAnimating = ref(false);
 const forceAnimationNonce = ref(0);
 const forcedAnimationIndices = ref<number[]>([]);
-const showOpponentTurnResult = ref(false);
+const isCombatHistoryOpen = ref(false);
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+
+type CombatLogEntry = {
+  round: number;
+  step: number;
+  side: "player" | "opponent";
+  attacker_index: number;
+  attacker_name: string;
+  attacker_element: string;
+  target: "unit" | "player";
+  defender_index?: number;
+  defender_name?: string;
+  defender_element?: string;
+  damage: number;
+  defender_remaining_health?: number;
+};
 
 const ELEMENT_EMOJIS: Record<string, string> = {
   fire: "🔥",
@@ -523,6 +595,152 @@ function getCombinationLabel(combo: Combination): string {
 function getPartyCountForElement(el: string): number {
   return battle.playerParty.value.filter((m) => m.element === el).length;
 }
+
+const combatLogEntries = computed<CombatLogEntry[]>(() => {
+  const raw = (battle.battleState.value?.combat_log ?? []) as Array<
+    Partial<CombatLogEntry>
+  >;
+  return raw
+    .filter(
+      (entry): entry is CombatLogEntry =>
+        typeof entry.round === "number" &&
+        typeof entry.step === "number" &&
+        (entry.side === "player" || entry.side === "opponent") &&
+        typeof entry.attacker_name === "string" &&
+        typeof entry.attacker_element === "string" &&
+        (entry.target === "unit" || entry.target === "player") &&
+        typeof entry.damage === "number",
+    )
+    .sort((a, b) => a.round - b.round || a.step - b.step);
+});
+
+const lastResolvedRoundNumber = computed<number | null>(() => {
+  if (combatLogEntries.value.length === 0) return null;
+  const maxRound = Math.max(...combatLogEntries.value.map((entry) => entry.round));
+  if (battle.battlePhase.value === "resolved") return maxRound;
+  const cappedRound = battle.currentTurn.value - 1;
+  if (cappedRound < 1) return null;
+  const resolvedRounds = combatLogEntries.value
+    .map((entry) => entry.round)
+    .filter((round) => round <= cappedRound);
+  return resolvedRounds.length > 0 ? Math.max(...resolvedRounds) : null;
+});
+
+const lastRoundLogs = computed(() => {
+  if (!lastResolvedRoundNumber.value) return [] as CombatLogEntry[];
+  return combatLogEntries.value.filter(
+    (entry) => entry.round === lastResolvedRoundNumber.value,
+  );
+});
+
+const lastRoundSummary = computed(() => {
+  if (lastRoundLogs.value.length === 0 || !lastResolvedRoundNumber.value) {
+    return null;
+  }
+  const firstAttacker = lastRoundLogs.value[0].side;
+  const playerHealthDamage = lastRoundLogs.value
+    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0);
+  const opponentHealthDamage = lastRoundLogs.value
+    .filter((entry) => entry.side === "player" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0);
+  const playerUnitsDestroyed = lastRoundLogs.value.filter(
+    (entry) =>
+      entry.side === "opponent" &&
+      entry.target === "unit" &&
+      entry.defender_remaining_health === 0,
+  ).length;
+  const opponentUnitsDestroyed = lastRoundLogs.value.filter(
+    (entry) =>
+      entry.side === "player" &&
+      entry.target === "unit" &&
+      entry.defender_remaining_health === 0,
+  ).length;
+
+  return {
+    round: lastResolvedRoundNumber.value,
+    firstAttacker,
+    playerHealthDamage,
+    opponentHealthDamage,
+    playerUnitsDestroyed,
+    opponentUnitsDestroyed,
+  };
+});
+
+const deployedPlayerNames = computed(() => {
+  const indices = battle.battleState.value?.last_player_deployment ?? [];
+  if (indices.length === 0) return "None";
+  return indices
+    .map((idx) => battle.playerParty.value[idx]?.name)
+    .filter(Boolean)
+    .join(", ");
+});
+
+const deployedOpponentNames = computed(() => {
+  const indices = battle.battleState.value?.last_opponent_deployment ?? [];
+  if (indices.length === 0) return "None";
+  return indices
+    .map((idx) => battle.opponentParty.value[idx]?.name)
+    .filter(Boolean)
+    .join(", ");
+});
+
+const totalPlayerHealthDamage = computed(() =>
+  combatLogEntries.value
+    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0),
+);
+
+const totalOpponentHealthDamage = computed(() =>
+  combatLogEntries.value
+    .filter((entry) => entry.side === "player" && entry.target === "player")
+    .reduce((sum, entry) => sum + entry.damage, 0),
+);
+
+const totalPlayerUnitsDestroyed = computed(
+  () =>
+    combatLogEntries.value.filter(
+      (entry) =>
+        entry.side === "opponent" &&
+        entry.target === "unit" &&
+        entry.defender_remaining_health === 0,
+    ).length,
+);
+
+const totalOpponentUnitsDestroyed = computed(
+  () =>
+    combatLogEntries.value.filter(
+      (entry) =>
+        entry.side === "player" &&
+        entry.target === "unit" &&
+        entry.defender_remaining_health === 0,
+    ).length,
+);
+
+const roundsResolved = computed(() => {
+  const rounds = new Set(combatLogEntries.value.map((entry) => entry.round));
+  return rounds.size;
+});
+
+const isVictory = computed(() => {
+  if (battle.battleResult.value) {
+    return battle.battleResult.value.victory;
+  }
+  const winner = battle.battleState.value?.winner;
+  if (!winner) return false;
+  return winner === "player" || winner === "draw";
+});
+
+const resolvedMessage = computed(() => {
+  if (battle.battleResult.value?.message) {
+    return battle.battleResult.value.message;
+  }
+  const winner = battle.battleState.value?.winner;
+  if (winner === "player") return "You won by reducing enemy HP to zero.";
+  if (winner === "opponent") return "Your HP reached zero first.";
+  if (winner === "draw") return "The battle ended in a draw.";
+  return "Battle resolved.";
+});
 
 const scheduleForcedDiceAnimation = (indices: number[]) => {
   if (indices.length > 0) {
@@ -719,7 +937,7 @@ const handleFarkleContinue = async () => {
   }
 };
 
-// End player turn — show opponent turn result briefly
+// End player turn — commit bonuses, deploy and resolve combat round
 const handleFarkleEndTurn = async () => {
   if (!userStore.userId) return;
   isActing.value = true;
@@ -727,13 +945,6 @@ const handleFarkleEndTurn = async () => {
     const response = await eventStore.farkleEndTurn(userStore.userId);
     if (response?.result) {
       battle.updateFromTurnResult(response.result as any);
-
-      // Show opponent turn result briefly
-      if (battle.opponentTurnResult.value) {
-        showOpponentTurnResult.value = true;
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-        showOpponentTurnResult.value = false;
-      }
     }
   } catch (error) {
     console.error("Failed to end turn:", error);
@@ -751,7 +962,6 @@ const proceedToNext = async () => {
   }
   try {
     await userStore.fetchUser(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
     await elementalsStore.fetchPlayerElementals(userStore.userId);
   } catch (error) {
     console.error("Failed to refresh user data:", error);
@@ -769,7 +979,6 @@ onMounted(async () => {
     await elementalsStore.fetchAllElementals();
     await elementalsStore.fetchPlayerElementals(userStore.userId);
     await inventoryStore.fetchPlayerDice(userStore.userId);
-    await inventoryStore.fetchPlayerItems(userStore.userId);
 
     if (eventStore.battleState) {
       battle.initFromState(eventStore.battleState as any);

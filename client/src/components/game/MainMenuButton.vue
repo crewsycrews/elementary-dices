@@ -1,8 +1,13 @@
 <template>
   <button
     class="main-menu-button relative p-6 md:p-8 rounded-2xl border-2 transition-all duration-300 hover:scale-105 hover:shadow-2xl active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+    :disabled="disabled"
     :class="[
-      isActive ? 'border-primary bg-primary/10 shadow-lg' : 'border-border bg-card hover:bg-muted hover:border-primary',
+      isActive
+        ? 'border-primary bg-primary/10 shadow-lg'
+        : disabled
+          ? 'border-border bg-card'
+          : 'border-border bg-card hover:bg-muted hover:border-primary',
     ]"
     @click="$emit('click')"
   >
@@ -49,6 +54,7 @@ interface Props {
   iconColor?: string
   isActive?: boolean
   pulse?: boolean
+  disabled?: boolean
 }
 
 withDefaults(defineProps<Props>(), {
@@ -57,6 +63,7 @@ withDefaults(defineProps<Props>(), {
   iconColor: 'text-primary',
   isActive: false,
   pulse: false,
+  disabled: false,
 })
 
 defineEmits<{

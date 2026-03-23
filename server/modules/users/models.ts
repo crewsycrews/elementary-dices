@@ -35,6 +35,7 @@ export const UserProfileDTO = t.Object({
   username: t.String(),
   email: t.String(),
   currency: t.Number(),
+  favorite_dice_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
   updated_at: t.String(),
   stats: t.Object({
     total_elementals: t.Number(),

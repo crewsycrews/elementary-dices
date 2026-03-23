@@ -20,6 +20,7 @@ export const AuthResponseDTO = t.Object({
     username: t.String(),
     email: t.String({ format: 'email' }),
     currency: t.Integer({ minimum: 0 }),
+    favorite_dice_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
     emailVerified: t.Boolean(),
     lastLoginAt: t.Optional(t.String({ format: 'date-time' })),
   }),

@@ -48,22 +48,6 @@
           <p class="text-2xl font-bold">{{ userStore.currency }}</p>
         </div>
 
-        <!-- Items -->
-        <div v-if="merchantItems.length > 0">
-          <h2 class="text-2xl font-bold mb-4">Items for Sale</h2>
-          <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <ShopCard
-              v-for="item in merchantItems"
-              :key="item.id"
-              type="item"
-              :item="item"
-              :can-afford="userStore.currency >= item.price"
-              @purchase="handlePurchaseItem(item.id)"
-              :player-currency="userStore.currency"
-            />
-          </div>
-        </div>
-
         <!-- Dice -->
         <div v-if="merchantDice.length > 0">
           <h2 class="text-2xl font-bold mb-4">Dice for Sale</h2>
@@ -98,7 +82,6 @@ import { useRouter } from "vue-router";
 import { useEventStore } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useInventoryStore } from "@/stores/inventory";
-import ShopCard from "@/components/game/ShopCard.vue";
 import DiceShopCard from "@/components/game/DiceShopCard.vue";
 
 const router = useRouter();
@@ -109,25 +92,7 @@ const inventoryStore = useInventoryStore();
 const loading = ref(false);
 
 // Merchant data
-const merchantItems = ref<any[]>([]);
 const merchantDice = ref<any[]>([]);
-
-// Handle purchase item
-const handlePurchaseItem = async (itemId: string) => {
-  if (!userStore.userId) return;
-
-  try {
-    await inventoryStore.purchaseItem(userStore.userId, itemId);
-    await userStore.getCurrentUser();
-
-    // Remove from merchant display
-    merchantItems.value = merchantItems.value.filter(
-      (item) => item.id !== itemId,
-    );
-  } catch (error) {
-    console.error("Failed to purchase item:", error);
-  }
-};
 
 // Handle purchase dice
 const handlePurchaseDice = async (diceId: string) => {
@@ -171,7 +136,6 @@ onMounted(async () => {
     // Load event-specific data
     if (eventStore.isMerchant && eventStore.merchantData) {
       // Load merchant inventory
-      merchantItems.value = eventStore.merchantData.available_items || [];
       merchantDice.value = eventStore.merchantData.available_dice || [];
     }
   } catch (error) {
