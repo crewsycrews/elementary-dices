@@ -149,6 +149,7 @@
                 />
 
                 <CombinationDisplay
+                  v-if="!isBusy"
                   :combinations="battle.detectedCombinations.value"
                   :selectable="false"
                   :show-empty="true"
@@ -164,6 +165,7 @@
                     Set aside:
                   </p>
                   <CombinationDisplay
+                    v-if="!isBusy"
                     :combinations="battle.activeCombinations.value"
                     :selectable="false"
                   />
@@ -181,7 +183,11 @@
               </div>
 
               <div
-                v-if="battle.farkleDice.value.length > 0 && !battle.isBusted.value"
+                v-if="
+                  battle.farkleDice.value.length > 0 &&
+                  !battle.isBusted.value &&
+                  !isBusy
+                "
                 class="flex flex-wrap justify-center gap-2"
               >
                 <button
@@ -229,7 +235,10 @@
                 >End Turn -></button>
               </div>
 
-              <div v-if="battle.isBusted.value" class="flex justify-center">
+              <div
+                v-if="battle.isBusted.value && !isBusy"
+                class="flex justify-center"
+              >
                 <button
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy"
@@ -516,6 +525,9 @@ function getPartyCountForElement(el: string): number {
 }
 
 const scheduleForcedDiceAnimation = (indices: number[]) => {
+  if (indices.length > 0) {
+    isDiceAnimating.value = true;
+  }
   forcedAnimationIndices.value = [...indices];
   forceAnimationNonce.value += 1;
 };

@@ -61,6 +61,15 @@
             :show-description="true"
           />
 
+          <div
+            v-else-if="targetElement && !captureResult"
+            class="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-card/60 px-3 py-2"
+          >
+            <span class="text-lg">{{ getElementEmoji(targetElement) }}</span>
+            <span class="text-sm text-muted-foreground">Encounter element:</span>
+            <span class="text-sm font-semibold capitalize">{{ targetElement }}</span>
+          </div>
+
           <div v-if="canRoll && !captureResult" class="space-y-2">
             <label class="text-sm font-semibold">Use Item (Optional)</label>
             <select
@@ -90,14 +99,6 @@
             {{ isBusy ? "ROLLING..." : "Start capturing" }}
           </button>
 
-          <button
-            @click="handleSkipEncounter"
-            :disabled="isBusy || !!captureResult"
-            v-if="!captureResult"
-            class="w-full px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
-          >
-            Skip Encounter
-          </button>
         </div>
 
         <div class="space-y-4">
@@ -150,6 +151,7 @@
               />
 
               <CombinationDisplay
+                v-if="!isBusy"
                 :combinations="detectedCombinations"
                 :selectable="false"
                 :show-empty="true"
@@ -157,7 +159,7 @@
             </div>
 
             <div class="space-y-3">
-              <div class="flex flex-wrap gap-3">
+              <div v-if="!isBusy" class="flex flex-wrap gap-3">
                 <button
                   v-if="canReroll"
                   @click="handleReroll"
@@ -196,10 +198,14 @@
               </div>
 
               <button
-                v-if="canEndTurn"
+                v-if="canEndTurn && !isBusy"
                 @click="handleEndTurn"
                 :disabled="isBusy"
-                class="px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50"
+                :class="
+                  isCaptureSetAsideBonusActive
+                    ? 'px-6 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 border border-emerald-400 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 shadow-md shadow-emerald-500/20'
+                    : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50'
+                "
               >
                 Resolve Capture
               </button>
@@ -207,6 +213,15 @@
           </template>
         </div>
       </div>
+
+      <button
+        v-if="!captureResult"
+        @click="handleSkipEncounter"
+        :disabled="isBusy || !!captureResult"
+        class="mx-auto block w-fit px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
+      >
+        Skip Encounter
+      </button>
     </div>
   </div>
 </template>
@@ -312,7 +327,33 @@ const canEndTurn = computed(() => {
     farkleState.value.set_aside_element_bonus !== null
   );
 });
+
+const isCaptureSetAsideBonusActive = computed(() => {
+  if (!farkleState.value || !targetElement.value) return false;
+  if (farkleState.value.busted) return false;
+
+  const targetSetAsideCount = farkleState.value.dice.filter(
+    (die) => die.is_set_aside && die.current_result === targetElement.value,
+  ).length;
+  const hasTargetCombination = farkleState.value.active_combinations.some(
+    (combo) => combo.elements.includes(targetElement.value!),
+  );
+
+  return targetSetAsideCount >= 2 || hasTargetCombination;
+});
+
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+
+const ELEMENT_EMOJIS: Record<string, string> = {
+  fire: "🔥",
+  water: "💧",
+  earth: "🏔️",
+  air: "💨",
+  lightning: "⚡",
+};
+
+const getElementEmoji = (element: string): string =>
+  ELEMENT_EMOJIS[element] ?? "❓";
 
 const getCaptureBonus = (item: any): number => item.effect?.capture_bonus || 0;
 
@@ -337,6 +378,9 @@ const toggleDiceSelection = (index: number) => {
 };
 
 const scheduleForcedDiceAnimation = (indices: number[]) => {
+  if (indices.length > 0) {
+    isDiceAnimating.value = true;
+  }
   forcedAnimationIndices.value = [...indices];
   forceAnimationNonce.value += 1;
 };

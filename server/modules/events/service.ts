@@ -2021,7 +2021,7 @@ export class EventService {
 
   async wildEncounterFarkleEndTurn(
     playerId: string,
-    itemId?: string,
+    _itemId?: string,
   ): Promise<{
     farkle_state: WildEncounterFarkleState;
     detected_combinations: Combination[];
@@ -2046,71 +2046,17 @@ export class EventService {
       throw new BadRequestError("Maximum elemental capacity reached (15)");
     }
 
-    let captureBonus = 0;
-    if (itemId) {
-      const [item] = await db("items").where({ id: itemId }).limit(1);
-      if (!item) {
-        throw new NotFoundError("Item");
-      }
-
-      const [inventoryItem] = await db("player_inventory")
-        .where({ player_id: playerId, item_id: itemId })
-        .limit(1);
-
-      if (!inventoryItem || inventoryItem.quantity < 1) {
-        throw new BadRequestError("Item not in inventory or insufficient quantity");
-      }
-
-      if (item.effect?.capture_bonus) {
-        captureBonus = item.effect.capture_bonus;
-      }
-
-      if (inventoryItem.quantity === 1) {
-        await db("player_inventory").where({ id: inventoryItem.id }).delete();
-      } else {
-        await db("player_inventory")
-          .where({ id: inventoryItem.id })
-          .update({ quantity: inventoryItem.quantity - 1 });
-      }
-    }
-
-    const turnBonuses: Partial<Record<ElementType, number>> = {};
-    if (!farkleState.busted) {
-      for (const combo of farkleState.active_combinations) {
-        for (const [el, pct] of Object.entries(combo.bonuses)) {
-          turnBonuses[el as ElementType] =
-            (turnBonuses[el as ElementType] ?? 0) + (pct as number);
-        }
-      }
-      const soloSetAsideCount = countSoloSetAsideElementDice(
-        farkleState.dice,
-        farkleState.active_combinations as Combination[],
-        targetElement,
-      );
-      if (soloSetAsideCount > 0) {
-        turnBonuses[targetElement] =
-          (turnBonuses[targetElement] ?? 0) + soloSetAsideCount * 0.1;
-      }
-    }
-
-    const targetBonus = turnBonuses[targetElement] ?? 0;
     const targetDiceSetAside = farkleState.dice.filter(
       (d) => d.is_set_aside && d.current_result === targetElement,
     ).length;
-    let score = farkleState.busted ? 0 : Math.round(targetBonus * 10) + targetDiceSetAside;
-    score += captureBonus;
-
-    let captureDifficulty: "easy" | "medium" | "hard";
-    if (elemental.level === 1) captureDifficulty = "easy";
-    else if (elemental.level === 2) captureDifficulty = "medium";
-    else captureDifficulty = "hard";
-
-    const thresholdByDifficulty: Record<typeof captureDifficulty, number> = {
-      easy: 2,
-      medium: 4,
-      hard: 6,
-    };
-    const success = score >= thresholdByDifficulty[captureDifficulty];
+    const hasTargetElementCombination =
+      (farkleState.active_combinations as Combination[]).some((combo) =>
+        combo.elements.includes(targetElement),
+      );
+    const hasTwoOrMoreTargetSetAsideDice = targetDiceSetAside >= 2;
+    const success =
+      !farkleState.busted &&
+      (hasTwoOrMoreTargetSetAsideDice || hasTargetElementCombination);
 
     let elementalCaught:
       | {
@@ -2140,7 +2086,6 @@ export class EventService {
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
         outcome: "victory",
-        item_used_id: itemId,
         captured_player_elemental_id: playerElemental.id,
         resolved_at: new Date(),
       });
@@ -2164,7 +2109,6 @@ export class EventService {
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
         outcome: "defeat",
-        item_used_id: itemId,
         resolved_at: new Date(),
       });
     }
