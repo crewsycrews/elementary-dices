@@ -1,5 +1,14 @@
 <template>
   <div class="container mx-auto p-4 md:p-6 space-y-6">
+    <ViewOnboardingModal
+      v-if="showOnboarding"
+      title="Wild Encounter Basics"
+      subtitle="Shown once when you first open Wild Encounter."
+      :steps="onboardingSteps"
+      @close="dismissOnboarding"
+      @complete="dismissOnboarding"
+    />
+
     <div v-if="loading" class="text-center py-12">
       <p class="text-xl font-semibold">Loading encounter...</p>
     </div>
@@ -203,7 +212,7 @@
                   v-if="canReroll"
                   @click="handleReroll"
                   :disabled="isBusy || selectedDiceIndices.length === 0"
-                  class="px-4 py-2 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
+                  class="px-4 py-2 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
                 >
                   Reroll selected ({{ selectedDiceIndices.length }})
                 </button>
@@ -212,7 +221,7 @@
                   v-if="canSetAside"
                   @click="handleSetAside"
                   :disabled="isBusy"
-                  class="px-4 py-2 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
+                  class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
                 >
                   Set aside best combo
                 </button>
@@ -221,7 +230,7 @@
                   v-if="canSetAsideTargetElement"
                   @click="handleSetAsideTargetElement"
                   :disabled="isBusy"
-                  class="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
+                  class="px-4 py-2 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
                 >
                   Set aside encounter element
                 </button>
@@ -230,7 +239,7 @@
                   v-if="canContinue"
                   @click="handleContinue"
                   :disabled="isBusy"
-                  class="px-4 py-2 bg-sky-500/20 text-sky-300 border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
+                  class="px-4 py-2 bg-sky-500/20 text-foreground border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
                 >
                   Roll remaining dice
                 </button>
@@ -242,8 +251,8 @@
                 :disabled="isBusy"
                 :class="
                   isCaptureSetAsideBonusActive
-                    ? 'px-6 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 border border-emerald-400 bg-emerald-500/15 text-emerald-200 hover:bg-emerald-500/25 shadow-md shadow-emerald-500/20'
-                    : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50'
+                    ? 'px-6 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 border border-emerald-400 bg-emerald-500/15 text-foreground hover:bg-emerald-500/25 shadow-md shadow-emerald-500/20'
+                    : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50'
                 "
               >
                 Deploy &amp; Resolve Round
@@ -282,6 +291,7 @@ import BattleArena from "@/components/game/BattleArena.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
+import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -299,6 +309,42 @@ const captureResult = ref<any>(null);
 const roundStatusMessage = ref<string | null>(null);
 const detectedCombinations = ref<Combination[]>([]);
 const wildElemental = ref<any>(null);
+const showOnboarding = ref(false);
+const onboardingStorageScope = "wild-encounter-v1";
+
+const onboardingSteps = [
+  {
+    title: "Capture flow",
+    description:
+      "Wild encounters now use battle rounds. You resolve rounds with Farkle actions, then battle simulation determines capture outcome.",
+    bullets: [
+      "Start a wild encounter from Current Event.",
+      "Deploy and resolve rounds until the encounter battle ends.",
+      "If the wild elemental is defeated, capture succeeds.",
+    ],
+  },
+  {
+    title: "Encounter turn decisions",
+    description:
+      "Use rerolls and set-aside choices to bias bonuses toward your current objective and survive long enough to close the fight.",
+    bullets: [
+      "Set aside best combinations or encounter element opportunities.",
+      "Bust removes turn bonuses, so commit deployment at the right time.",
+      "Review round summaries to adjust next turn choices.",
+    ],
+  },
+];
+
+const getOnboardingStorageKey = () => {
+  if (!userStore.userId) return null;
+  return `elementary-dices:onboarding:${userStore.userId}:${onboardingStorageScope}`;
+};
+
+const dismissOnboarding = () => {
+  const key = getOnboardingStorageKey();
+  if (key) localStorage.setItem(key, "seen");
+  showOnboarding.value = false;
+};
 
 type WildBattleCombatLogEntry = {
   round: number;
@@ -673,6 +719,10 @@ const proceedToNext = () => {
 
 onMounted(async () => {
   if (!userStore.userId) return;
+  const onboardingKey = getOnboardingStorageKey();
+  if (onboardingKey && !localStorage.getItem(onboardingKey)) {
+    showOnboarding.value = true;
+  }
   loading.value = true;
   try {
     await elementalsStore.fetchAllElementals();

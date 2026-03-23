@@ -20,6 +20,9 @@
           :class="[`dice-${diceType}`, { 'is-rolling': isAnimating }]"
           :style="diceStyle"
           @click="handleClick"
+          @mouseenter="handlePointerEnter"
+          @mousemove="handlePointerMove"
+          @mouseleave="handlePointerLeave"
         >
           <!-- Render all faces -->
           <div
@@ -37,11 +40,42 @@
         </div>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="showProbabilityTooltip"
+        class="dice-probability-tooltip"
+        :style="{
+          left: `${tooltipPosition.x}px`,
+          top: `${tooltipPosition.y}px`,
+        }"
+      >
+        <table class="probability-table">
+          <thead>
+            <tr>
+              <th>Element</th>
+              <th>Faces</th>
+              <th>Chance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in probabilityRows" :key="row.element">
+              <td class="probability-element">
+                {{ ELEMENT_EMOJI[row.element] ?? "•" }}
+                <span>{{ row.element }}</span>
+              </td>
+              <td>{{ row.count }}</td>
+              <td>{{ row.chancePercent }}%</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, nextTick } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   getGeometry,
   type DiceType,
@@ -113,6 +147,9 @@ const emit = defineEmits<{
 const diceRef = ref<HTMLElement | null>(null);
 const shadowRef = ref<HTMLElement | null>(null);
 const isAnimating = ref(false);
+const isTooltipVisible = ref(false);
+const tooltipPosition = ref({ x: 0, y: 0 });
+const TOOLTIP_Y_OFFSET = 16;
 
 // Get geometry for this dice type
 const geometry = computed(() => getGeometry(props.diceType));
@@ -159,6 +196,36 @@ const faceStyles = computed(() => {
   return styles;
 });
 
+const probabilityRows = computed(() => {
+  const counts: Record<string, number> = {};
+  const faces = props.elementFaces ?? [];
+
+  if (faces.length > 0) {
+    for (const element of faces) {
+      counts[element] = (counts[element] ?? 0) + 1;
+    }
+  } else if (props.affinity) {
+    counts[props.affinity] = geometry.value.faces.length;
+  }
+
+  const totalFaces = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  if (totalFaces === 0) {
+    return [];
+  }
+
+  return Object.entries(counts)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([element, count]) => ({
+      element,
+      count,
+      chancePercent: ((count / totalFaces) * 100).toFixed(1),
+    }));
+});
+
+const showProbabilityTooltip = computed(
+  () => isTooltipVisible.value && probabilityRows.value.length > 0,
+);
+
 /** Get the element for a specific face (1-based index) */
 function getFaceElement(faceValue: number): string | undefined {
   return props.elementFaces?.[faceValue - 1];
@@ -188,6 +255,28 @@ function getD4Values(faceValue: number): [number, number, number] {
  */
 function handleClick() {
   emit("click");
+}
+
+function updateTooltipPosition(event: MouseEvent): void {
+  tooltipPosition.value = {
+    x: event.clientX + 8,
+    y: event.clientY + TOOLTIP_Y_OFFSET,
+  };
+}
+
+function handlePointerEnter(event: MouseEvent): void {
+  if (probabilityRows.value.length === 0) return;
+  updateTooltipPosition(event);
+  isTooltipVisible.value = true;
+}
+
+function handlePointerMove(event: MouseEvent): void {
+  if (!isTooltipVisible.value) return;
+  updateTooltipPosition(event);
+}
+
+function handlePointerLeave(): void {
+  isTooltipVisible.value = false;
 }
 
 /**
@@ -300,6 +389,53 @@ defineExpose({
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.dice-probability-tooltip {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 8px;
+  padding: 0.4rem;
+  color: #f8fafc;
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.45);
+  min-width: 210px;
+  backdrop-filter: blur(6px);
+}
+
+.probability-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.72rem;
+}
+
+.probability-table th,
+.probability-table td {
+  text-align: left;
+  padding: 0.2rem 0.3rem;
+}
+
+.probability-table th {
+  font-size: 0.68rem;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.probability-table td {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.probability-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.probability-element {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  text-transform: capitalize;
 }
 
 .dice-shadow {

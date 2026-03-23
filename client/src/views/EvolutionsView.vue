@@ -1,5 +1,14 @@
 <template>
   <div class="container mx-auto p-6 space-y-6 max-w-4xl">
+    <ViewOnboardingModal
+      v-if="showOnboarding"
+      title="Evolutions Basics"
+      subtitle="Shown once when you first open Evolutions."
+      :steps="onboardingSteps"
+      @close="dismissOnboarding"
+      @complete="dismissOnboarding"
+    />
+
     <div class="flex items-start gap-3">
     <!-- Back Button -->
     <button
@@ -198,6 +207,7 @@ import { useElementalsStore } from "@/stores/elementals";
 import { useUserStore } from "@/stores/user";
 import { useElementalCombination } from "@/composables/useElementalCombination";
 import ElementalCard from "@/components/game/ElementalCard.vue";
+import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { PlayerElemental, Elemental } from "@elementary-dices/shared";
 
 const elementalsStore = useElementalsStore();
@@ -218,6 +228,42 @@ const {
 
 const isLoadingElementals = ref(false);
 const lastResult = ref<{ success: boolean; message: string } | null>(null);
+const showOnboarding = ref(false);
+const onboardingStorageScope = "evolutions-v1";
+
+const onboardingSteps = [
+  {
+    title: "Evolution consumes selected elementals",
+    description:
+      "Pick valid ingredients in the ritual slots, then evolve to create a stronger result based on configured recipes.",
+    bullets: [
+      "Use the three ritual slots to compose a valid recipe.",
+      "Invalid combinations are rejected without creating a new unit.",
+      "Successful evolutions should be reflected in your roster.",
+    ],
+  },
+  {
+    title: "Plan around level and deployment requirements",
+    description:
+      "Higher-level elementals are stronger, and level 3-4 deployment has stricter requirements in Dice Rush chains.",
+    bullets: [
+      "Keep ingredient diversity for flexible future compositions.",
+      "Do not over-invest into a single element too early.",
+      "Build evolutions that match your preferred dice strategy.",
+    ],
+  },
+];
+
+const getOnboardingStorageKey = () => {
+  if (!userStore.userId) return null;
+  return `elementary-dices:onboarding:${userStore.userId}:${onboardingStorageScope}`;
+};
+
+const dismissOnboarding = () => {
+  const key = getOnboardingStorageKey();
+  if (key) localStorage.setItem(key, "seen");
+  showOnboarding.value = false;
+};
 
 const allPlayerElementals = computed(() => {
   return elementalsStore.playerElementals
@@ -291,6 +337,10 @@ async function handleEvolve() {
 
 onMounted(async () => {
   if (!userStore.userId) return;
+  const onboardingKey = getOnboardingStorageKey();
+  if (onboardingKey && !localStorage.getItem(onboardingKey)) {
+    showOnboarding.value = true;
+  }
   isLoadingElementals.value = true;
   try {
     await Promise.all([

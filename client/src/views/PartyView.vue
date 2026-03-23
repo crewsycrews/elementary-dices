@@ -1,5 +1,14 @@
 <template>
   <div class="container mx-auto p-6 space-y-6">
+    <ViewOnboardingModal
+      v-if="showOnboarding"
+      title="Elementals Management Basics"
+      subtitle="Shown once when you first open Party."
+      :steps="onboardingSteps"
+      @close="dismissOnboarding"
+      @complete="dismissOnboarding"
+    />
+
     <!-- Header -->
     <div class="flex items-start gap-3">
     <button
@@ -123,12 +132,59 @@ import { useApi } from "@/composables/useApi";
 import { playerApi } from "@/composables/useApiHelpers";
 import PartySlot from "@/components/game/PartySlot.vue";
 import ElementalCard from "@/components/game/ElementalCard.vue";
+import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const uiStore = useUIStore();
 
 const maxBackpackSize = 20;
+const showOnboarding = ref(false);
+const onboardingStorageScope = "party-v1";
+
+const onboardingSteps = [
+  {
+    title: "Capturing gives you roster depth",
+    description:
+      "You primarily gain new elementals from Wild Encounters. Captured units appear in your collection and can be moved into active slots.",
+    bullets: [
+      "Use Current Event to start encounters.",
+      "Captured elementals increase your options for counters and evolutions.",
+      "Destroyed units in a battle cannot be deployed again in that same battle.",
+    ],
+  },
+  {
+    title: "Build the active party carefully",
+    description:
+      "You can deploy up to 5 active elementals. Positioning and composition determine what you can deploy in battle rounds.",
+    bullets: [
+      "Drag and drop to reorder active slots.",
+      "Move backups in from backpack when your strategy changes.",
+      "Mix elements to cover weakness chains in combat.",
+    ],
+  },
+  {
+    title: "Element weakness and battle intent",
+    description:
+      "Combat uses attack and health. Element weakness grants +10% damage when exploited.",
+    bullets: [
+      "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+      "Lightning is neutral: no passive weakness or bonus.",
+      "Prioritize a party that can pressure likely enemy compositions.",
+    ],
+  },
+];
+
+const getOnboardingStorageKey = () => {
+  if (!userStore.userId) return null;
+  return `elementary-dices:onboarding:${userStore.userId}:${onboardingStorageScope}`;
+};
+
+const dismissOnboarding = () => {
+  const key = getOnboardingStorageKey();
+  if (key) localStorage.setItem(key, "seen");
+  showOnboarding.value = false;
+};
 
 // Track dragged elemental
 const draggedElemental = ref<{
@@ -354,6 +410,11 @@ const handleAddToParty = async (member: {
 // Load data on mount
 onMounted(async () => {
   if (!userStore.userId) return;
+
+  const onboardingKey = getOnboardingStorageKey();
+  if (onboardingKey && !localStorage.getItem(onboardingKey)) {
+    showOnboarding.value = true;
+  }
 
   try {
     await elementalsStore.fetchAllElementals();

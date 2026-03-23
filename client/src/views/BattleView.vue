@@ -1,5 +1,14 @@
 ﻿<template>
   <div class="container mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
+    <ViewOnboardingModal
+      v-if="showOnboarding"
+      title="Battle + Farkle Basics"
+      subtitle="Shown once when you first open PvP Battle."
+      :steps="onboardingSteps"
+      @close="dismissOnboarding"
+      @complete="dismissOnboarding"
+    />
+
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
       <div class="text-6xl mb-4">&#x23F3;</div>
@@ -211,21 +220,21 @@
                   :disabled="
                     isBusy || battle.selectedDiceIndices.value.length === 0
                   "
-                  class="px-3 py-1.5 bg-yellow-500/20 text-yellow-300 border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
+                  class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
                 >Reroll ({{ battle.selectedDiceIndices.value.length }})</button>
 
                 <button
                   v-if="battle.canSetAside.value"
                   @click="handleSetAside"
                   :disabled="isBusy"
-                  class="px-3 py-1.5 bg-green-500/20 text-green-300 border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50 text-sm"
+                  class="px-3 py-1.5 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50 text-sm"
                 >Set aside combo</button>
 
                 <button
                   v-if="canSetAsideChosenElement"
                   @click="handleSetAsideChosenElement"
                   :disabled="isBusy"
-                  class="px-3 py-1.5 bg-yellow-500/20 text-yellow-300 border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
+                  class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
                 >
                   {{ battle.getElementConfig(battle.setAsideElement.value!).emoji }}
                   Set aside element
@@ -235,7 +244,7 @@
                   v-if="battle.canContinue.value"
                   @click="handleFarkleContinue"
                   :disabled="isBusy"
-                  class="px-3 py-1.5 bg-blue-500/20 text-blue-300 border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
+                  class="px-3 py-1.5 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
                 >
                   &#x1F3B2; Roll undeployed dice
                 </button>
@@ -246,7 +255,7 @@
                   "
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy || !canEndTurn"
-                  class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
+                  class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
                 >Deploy &amp; Resolve Round</button>
               </div>
 
@@ -257,7 +266,7 @@
                 <button
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy"
-                  class="px-4 py-2 bg-card border border-border rounded-lg font-bold hover:bg-card/80 transition-all disabled:opacity-50"
+                  class="px-4 py-2 bg-card border border-border rounded-lg font-bold text-foreground hover:bg-card/80 transition-all disabled:opacity-50"
                 >Deploy &amp; Resolve Round (no bonuses)</button>
               </div>
               <p v-if="!canEndTurn && !battle.isBusted.value" class="text-center text-xs text-muted-foreground">
@@ -535,6 +544,7 @@ import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 import FarkleBonusTracker from "@/components/game/FarkleBonusTracker.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
+import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { Combination } from "@/stores/event";
 
 const router = useRouter();
@@ -552,7 +562,53 @@ const isDiceAnimating = ref(false);
 const forceAnimationNonce = ref(0);
 const forcedAnimationIndices = ref<number[]>([]);
 const isCombatHistoryOpen = ref(false);
+const showOnboarding = ref(false);
+const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+
+const onboardingSteps = [
+  {
+    title: "Round flow: roll, set aside, deploy",
+    description:
+      "Each round starts with Farkle actions, then you can commit current bonuses and deploy available elementals into combat.",
+    bullets: [
+      "Choose one set-aside element for direct +10% attack access.",
+      "Roll all five dice, reroll once after first throw, then set aside valid outcomes.",
+      "You may stop after set-aside and deploy immediately.",
+    ],
+  },
+  {
+    title: "Element interactions and targeting",
+    description:
+      "Combat uses attack and health. Weakness advantage gives +10% damage when attacker counters defender.",
+    bullets: [
+      "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+      "Lightning remains neutral with no passive weakness or bonus.",
+      "Targeting prioritizes weakness exploitation, then any alive target.",
+    ],
+  },
+  {
+    title: "Damage overflow and win condition",
+    description:
+      "Enemy attacks hit deployed defenders first. Remaining attacks overflow to player HP. Destroyed elementals stay destroyed for this battle.",
+    bullets: [
+      "If you deploy nothing, all enemy deployed attacks hit player HP directly.",
+      "Battle continues until one player reaches 0 HP.",
+      "Rewards and penalties resolve only when the full battle ends.",
+    ],
+  },
+];
+
+const getOnboardingStorageKey = () => {
+  if (!userStore.userId) return null;
+  return `elementary-dices:onboarding:${userStore.userId}:${onboardingStorageScope}`;
+};
+
+const dismissOnboarding = () => {
+  const key = getOnboardingStorageKey();
+  if (key) localStorage.setItem(key, "seen");
+  showOnboarding.value = false;
+};
 
 type CombatLogEntry = {
   round: number;
@@ -974,6 +1030,12 @@ const proceedToNext = async () => {
 
 onMounted(async () => {
   if (!userStore.userId) return;
+
+  const onboardingKey = getOnboardingStorageKey();
+  if (onboardingKey && !localStorage.getItem(onboardingKey)) {
+    showOnboarding.value = true;
+  }
+
   loading.value = true;
   try {
     await elementalsStore.fetchAllElementals();
