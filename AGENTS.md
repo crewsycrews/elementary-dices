@@ -63,6 +63,7 @@ Shared package:
 - Keep edits focused; avoid unrelated refactors in same change.
 - Respect existing naming and module boundaries.
 - Do not hardcode secrets or environment-specific credentials.
+- Early-stage iteration policy: backward compatibility is not required unless explicitly requested by the user for a specific task.
 - For DB schema changes:
   - add a migration
   - update related repositories/services

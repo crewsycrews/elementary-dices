@@ -55,3 +55,56 @@ Bonuses are applied only to your elementals!
 - All-For-One - 5 dices are showing the same element. +50%
 - One-For-All - All 5 dices are different from each other - +30% to a chosen element. 
 - Full House - Triplet + 2 dices of the same but different from triplet element. +25% for 2 and + 35% for 3 to a respective element.
+
+# Battles implementation V3.0
+
+In this iteration we are trying to add some mechanics from Hearthstone battlegrounds on top of farkle. With the previous implementation our [[#Elements effects on each other]] was removed due to no attacks between the elementals. Now we want them back. 
+## Battle updated rules:
+1. Choose 1 element that can be set aside no matter if it was in the combination or not. This element element's die will solely give elementals 10% bonus.
+2. At the beginning of each turn, the player throws all five dice at once.
+3. After the very first throw, player can choose to re-roll from 1 to 5 dices to achieve some combination
+4. One or more dice combination can be set aside. 
+5. The player may then either end their turn or roll again the least dices(only after "set aside" action).
+6. Combinations that already set aside can be regrouped with re-throwned ones.
+7. If all 5 dices are participating in a combination - it's a DICE RASH - The player can throw all 5 dices again to accumulate even more bonuses. (start from 1 step saving current bonuses)
+8. If no combination in the roll - and you already re-rolled once(2 step) - you lose all the bonuses.
+9. At any point after set-aside action player can choose to stop rolling committing he's current bonuses and Deploying the elementals into battle.
+10. Deploy into battle means - any set aside die with it's rolled element considered as the elemental that should be deployed into battle(if player have any of such). 
+11. If the element is participating in combination - those elementals are empowered by it.  
+12. For elementals of lvl 3 and 4 you need all elements that these elementals are consist of to be in your combinations.(via DICE RUSH). This is where worn rings(upcoming mechanic) will become really valuable.
+13. Once deployed into the battle - we simulate a battle by each elemental attacking the opponents. The targeting is prioritizing on elements weaknesses(as was initially done in some of the previous iterations)
+14. Next turn - all not-destroyed elementals are back into the roster so we can roll again and deploy them again. Destroyed elementals cannot be deployed again in the same battle.
+15. Elementals are now have attack and health so we simulate 1 attack from each elemental on 10 step subtracting the HP from elementals and maintaining those values. 
+16. Players are also have health. Let's say the default health value - 30. If, for example, you wasn't able to deploy any elemental in current turn - the enemy's elementals will attack players health subtracting respected value. 
+17. We are now in no need to limit battle turns into only 3, we can continue the battle until one of the parties player health will be lowered to zero. 
+
+Side Note for next iterations: Need to think of the modifiers on the elementals so that the battles will not be pure simple attacks.
+
+## V3.0 Clarifications (locked)
+1. We are moving away from "power" as the combat stat. Battles use `attack` and `health` from elementals.
+2. Element weakness bonus remains +10% attack damage:
+   - Water -> Fire
+   - Fire -> Air
+   - Air -> Earth
+   - Earth -> Water
+   - Lightning is neutral: no passive bonus and no passive weakness.
+3. Example for weakness bonus: Fire elemental with attack 10 attacking Air deals 11 damage.
+4. Level 3 and 4 deployment requirement is evaluated across the full Dice Rush chain of the turn (not only a single cycle).
+5. Deployment rule:
+   - If an element is present in set-aside dice (solo or as part of a valid combination), deploy all applicable party elementals of that element.
+6. If a player deploys nothing, all enemy deployed elemental attacks go directly to player health.
+7. If a player deployed something, enemy attacks target deployed elementals first. Once all deployed defenders are destroyed, remaining attacks overflow to player health.
+8. Destroyed elementals persist as destroyed for the whole battle and cannot be deployed again in later turns.
+9. Both players roll privately and do not see each other's deployment before combat resolution.
+10. Attack ordering and initiative:
+   - Combat resolves one-by-one alternating attacks between sides.
+   - First attacker selection:
+     - If deployed counts differ, the side with fewer deployed elementals attacks first.
+     - If deployed counts are equal, first attacker is random.
+   - Targeting priority is by elemental weakness exploitation first (as in Phase 1 examples), then fallback to available alive targets.
+11. Rewards and penalties are resolved only when the full battle ends (player health reaches zero on one side).
+
+## Wild Encounters update direction
+Wild encounters should also become battle-based:
+- Player fights the encountered elemental using the same battle flow foundation.
+- Once encountered elemental is defeated in battle, player catches it.
