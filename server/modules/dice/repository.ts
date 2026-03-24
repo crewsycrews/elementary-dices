@@ -180,9 +180,9 @@ export class DiceRepository {
   ): Promise<PlayerDice | null> {
     const [playerDice] = await db(this.playerDiceTable)
       .where({
-        player_id: playerId,
-        dice_notation: notation,
-        is_equipped: true,
+        [`${this.playerDiceTable}.player_id`]: playerId,
+        [`${this.playerDiceTable}.dice_notation`]: notation,
+        [`${this.playerDiceTable}.is_equipped`]: true,
       })
       .leftJoin(
         this.diceTypesTable,
