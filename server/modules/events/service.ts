@@ -654,6 +654,8 @@ export class EventService {
     event_type: "pvp_battle" | "wild_encounter";
     battle_state?: FarkleBattleState;
     farkle_state?: WildEncounterFarkleState;
+    wild_battle_state?: WildBattleState;
+    set_aside_element?: ElementType;
   }> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== eventType) {
@@ -683,6 +685,10 @@ export class EventService {
         farkle_session_id: existingSession.id,
         event_type: eventType,
         farkle_state: this.mapStateRowToWildFarkleState(existingState),
+        wild_battle_state: existingState.meta?.wild_battle_state as
+          | WildBattleState
+          | undefined,
+        set_aside_element: existingSession.set_aside_element as ElementType,
       };
     }
 
@@ -695,9 +701,13 @@ export class EventService {
       if (!elemental) {
         throw new NotFoundError("Elemental");
       }
-      const wildElement = (elemental.element_types?.[0] ?? "fire") as ElementType;
-      if (setAsideElement !== wildElement) {
-        throw new BadRequestError("set_aside_element must match encountered elemental");
+      const wildBattleState = await this.buildInitialWildBattleState(
+        playerId,
+        elemental as any,
+      );
+      const partyElements = wildBattleState.player_party.map((member) => member.element);
+      if (!partyElements.includes(setAsideElement)) {
+        throw new BadRequestError("Chosen element must be present in your party");
       }
 
       existingSession = await this.farkleSessionRepo.createSession({
@@ -707,10 +717,6 @@ export class EventService {
         set_aside_element: setAsideElement,
       });
       const initial = this.createInitialWildEncounterFarkleState();
-      const wildBattleState = await this.buildInitialWildBattleState(
-        playerId,
-        elemental as any,
-      );
       await this.farkleSessionRepo.createState(existingSession.id, {
         phase: initial.phase,
         has_used_reroll: initial.has_used_reroll,
@@ -727,6 +733,8 @@ export class EventService {
         farkle_session_id: existingSession.id,
         event_type: eventType,
         farkle_state: initial,
+        wild_battle_state: wildBattleState,
+        set_aside_element: setAsideElement,
       };
     }
 
@@ -1773,6 +1781,7 @@ export class EventService {
           wildEncounter.id,
         );
         if (farkleSession) {
+          (data as any).set_aside_element = farkleSession.set_aside_element;
           const sessionState = await this.farkleSessionRepo.getState(farkleSession.id);
           if (sessionState) {
             (data as any).farkle_state = this.mapStateRowToWildFarkleState(sessionState);
@@ -1927,7 +1936,7 @@ export class EventService {
       throw new NotFoundError("Elemental");
     }
 
-    const targetElement = (elemental.element_types?.[0] ?? "fire") as ElementType;
+    const encounteredElement = (elemental.element_types?.[0] ?? "fire") as ElementType;
     const session = await this.farkleSessionRepo.findSessionByEvent(
       "wild_encounter",
       wildEncounter.id,
@@ -1944,10 +1953,13 @@ export class EventService {
       throw new BadRequestError("Wild battle state is not initialized");
     }
 
+    const setAsideElement = (session.set_aside_element ??
+      encounteredElement) as ElementType;
+
     return {
       wildEncounter,
       elemental,
-      targetElement,
+      targetElement: setAsideElement,
       wildBattleState,
       sessionId: session.id,
       farkleState: this.mapStateRowToWildFarkleState(state),
@@ -1956,12 +1968,14 @@ export class EventService {
 
   async wildEncounterFarkleInitialRoll(playerId: string): Promise<{
     farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
     detected_combinations: Combination[];
     is_busted: boolean;
     is_dice_rush: boolean;
     is_resolved: boolean;
   }> {
-    const { sessionId, farkleState } = await this.getWildEncounterForFarkle(playerId);
+    const { sessionId, farkleState, wildBattleState } =
+      await this.getWildEncounterForFarkle(playerId);
 
     if (farkleState.phase !== "initial_roll") {
       throw new BadRequestError("Already rolled. Continue the current turn.");
@@ -2018,6 +2032,7 @@ export class EventService {
 
     return {
       farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
       detected_combinations: detected,
       is_busted: false,
       is_dice_rush: false,
@@ -2030,12 +2045,13 @@ export class EventService {
     diceIndicesToReroll: number[],
   ): Promise<{
     farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
     detected_combinations: Combination[];
     is_busted: boolean;
     is_dice_rush: boolean;
     is_resolved: boolean;
   }> {
-    const { sessionId, targetElement, farkleState } =
+    const { sessionId, targetElement, farkleState, wildBattleState } =
       await this.getWildEncounterForFarkle(playerId);
 
     if (farkleState.phase !== "can_reroll") {
@@ -2070,6 +2086,7 @@ export class EventService {
 
     return {
       farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
       detected_combinations: detected,
       is_busted: busted,
       is_dice_rush: false,
@@ -2083,12 +2100,13 @@ export class EventService {
     oneForAllElement?: string,
   ): Promise<{
     farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
     detected_combinations: Combination[];
     is_busted: boolean;
     is_dice_rush: boolean;
     is_resolved: boolean;
   }> {
-    const { sessionId, targetElement, farkleState } =
+    const { sessionId, targetElement, farkleState, wildBattleState } =
       await this.getWildEncounterForFarkle(playerId);
 
     if (
@@ -2119,7 +2137,7 @@ export class EventService {
 
     if (!isValidCombo && !isTargetElementSolo) {
       throw new BadRequestError(
-        "Selected dice must form a valid combination or match the encounter element",
+        "Selected dice must form a valid combination or match your chosen set-aside element",
       );
     }
 
@@ -2163,6 +2181,7 @@ export class EventService {
 
     return {
       farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
       detected_combinations: farkleState.detected_combinations as Combination[],
       is_busted: false,
       is_dice_rush: diceRush,
@@ -2172,12 +2191,13 @@ export class EventService {
 
   async wildEncounterFarkleContinue(playerId: string): Promise<{
     farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
     detected_combinations: Combination[];
     is_busted: boolean;
     is_dice_rush: boolean;
     is_resolved: boolean;
   }> {
-    const { sessionId, targetElement, farkleState } =
+    const { sessionId, targetElement, farkleState, wildBattleState } =
       await this.getWildEncounterForFarkle(playerId);
 
     if (farkleState.phase !== "rolling_remaining") {
@@ -2197,6 +2217,7 @@ export class EventService {
 
     return {
       farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
       detected_combinations: detected,
       is_busted: busted,
       is_dice_rush: false,
@@ -2209,6 +2230,7 @@ export class EventService {
     _itemId?: string,
   ): Promise<{
     farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
     detected_combinations: Combination[];
     is_busted: boolean;
     is_dice_rush: boolean;
@@ -2398,6 +2420,7 @@ export class EventService {
 
     return {
       farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
       detected_combinations: [],
       is_busted: farkleState.busted,
       is_dice_rush: false,

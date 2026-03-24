@@ -11,10 +11,12 @@ type WildEncounterData = {
   elemental_name: string
   elemental_level: number
   encounter_element?: string
+  set_aside_element?: string
   capture_difficulty: 'easy' | 'medium' | 'hard'
   farkle_initialized?: boolean
   farkle_session_id?: string
   farkle_state?: WildEncounterFarkleState
+  wild_battle_state?: Record<string, unknown>
 }
 
 type MerchantData = {
@@ -171,6 +173,7 @@ export type FarkleTurnResult = {
 
 export type WildEncounterFarkleTurnResult = {
   farkle_state: WildEncounterFarkleState
+  wild_battle_state?: Record<string, unknown>
   detected_combinations: Combination[]
   is_busted: boolean
   is_dice_rush: boolean
@@ -226,7 +229,14 @@ type GameApiRoutes = {
     farkle: {
       init: PostRoute<
         { player_id: string; event_type: EventType; event_id: string; set_aside_element: string },
-        { result?: { farkle_session_id: string; farkle_state?: WildEncounterFarkleState } }
+        {
+          result?: {
+            farkle_session_id: string
+            farkle_state?: WildEncounterFarkleState
+            wild_battle_state?: Record<string, unknown>
+            set_aside_element?: string
+          }
+        }
       >
       roll: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: WildEncounterFarkleTurnResult }>
       reroll: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices_to_reroll: number[] }, { result?: WildEncounterFarkleTurnResult }>
@@ -317,7 +327,13 @@ export const useEventStore = defineStore('event', () => {
           )
 
     const result = response.data?.result as
-      | { farkle_session_id: string; battle_state?: FarkleBattleState; farkle_state?: WildEncounterFarkleState }
+      | {
+          farkle_session_id: string
+          battle_state?: FarkleBattleState
+          farkle_state?: WildEncounterFarkleState
+          wild_battle_state?: Record<string, unknown>
+          set_aside_element?: string
+        }
       | undefined
 
     if (result?.farkle_session_id) {
@@ -328,7 +344,10 @@ export const useEventStore = defineStore('event', () => {
       ;(data as PvPData).battle_state = result.battle_state
     }
     if (result?.farkle_state && currentEvent.value?.event_type === 'wild_encounter') {
-      ;(data as WildEncounterData).farkle_state = result.farkle_state
+      const wildData = data as WildEncounterData
+      wildData.farkle_state = result.farkle_state
+      wildData.wild_battle_state = result.wild_battle_state
+      wildData.set_aside_element = result.set_aside_element
     }
 
     return result
@@ -452,6 +471,26 @@ export const useEventStore = defineStore('event', () => {
       return { battle_state: result?.battle_state }
     } catch (error) {
       console.error('Failed to choose element:', error)
+      throw error
+    }
+  }
+
+  async function chooseWildSetAsideElement(playerId: string, element: string) {
+    try {
+      const result = await initFarkleSession(playerId, element)
+      if (currentEvent.value?.event_type === 'wild_encounter') {
+        const data = currentEvent.value.data as WildEncounterData
+        data.farkle_state = result?.farkle_state as WildEncounterFarkleState | undefined
+        data.wild_battle_state = result?.wild_battle_state
+        data.set_aside_element = result?.set_aside_element
+      }
+      return {
+        farkle_state: result?.farkle_state,
+        wild_battle_state: result?.wild_battle_state,
+        set_aside_element: result?.set_aside_element,
+      }
+    } catch (error) {
+      console.error('Failed to choose wild encounter element:', error)
       throw error
     }
   }
@@ -619,11 +658,7 @@ export const useEventStore = defineStore('event', () => {
       }
       const data = currentEvent.value.data as WildEncounterData
       if (!data.farkle_session_id) {
-        const encounterElement = data.encounter_element
-        if (!encounterElement) {
-          throw new Error('Encounter element is missing')
-        }
-        await initFarkleSession(playerId, encounterElement)
+        throw new Error('Set-aside element must be selected before rolling')
       }
       const sessionId = getFarkleSessionId()
       const response = await apiCall(
@@ -637,6 +672,7 @@ export const useEventStore = defineStore('event', () => {
       if (response.data?.result?.farkle_state && currentEvent.value) {
         const data = currentEvent.value.data as WildEncounterData
         data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+        data.wild_battle_state = response.data.result.wild_battle_state
       }
 
       return response.data
@@ -663,6 +699,7 @@ export const useEventStore = defineStore('event', () => {
       if (response.data?.result?.farkle_state && currentEvent.value) {
         const data = currentEvent.value.data as WildEncounterData
         data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+        data.wild_battle_state = response.data.result.wild_battle_state
       }
 
       return response.data
@@ -694,6 +731,7 @@ export const useEventStore = defineStore('event', () => {
       if (response.data?.result?.farkle_state && currentEvent.value) {
         const data = currentEvent.value.data as WildEncounterData
         data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+        data.wild_battle_state = response.data.result.wild_battle_state
       }
 
       return response.data
@@ -719,6 +757,7 @@ export const useEventStore = defineStore('event', () => {
       if (response.data?.result?.farkle_state && currentEvent.value) {
         const data = currentEvent.value.data as WildEncounterData
         data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+        data.wild_battle_state = response.data.result.wild_battle_state
       }
 
       return response.data
@@ -745,6 +784,7 @@ export const useEventStore = defineStore('event', () => {
       if (response.data?.result?.farkle_state && currentEvent.value) {
         const data = currentEvent.value.data as WildEncounterData
         data.farkle_state = response.data.result.farkle_state as WildEncounterFarkleState
+        data.wild_battle_state = response.data.result.wild_battle_state
       }
 
       if (response.data?.result?.result?.can_continue) {
@@ -805,8 +845,13 @@ export const useEventStore = defineStore('event', () => {
         }
         if (currentEvent.value.event_type === 'wild_encounter') {
           const data = currentEvent.value.data as WildEncounterData
-          if (data.farkle_initialized && data.farkle_session_id && !data.farkle_state && data.encounter_element) {
-            await initFarkleSession(playerId, data.encounter_element)
+          if (
+            data.farkle_initialized &&
+            data.farkle_session_id &&
+            !data.farkle_state &&
+            data.set_aside_element
+          ) {
+            await initFarkleSession(playerId, data.set_aside_element)
           }
         }
       } else {
@@ -844,6 +889,7 @@ export const useEventStore = defineStore('event', () => {
     resolveWildEncounter,
     startBattle,
     chooseSetAsideElement,
+    chooseWildSetAsideElement,
     farkleRoll,
     farkleReroll,
     farkleSetAside,

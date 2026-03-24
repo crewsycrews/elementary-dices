@@ -67,16 +67,46 @@
           />
 
           <div
-            v-else-if="targetElement && !captureResult"
+            v-if="encounterElement && !captureResult"
             class="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-card/60 px-3 py-2"
           >
-            <span class="text-lg">{{ getElementEmoji(targetElement) }}</span>
+            <span class="text-lg">{{ getElementEmoji(encounterElement) }}</span>
             <span class="text-sm text-muted-foreground">Encounter element:</span>
-            <span class="text-sm font-semibold capitalize">{{ targetElement }}</span>
+            <span class="text-sm font-semibold capitalize">{{ encounterElement }}</span>
+          </div>
+
+          <div
+            v-if="chosenSetAsideElement && !captureResult"
+            class="inline-flex items-center gap-2 self-start rounded-lg border border-yellow-500/60 bg-card/60 px-3 py-2"
+          >
+            <span class="text-lg">{{ getElementEmoji(chosenSetAsideElement) }}</span>
+            <span class="text-sm text-muted-foreground">Set-aside element:</span>
+            <span class="text-sm font-semibold capitalize">{{ chosenSetAsideElement }}</span>
+          </div>
+
+          <div v-if="needsSetAsideSelection && !captureResult" class="space-y-3">
+            <p class="text-sm text-muted-foreground">
+              Pick one element from your party for set-aside bonuses.
+            </p>
+            <div class="flex flex-wrap gap-2">
+              <button
+                v-for="el in selectablePartyElements"
+                :key="el"
+                @click="handleChooseSetAsideElement(el)"
+                :disabled="isBusy"
+                class="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
+              >
+                <span class="text-2xl">{{ getElementEmoji(el) }}</span>
+                <span class="text-sm font-semibold capitalize">{{ el }}</span>
+                <span class="text-[11px] text-muted-foreground leading-tight">
+                  {{ getPartyCountForElement(el) }} in party
+                </span>
+              </button>
+            </div>
           </div>
 
           <button
-            v-if="canRoll && !captureResult"
+            v-if="canRoll && !captureResult && !needsSetAsideSelection"
             @click="handleRoll"
             :disabled="isBusy"
             class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
@@ -232,7 +262,7 @@
                   :disabled="isBusy"
                   class="px-4 py-2 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
                 >
-                  Set aside encounter element
+                  Set aside chosen element
                 </button>
 
                 <button
@@ -328,7 +358,7 @@ const onboardingSteps = [
     description:
       "Use rerolls and set-aside choices to bias bonuses toward your current objective and survive long enough to close the fight.",
     bullets: [
-      "Set aside best combinations or encounter element opportunities.",
+      "Set aside best combinations or chosen set-aside element opportunities.",
       "Bust removes turn bonuses, so commit deployment at the right time.",
       "Review round summaries to adjust next turn choices.",
     ],
@@ -438,11 +468,47 @@ const finalHealthSummary = computed(() => {
 });
 
 const targetElement = computed(
+  () => eventStore.wildEncounterData?.set_aside_element ?? null,
+);
+
+const encounterElement = computed(
   () =>
     eventStore.wildEncounterData?.encounter_element ??
     wildElemental.value?.element_types?.[0] ??
     null,
 );
+
+const chosenSetAsideElement = computed(() => targetElement.value);
+
+const partyElementCounts = computed(() => {
+  const counts: Record<string, number> = {};
+  const fromBattleState =
+    (wildBattleState.value?.player_party as Array<{ element?: string }> | undefined) ?? [];
+
+  if (fromBattleState.length > 0) {
+    fromBattleState.forEach((member) => {
+      const element = member.element;
+      if (!element) return;
+      counts[element] = (counts[element] ?? 0) + 1;
+    });
+    return counts;
+  }
+
+  elementalsStore.activeParty.forEach((member: any) => {
+    const element = member.element_types?.[0] ?? member.element;
+    if (!element) return;
+    counts[element] = (counts[element] ?? 0) + 1;
+  });
+  return counts;
+});
+
+const selectablePartyElements = computed(() => Object.keys(partyElementCounts.value));
+
+const needsSetAsideSelection = computed(() => {
+  if (!eventStore.isWildEncounter || captureResult.value) return false;
+  if (chosenSetAsideElement.value) return false;
+  return !eventStore.wildEncounterData?.farkle_session_id;
+});
 
 const canRoll = computed(
   () => !farkleState.value || farkleState.value.phase === "initial_roll",
@@ -470,7 +536,7 @@ const canSetAside = computed(
     availableSetAsideCombinations.value.length > 0,
 );
 const canSetAsideTargetElement = computed(() => {
-  if (!farkleState.value || !targetElement.value) return false;
+  if (!farkleState.value || !chosenSetAsideElement.value) return false;
   if (
     !["can_reroll", "set_aside", "rolling_remaining"].includes(
       farkleState.value.phase,
@@ -479,7 +545,7 @@ const canSetAsideTargetElement = computed(() => {
     return false;
   }
   return farkleState.value.dice.some(
-    (d) => !d.is_set_aside && d.current_result === targetElement.value,
+    (d) => !d.is_set_aside && d.current_result === chosenSetAsideElement.value,
   );
 });
 const canContinue = computed(
@@ -498,14 +564,14 @@ const canEndTurn = computed(() => {
 });
 
 const isCaptureSetAsideBonusActive = computed(() => {
-  if (!farkleState.value || !targetElement.value) return false;
+  if (!farkleState.value || !chosenSetAsideElement.value) return false;
   if (farkleState.value.busted) return false;
 
   const targetSetAsideCount = farkleState.value.dice.filter(
-    (die) => die.is_set_aside && die.current_result === targetElement.value,
+    (die) => die.is_set_aside && die.current_result === chosenSetAsideElement.value,
   ).length;
   const hasTargetCombination = farkleState.value.active_combinations.some(
-    (combo) => combo.elements.includes(targetElement.value!),
+    (combo) => combo.elements.includes(chosenSetAsideElement.value!),
   );
 
   return targetSetAsideCount >= 2 || hasTargetCombination;
@@ -523,6 +589,9 @@ const ELEMENT_EMOJIS: Record<string, string> = {
 
 const getElementEmoji = (element: string): string =>
   ELEMENT_EMOJIS[element] ?? "❓";
+
+const getPartyCountForElement = (element: string): number =>
+  partyElementCounts.value[element] ?? 0;
 
 const getDifficultyClass = (difficulty?: string) => {
   switch (difficulty) {
@@ -612,7 +681,7 @@ const handleSetAside = async () => {
       userStore.userId,
       best.dice_indices,
       best.type === "one_for_all"
-        ? (targetElement.value ?? undefined)
+        ? (chosenSetAsideElement.value ?? undefined)
         : undefined,
     );
     updateFromTurnResult(response?.result);
@@ -624,11 +693,13 @@ const handleSetAside = async () => {
 };
 
 const handleSetAsideTargetElement = async () => {
-  if (!userStore.userId || !farkleState.value || !targetElement.value) return;
+  if (!userStore.userId || !farkleState.value || !chosenSetAsideElement.value)
+    return;
   const indices = farkleState.value.dice
     .map((d, i) => ({ d, i }))
     .filter(
-      ({ d }) => !d.is_set_aside && d.current_result === targetElement.value,
+      ({ d }) =>
+        !d.is_set_aside && d.current_result === chosenSetAsideElement.value,
     )
     .map(({ i }) => i);
   if (indices.length < 1) return;
@@ -641,6 +712,18 @@ const handleSetAsideTargetElement = async () => {
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed target-element set aside:", error);
+  } finally {
+    isActing.value = false;
+  }
+};
+
+const handleChooseSetAsideElement = async (element: string) => {
+  if (!userStore.userId || !element) return;
+  isActing.value = true;
+  try {
+    await eventStore.chooseWildSetAsideElement(userStore.userId, element);
+  } catch (error) {
+    console.error("Failed to choose wild set-aside element:", error);
   } finally {
     isActing.value = false;
   }
@@ -736,6 +819,18 @@ onMounted(async () => {
 
       detectedCombinations.value = (farkleState.value?.detected_combinations ??
         []) as Combination[];
+
+      if (!eventStore.wildEncounterData.farkle_session_id) {
+        const activePartyCount = elementalsStore.activeParty.length;
+        if (activePartyCount === 1) {
+          const onlyMember = elementalsStore.activeParty[0] as any;
+          const autoElement =
+            onlyMember?.element_types?.[0] ?? onlyMember?.element ?? null;
+          if (autoElement) {
+            await handleChooseSetAsideElement(autoElement);
+          }
+        }
+      }
     }
   } catch (error) {
     console.error("Failed to load encounter data:", error);

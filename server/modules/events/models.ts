@@ -54,9 +54,11 @@ export const WildEncounterDataDTO = t.Object({
   elemental_name: t.String(),
   elemental_level: t.Number(),
   encounter_element: t.Optional(t.String()),
+  set_aside_element: t.Optional(t.String()),
   capture_difficulty: t.String(), // 'easy', 'medium', 'hard'
   farkle_initialized: t.Optional(t.Boolean()),
   farkle_session_id: t.Optional(t.String()),
+  wild_battle_state: t.Optional(t.Any()),
 });
 
 // Merchant Event specific

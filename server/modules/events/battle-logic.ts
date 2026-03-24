@@ -139,20 +139,28 @@ interface SideCursor {
 }
 
 function nextAliveAttacker(cursor: SideCursor, party: BattlePartyMember[]): number | null {
-  const start = cursor.pointer;
   const n = cursor.unitOrder.length;
   if (n === 0) return null;
 
-  for (let scanned = 0; scanned < n; scanned += 1) {
-    const idx = cursor.unitOrder[cursor.pointer % n];
-    cursor.pointer = (cursor.pointer + 1) % n;
+  for (; cursor.pointer < n; cursor.pointer += 1) {
+    const idx = cursor.unitOrder[cursor.pointer];
     const unit = party[idx];
     if (!unit || unit.is_destroyed || unit.current_health <= 0) continue;
+    cursor.pointer += 1;
     return idx;
   }
 
-  cursor.pointer = start;
   return null;
+}
+
+function hasPendingAliveAttacker(cursor: SideCursor, party: BattlePartyMember[]): boolean {
+  for (let i = cursor.pointer; i < cursor.unitOrder.length; i += 1) {
+    const unit = party[cursor.unitOrder[i]];
+    if (unit && !unit.is_destroyed && unit.current_health > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function simulateCombatRound(
@@ -167,7 +175,7 @@ export function simulateCombatRound(
     player: CombatSideState;
     opponent: CombatSideState;
   },
-  maxSteps = 10,
+  maxSteps = deployment.player.deployed_indices.length + deployment.opponent.deployed_indices.length,
 ): CombatRoundResult {
   const playerParty = state.player_party.map((m) => ({ ...m }));
   const opponentParty = state.opponent_party.map((m) => ({ ...m }));
@@ -203,10 +211,11 @@ export function simulateCombatRound(
 
     const attackerIndex = nextAliveAttacker(actingCursor, actingParty);
     if (attackerIndex === null) {
-      sideToAct = sideToAct === "player" ? "opponent" : "player";
-      const hasOpponent =
-        nextAliveAttacker(sideToAct === "player" ? playerCursor : opponentCursor, sideToAct === "player" ? playerParty : opponentParty) !== null;
-      if (!hasOpponent) break;
+      const otherSide = sideToAct === "player" ? "opponent" : "player";
+      const otherCursor = otherSide === "player" ? playerCursor : opponentCursor;
+      const otherParty = otherSide === "player" ? playerParty : opponentParty;
+      if (!hasPendingAliveAttacker(otherCursor, otherParty)) break;
+      sideToAct = otherSide;
       continue;
     }
 
