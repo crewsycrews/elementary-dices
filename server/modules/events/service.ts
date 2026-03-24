@@ -85,7 +85,7 @@ function toElementSet(values: ElementType[]): ElementType[] {
   return [...new Set(values)];
 }
 
-interface WildBattleState {
+export interface WildBattleState {
   player_health: number;
   enemy_health: number;
   player_party: BattlePartyMember[];
