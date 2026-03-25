@@ -236,6 +236,8 @@ export const FarkleRollResultDieDTO = t.Object({
   faces: t.Array(t.String()),
   current_result: t.String(),
   is_set_aside: t.Boolean(),
+  is_assigned: t.Boolean(),
+  assigned_to_party_index: t.Nullable(t.Number()),
 });
 
 export const FarkleCombinationDTO = t.Object({
@@ -333,7 +335,7 @@ export const FarkleInitDTO = t.Object({
   player_id: t.String(),
   event_type: FarkleContextDTO,
   event_id: t.String(),
-  set_aside_element: ElementType,
+  set_aside_element: t.Optional(ElementType),
 });
 
 export const FarkleSessionActionBaseDTO = t.Object({
@@ -370,6 +372,21 @@ export const GenericFarkleEndTurnDTO = t.Intersect([
   FarkleSessionActionBaseDTO,
   t.Object({
     item_id: t.Optional(t.String()),
+  }),
+]);
+
+export const GenericFarkleAssignDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({
+    die_index: t.Number(),
+    party_index: t.Number(),
+  }),
+]);
+
+export const GenericFarkleUnassignDTO = t.Intersect([
+  FarkleSessionActionBaseDTO,
+  t.Object({
+    die_index: t.Number(),
   }),
 ]);
 
@@ -412,3 +429,5 @@ export type GenericFarkleRerollData = typeof GenericFarkleRerollDTO.static;
 export type GenericFarkleSetAsideData = typeof GenericFarkleSetAsideDTO.static;
 export type GenericFarkleContinueData = typeof GenericFarkleContinueDTO.static;
 export type GenericFarkleEndTurnData = typeof GenericFarkleEndTurnDTO.static;
+export type GenericFarkleAssignData = typeof GenericFarkleAssignDTO.static;
+export type GenericFarkleUnassignData = typeof GenericFarkleUnassignDTO.static;

@@ -1,62 +1,34 @@
 import { EventService } from "../events/service";
-import { SharedFarkleService } from "../events/shared-farkle-service";
 import type { Locale } from "../../shared/i18n";
 
 export class BattleService {
   constructor(
     private eventService = new EventService(),
-    private sharedFarkleService = new SharedFarkleService(eventService),
   ) {}
 
   startBattle(playerId: string) {
     return this.eventService.startBattle(playerId);
   }
 
-  chooseSetAsideElement(playerId: string, element: string) {
-    return this.eventService.chooseSetAsideElement(playerId, element as any);
-  }
-
   farkleInit(playerId: string, eventId: string, setAsideElement: string) {
-    return this.sharedFarkleService.init(
-      playerId,
-      "pvp_battle",
-      eventId,
-      setAsideElement,
-    );
+    return this.eventService.farkleV4InitBattle(playerId, eventId, setAsideElement as any);
   }
 
   farkleRoll(playerId: string, farkleSessionId: string) {
-    return this.sharedFarkleService.roll(playerId, farkleSessionId);
+    return this.eventService.farkleV4Roll(playerId, farkleSessionId);
   }
 
-  farkleReroll(playerId: string, farkleSessionId: string, diceIndicesToReroll: number[]) {
-    return this.sharedFarkleService.reroll(
-      playerId,
-      farkleSessionId,
-      diceIndicesToReroll,
-    );
-  }
-
-  farkleSetAside(
+  farkleAssign(
     playerId: string,
     farkleSessionId: string,
-    diceIndices: number[],
-    oneForAllElement?: string,
+    dieIndex: number,
+    partyIndex: number,
   ) {
-    return this.sharedFarkleService.setAside(
-      playerId,
-      farkleSessionId,
-      diceIndices,
-      oneForAllElement,
-    );
-  }
-
-  farkleContinue(playerId: string, farkleSessionId: string) {
-    return this.sharedFarkleService.continue(playerId, farkleSessionId);
+    return this.eventService.farkleV4Assign(playerId, farkleSessionId, dieIndex, partyIndex);
   }
 
   farkleEndTurn(playerId: string, farkleSessionId: string, locale: Locale = "en") {
-    return this.sharedFarkleService.endTurnWithLocale(
+    return this.eventService.farkleV4Commit(
       playerId,
       farkleSessionId,
       locale,

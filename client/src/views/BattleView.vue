@@ -89,55 +89,12 @@
         </BattleArena>
       </template>
 
-      <!-- ==================== PHASE: CHOOSE ELEMENT ==================== -->
-      <template v-if="battle.battlePhase.value === 'choose_element'">
-        <div class="text-center mb-4">
-          <div class="inline-block px-4 py-2 bg-yellow-500/10 rounded-lg">
-            <span class="text-sm font-bold text-yellow-400"
-              >{{ t("battle.choose_set_aside") }}</span
-            >
-          </div>
-          <p class="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-            {{ t("battle.choose_set_aside_desc") }}
-          </p>
-        </div>
-
-        <BattleArena
-          :player-party="battle.playerParty.value"
-          :opponent-party="battle.opponentParty.value"
-          :player-health="battle.playerHealth.value"
-          :opponent-health="battle.opponentHealth.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
-        >
-          <template #centerActions>
-            <div class="flex justify-center gap-2 flex-wrap max-w-md">
-              <button
-                v-for="el in battle.getPartyElementsPresent()"
-                :key="el"
-                @click="handleChooseElement(el)"
-                :disabled="isChoosing"
-                class="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
-              >
-                <span class="text-2xl">{{
-                  battle.getElementConfig(el).emoji
-                }}</span>
-                <span class="text-sm font-semibold capitalize">{{ el }}</span>
-                <span class="text-[11px] text-muted-foreground leading-tight">
-                  {{ getPartyCountForElement(el) }} {{ t("common.in_party") }}
-                </span>
-              </button>
-            </div>
-          </template>
-        </BattleArena>
-      </template>
-
       <!-- ==================== PHASE: PLAYER TURN ==================== -->
       <template v-if="battle.battlePhase.value === 'player_turn'">
         <!-- Bonus Tracker -->
         <FarkleBonusTracker
           :current-turn="battle.currentTurn.value"
           :bonuses-total="battle.playerBonusesTotal.value"
-          :set-aside-element="battle.setAsideElement.value"
         />
         <p class="text-center text-xs text-muted-foreground">
           {{ t("battle.continues_to_zero") }}
@@ -162,10 +119,8 @@
 
                 <FarkleDiceRow
                   :dice="battle.farkleDice.value"
-                  :selected-indices="battle.selectedDiceIndices.value"
                   :force-animate-indices="forcedAnimationIndices"
                   :force-animate-nonce="forceAnimationNonce"
-                  @toggle-select="battle.toggleDiceSelection($event)"
                   @rolling-start="isDiceAnimating = true"
                   @rolling-complete="isDiceAnimating = false"
                 />
@@ -184,7 +139,7 @@
                   <p
                     class="text-xs font-bold text-muted-foreground uppercase tracking-wide text-center"
                   >
-                    {{ t("battle.set_aside") }}
+                    Assigned Combination Effects
                   </p>
                   <CombinationDisplay
                     v-if="!isBusy"
@@ -194,7 +149,7 @@
                 </div>
               </div>
 
-              <div class="flex justify-center" v-if="battle.canRoll.value">
+              <div class="flex justify-center" v-if="canRollRemaining">
                 <button
                   @click="handleFarkleRoll"
                   :disabled="isBusy"
@@ -213,41 +168,6 @@
                 class="flex flex-wrap justify-center gap-2"
               >
                 <button
-                  v-if="battle.canReroll.value"
-                  @click="handleFarkleReroll"
-                  :disabled="
-                    isBusy || battle.selectedDiceIndices.value.length === 0
-                  "
-                  class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
-                >{{ t("battle.reroll", { count: battle.selectedDiceIndices.value.length }) }}</button>
-
-                <button
-                  v-if="battle.canSetAside.value"
-                  @click="handleSetAside"
-                  :disabled="isBusy"
-                  class="px-3 py-1.5 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50 text-sm"
-                >{{ t("battle.set_aside_combo") }}</button>
-
-                <button
-                  v-if="canSetAsideChosenElement"
-                  @click="handleSetAsideChosenElement"
-                  :disabled="isBusy"
-                  class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
-                >
-                  {{ battle.getElementConfig(battle.setAsideElement.value!).emoji }}
-                  {{ t("battle.set_aside_element") }}
-                </button>
-
-                <button
-                  v-if="battle.canContinue.value"
-                  @click="handleFarkleContinue"
-                  :disabled="isBusy"
-                  class="px-3 py-1.5 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
-                >
-                  {{ t("battle.roll_undeployed") }}
-                </button>
-
-                <button
                   v-if="
                     battle.canEndTurn.value || battle.farkleTurnState.value !== null
                   "
@@ -255,6 +175,50 @@
                   :disabled="isBusy || !canEndTurn"
                   class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
                 >{{ t("battle.deploy_resolve") }}</button>
+              </div>
+
+              <div
+                v-if="battle.farkleTurnState.value && !isBusy"
+                class="space-y-2 rounded-lg border border-border/60 bg-card/30 p-3"
+              >
+                <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">
+                  Assigned Deployment (Drag Die -> Elemental)
+                </p>
+                <div class="flex flex-wrap justify-center gap-2">
+                  <div
+                    v-for="entry in unassignedDice"
+                    :key="entry.index"
+                    draggable="true"
+                    @dragstart="handleDieDragStart(entry.index)"
+                    class="cursor-grab active:cursor-grabbing rounded-md border border-green-500/60 bg-green-500/10 px-2 py-1 text-sm"
+                  >
+                    {{ getElementEmoji(entry.die.current_result) }} d{{ entry.index + 1 }}
+                  </div>
+                  <p v-if="unassignedDice.length === 0" class="text-xs text-muted-foreground">
+                    No unassigned dice.
+                  </p>
+                </div>
+                <div class="grid grid-cols-1 gap-1.5">
+                  <div
+                    v-for="(member, partyIndex) in battle.playerParty.value"
+                    :key="member.elemental_id + '-assign-' + partyIndex"
+                    @dragover.prevent
+                    @drop="handleDropToParty(partyIndex)"
+                    class="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
+                    :class="member.is_destroyed ? 'opacity-50 border-border bg-muted/30' : 'border-border bg-card/40'"
+                  >
+                    <span>
+                      {{ member.name }} {{ getElementEmoji(member.element) }}
+                    </span>
+                    <span v-if="assignedDieByPartyIndex[partyIndex]" class="rounded border border-blue-500/60 bg-blue-500/10 px-1.5 py-0.5">
+                      {{ getElementEmoji(assignedDieByPartyIndex[partyIndex]!.die.current_result) }} Assigned
+                    </span>
+                    <span v-else class="text-muted-foreground">Drop die here</span>
+                  </div>
+                </div>
+                <p v-if="!canEndTurn" class="text-center text-xs text-yellow-400">
+                  Deploy all possible alive elementals before commit.
+                </p>
               </div>
 
               <div
@@ -268,7 +232,7 @@
                 >{{ t("battle.deploy_resolve_no_bonus") }}</button>
               </div>
               <p v-if="!canEndTurn && !battle.isBusted.value" class="text-center text-xs text-muted-foreground">
-                {{ t("battle.need_set_aside") }}
+                Assign dice to all deployable alive elementals to commit.
               </p>
             </div>
           </template>
@@ -363,9 +327,6 @@
             </span>
             <span v-else-if="battle.opponentTurnResult.value.combination" class="font-semibold">
               {{ t("battle.combination_activated", { label: getCombinationLabel(battle.opponentTurnResult.value.combination) }) }}
-            </span>
-            <span v-else-if="battle.opponentTurnResult.value.set_aside_element_used" class="text-yellow-400">
-              {{ t("battle.set_aside_bonus_applied") }}
             </span>
           </div>
           <div
@@ -569,7 +530,6 @@ const { t, locale } = useI18n();
 
 const loading = ref(false);
 const isStarting = ref(false);
-const isChoosing = ref(false);
 const isActing = ref(false);
 const isDiceAnimating = ref(false);
 const forceAnimationNonce = ref(0);
@@ -578,6 +538,7 @@ const isCombatHistoryOpen = ref(false);
 const showOnboarding = ref(false);
 const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+const draggingDieIndex = ref<number | null>(null);
 
 const onboardingSubtitle = computed(() =>
   locale.value === "ru"
@@ -589,13 +550,13 @@ const onboardingSteps = computed(() =>
   locale.value === "ru"
     ? [
         {
-          title: "Ход раунда: бросок, отложить, выставить",
+          title: "Ход раунда: бросок, назначение, выставить",
           description:
-            "Каждый раунд начинается с действий Farkle, затем вы можете зафиксировать бонусы и выставить доступных элементалей в бой.",
+            "Каждый раунд начинается с бросков, затем назначайте кости элементалям и фиксируйте эффекты перед боем.",
           bullets: [
-            "Выберите один отложенный элемент для прямого доступа к +10% атаке.",
-            "Бросьте все пять костей, после первого броска можно сделать один переброс, затем отложите валидные результаты.",
-            "После отложения можно сразу остановиться и выставиться.",
+            "Бросьте все пять костей и продолжайте бросать только неназначенные кости.",
+            "Перетащите кость на живого элементаля, чтобы назначить и выставить его.",
+            "Назначение одностороннее: снятие назначения в текущем ходу недоступно.",
           ],
         },
         {
@@ -621,13 +582,13 @@ const onboardingSteps = computed(() =>
       ]
     : [
         {
-          title: "Round flow: roll, set aside, deploy",
+          title: "Round flow: roll, assign, deploy",
           description:
-            "Each round starts with Farkle actions, then you can commit current bonuses and deploy available elementals into combat.",
+            "Each round starts with rolling, then assign dice to elementals and commit effects before combat.",
           bullets: [
-            "Choose one set-aside element for direct +10% attack access.",
-            "Roll all five dice, reroll once after first throw, then set aside valid outcomes.",
-            "You may stop after set-aside and deploy immediately.",
+            "Roll all five dice and keep rolling only unassigned dice.",
+            "Drag a die onto an alive elemental to assign and deploy it.",
+            "Assignment is one-way for the turn: no unassign action.",
           ],
         },
         {
@@ -693,17 +654,15 @@ function getElementEmoji(element: string): string {
 
 function getCombinationLabel(combo: Combination): string {
   const labels: Record<string, string> = {
+    doublet: "Doublet",
     triplet: t("battle.combo.triplet"),
     quartet: t("battle.combo.quartet"),
+    quintet: "Quintet",
     all_for_one: t("battle.combo.all_for_one"),
     one_for_all: t("battle.combo.one_for_all"),
     full_house: t("battle.combo.full_house"),
   };
   return labels[combo.type] ?? combo.type;
-}
-
-function getPartyCountForElement(el: string): number {
-  return battle.playerParty.value.filter((m) => m.element === el).length;
 }
 
 const combatLogEntries = computed<CombatLogEntry[]>(() => {
@@ -860,15 +819,24 @@ const scheduleForcedDiceAnimation = (indices: number[]) => {
   forceAnimationNonce.value += 1;
 };
 
-// Whether the player can set aside chosen-element dice without a combo
-const canSetAsideChosenElement = computed(() => {
-  const el = battle.setAsideElement.value;
-  if (!el) return false;
-  const turn = battle.farkleTurnState.value;
-  if (!turn) return false;
-  if (turn.phase !== "can_reroll" && turn.phase !== "set_aside") return false;
-  // Check there's an active die with the chosen element
-  return turn.dice.some((d) => !d.is_set_aside && d.current_result === el);
+const unassignedDice = computed(() =>
+  battle.farkleDice.value
+    .map((die, index) => ({ die, index }))
+    .filter(
+      ({ die }) =>
+        !die.is_assigned &&
+        die.assigned_to_party_index === null,
+    ),
+);
+
+const assignedDieByPartyIndex = computed(() => {
+  const result: Record<number, { die: (typeof battle.farkleDice.value)[number]; index: number }> = {};
+  battle.farkleDice.value.forEach((die, index) => {
+    if (die.is_assigned && typeof die.assigned_to_party_index === "number") {
+      result[die.assigned_to_party_index] = { die, index };
+    }
+  });
+  return result;
 });
 
 // Can end turn when there's something set aside or busted
@@ -876,14 +844,15 @@ const canEndTurn = computed(() => {
   const turn = battle.farkleTurnState.value;
   if (!turn) return false;
   if (turn.busted) return true;
-  const hasAccumulatedDiceRushBonuses = Object.values(
-    turn.accumulated_dice_rush_bonuses ?? {},
-  ).some((bonus) => bonus > 0);
-  return (
-    turn.active_combinations.length > 0 ||
-    turn.set_aside_element_bonus !== null ||
-    hasAccumulatedDiceRushBonuses
-  );
+  if (turn.can_commit) return true;
+  return false;
+});
+
+const canRollRemaining = computed(() => {
+  if (battle.battlePhase.value !== "player_turn") return false;
+  if (isBusy.value) return false;
+  if (!battle.farkleTurnState.value) return true;
+  return unassignedDice.value.length > 0;
 });
 
 // Phase 1: Start battle
@@ -902,25 +871,6 @@ const handleStartBattle = async () => {
   }
 };
 
-// Choose set-aside element
-const handleChooseElement = async (element: string) => {
-  if (!userStore.userId) return;
-  isChoosing.value = true;
-  try {
-    const result = await eventStore.chooseSetAsideElement(
-      userStore.userId,
-      element,
-    );
-    if (result?.battle_state) {
-      battle.initFromState(result.battle_state as any);
-    }
-  } catch (error) {
-    console.error("Failed to choose element:", error);
-  } finally {
-    isChoosing.value = false;
-  }
-};
-
 // Initial roll of all 5 dice
 const handleFarkleRoll = async () => {
   if (!userStore.userId) return;
@@ -930,8 +880,8 @@ const handleFarkleRoll = async () => {
     if (response?.result) {
       const rolledDice = response.result.battle_state?.player_turn?.dice ?? [];
       const indicesToAnimate: number[] = [];
-      rolledDice.forEach((die: { is_set_aside: boolean }, index: number) => {
-        if (!die.is_set_aside) {
+      rolledDice.forEach((die: { is_assigned?: boolean }, index: number) => {
+        if (!die.is_assigned) {
           indicesToAnimate.push(index);
         }
       });
@@ -945,103 +895,25 @@ const handleFarkleRoll = async () => {
   }
 };
 
-// Free reroll of selected dice
-const handleFarkleReroll = async () => {
-  if (!userStore.userId || battle.selectedDiceIndices.value.length === 0)
-    return;
-  isActing.value = true;
-  const indices = [...battle.selectedDiceIndices.value];
-  battle.clearDiceSelection();
-  try {
-    const response = await eventStore.farkleReroll(userStore.userId, indices);
-    if (response?.result) {
-      scheduleForcedDiceAnimation(indices);
-      battle.updateFromTurnResult(response.result as any);
-    }
-  } catch (error) {
-    console.error("Failed to reroll:", error);
-  } finally {
-    isActing.value = false;
-  }
+const handleDieDragStart = (dieIndex: number) => {
+  draggingDieIndex.value = dieIndex;
 };
 
-// Set aside the best detected combination
-const handleSetAside = async () => {
-  if (
-    !userStore.userId ||
-    battle.availableSetAsideCombinations.value.length === 0
-  )
-    return;
-  isActing.value = true;
-  const best = [...battle.availableSetAsideCombinations.value].sort(
-    (a, b) =>
-      Object.values(b.bonuses).reduce((s, v) => s + v, 0) -
-      Object.values(a.bonuses).reduce((s, v) => s + v, 0),
-  )[0];
-  try {
-    const response = await eventStore.farkleSetAside(
-      userStore.userId,
-      best.dice_indices,
-      best.type === "one_for_all"
-        ? (battle.setAsideElement.value ?? undefined)
-        : undefined,
-    );
-    if (response?.result) {
-      battle.updateFromTurnResult(response.result as any);
-      battle.clearDiceSelection();
-    }
-  } catch (error) {
-    console.error("Failed to set aside:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
-// Set aside all active dice matching the chosen element
-const handleSetAsideChosenElement = async () => {
-  if (!userStore.userId || !battle.setAsideElement.value) return;
-  const turn = battle.farkleTurnState.value;
-  if (!turn) return;
-
-  // Find indices of non-set-aside dice showing the chosen element
-  const indices = turn.dice
-    .map((d, i) => ({ d, i }))
-    .filter(
-      ({ d }) =>
-        !d.is_set_aside && d.current_result === battle.setAsideElement.value,
-    )
-    .map(({ i }) => i);
-
-  if (indices.length === 0) return;
-  isActing.value = true;
-  try {
-    const response = await eventStore.farkleSetAside(userStore.userId, indices);
-    if (response?.result) {
-      battle.updateFromTurnResult(response.result as any);
-    }
-  } catch (error) {
-    console.error("Failed to set aside chosen element:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
-// Roll remaining (non-set-aside) dice
-const handleFarkleContinue = async () => {
+const handleDropToParty = async (partyIndex: number) => {
   if (!userStore.userId) return;
-  const indicesToAnimate = battle.farkleDice.value
-    .map((die, index) => ({ die, index }))
-    .filter(({ die }) => !die.is_set_aside)
-    .map(({ index }) => index);
+  const dieIndex = draggingDieIndex.value;
+  draggingDieIndex.value = null;
+  if (dieIndex === null) return;
+  const member = battle.playerParty.value[partyIndex];
+  if (!member || member.is_destroyed) return;
   isActing.value = true;
   try {
-    const response = await eventStore.farkleContinue(userStore.userId);
+    const response = await eventStore.farkleAssign(userStore.userId, dieIndex, partyIndex);
     if (response?.result) {
-      scheduleForcedDiceAnimation(indicesToAnimate);
       battle.updateFromTurnResult(response.result as any);
     }
   } catch (error) {
-    console.error("Failed to continue:", error);
+    console.error("Failed to assign die:", error);
   } finally {
     isActing.value = false;
   }

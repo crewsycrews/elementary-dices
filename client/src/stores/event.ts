@@ -59,17 +59,19 @@ export type FarkleDie = {
   faces: string[]
   current_result: string
   is_set_aside: boolean
+  is_assigned?: boolean
+  assigned_to_party_index?: number | null
 }
 
 export type Combination = {
-  type: 'triplet' | 'quartet' | 'all_for_one' | 'one_for_all' | 'full_house'
+  type: 'doublet' | 'triplet' | 'quartet' | 'quintet' | 'all_for_one' | 'one_for_all' | 'full_house'
   elements: string[]
   dice_indices: number[]
   bonuses: Record<string, number>
 }
 
 export type FarkleTurnState = {
-  phase: 'initial_roll' | 'can_reroll' | 'set_aside' | 'rolling_remaining' | 'done'
+  phase: 'initial_roll' | 'can_reroll' | 'set_aside' | 'rolling_remaining' | 'ready_to_commit' | 'done'
   dice: FarkleDie[]
   has_used_reroll: boolean
   active_combinations: Combination[]
@@ -218,8 +220,9 @@ type GameApiRoutes = {
       >
       roll: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
       reroll: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices_to_reroll: number[] }, { result?: FarkleTurnResult }>
-      ['set-aside']: PostRoute<{ player_id: string; farkle_session_id: string; dice_indices: number[]; one_for_all_element?: string }, { result?: FarkleTurnResult }>
       continue: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
+      assign: PostRoute<{ player_id: string; farkle_session_id: string; die_index: number; party_index: number }, { result?: FarkleTurnResult }>
+      commit: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
       ['end-turn']: PostRoute<{ player_id: string; farkle_session_id: string }, { result?: FarkleTurnResult }>
     }
   }
@@ -461,20 +464,6 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
-  async function chooseSetAsideElement(playerId: string, element: string) {
-    try {
-      const result = await initFarkleSession(playerId, element)
-      if (result?.battle_state && currentEvent.value) {
-        const data = currentEvent.value.data as PvPData
-        data.battle_state = result.battle_state as FarkleBattleState
-      }
-      return { battle_state: result?.battle_state }
-    } catch (error) {
-      console.error('Failed to choose element:', error)
-      throw error
-    }
-  }
-
   async function chooseWildSetAsideElement(playerId: string, element: string) {
     try {
       const result = await initFarkleSession(playerId, element)
@@ -499,7 +488,18 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
-      const sessionId = getFarkleSessionId()
+      let sessionId: string
+      try {
+        sessionId = getFarkleSessionId()
+      } catch {
+        const fallbackElement =
+          (currentEvent.value?.data as PvPData | undefined)?.player_party?.[0]?.element ?? 'fire'
+        const initResult = await initFarkleSession(playerId, fallbackElement)
+        if (!initResult?.farkle_session_id) {
+          throw new Error('Failed to initialize battle session')
+        }
+        sessionId = initResult.farkle_session_id
+      }
       const response = await apiCall(
         () => getApiRoutes(api).battles.farkle.roll.post({
           player_id: playerId,
@@ -524,7 +524,18 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
-      const sessionId = getFarkleSessionId()
+      let sessionId: string
+      try {
+        sessionId = getFarkleSessionId()
+      } catch {
+        const fallbackElement =
+          (currentEvent.value?.data as PvPData | undefined)?.player_party?.[0]?.element ?? 'fire'
+        const initResult = await initFarkleSession(playerId, fallbackElement)
+        if (!initResult?.farkle_session_id) {
+          throw new Error('Failed to initialize battle session')
+        }
+        sessionId = initResult.farkle_session_id
+      }
       const response = await apiCall(
         () => getApiRoutes(api).battles.farkle.reroll.post({
           player_id: playerId,
@@ -546,42 +557,22 @@ export const useEventStore = defineStore('event', () => {
     }
   }
 
-  async function farkleSetAside(
-    playerId: string,
-    diceIndices: number[],
-    oneForAllElement?: string
-  ) {
-    const { api, apiCall } = useApi()
-
-    try {
-      const sessionId = getFarkleSessionId()
-      const response = await apiCall(
-        () => getApiRoutes(api).battles.farkle['set-aside'].post({
-          player_id: playerId,
-          farkle_session_id: sessionId,
-          dice_indices: diceIndices,
-          one_for_all_element: oneForAllElement,
-        }),
-        { silent: true }
-      )
-
-      if (response.data?.result?.battle_state && currentEvent.value) {
-        const data = currentEvent.value.data as PvPData
-        data.battle_state = response.data.result.battle_state as FarkleBattleState
-      }
-
-      return response.data
-    } catch (error) {
-      console.error('Failed to set aside:', error)
-      throw error
-    }
-  }
-
   async function farkleContinue(playerId: string) {
     const { api, apiCall } = useApi()
 
     try {
-      const sessionId = getFarkleSessionId()
+      let sessionId: string
+      try {
+        sessionId = getFarkleSessionId()
+      } catch {
+        const fallbackElement =
+          (currentEvent.value?.data as PvPData | undefined)?.player_party?.[0]?.element ?? 'fire'
+        const initResult = await initFarkleSession(playerId, fallbackElement)
+        if (!initResult?.farkle_session_id) {
+          throw new Error('Failed to initialize battle session')
+        }
+        sessionId = initResult.farkle_session_id
+      }
       const response = await apiCall(
         () => getApiRoutes(api).battles.farkle.continue.post({
           player_id: playerId,
@@ -606,9 +597,20 @@ export const useEventStore = defineStore('event', () => {
     const { api, apiCall } = useApi()
 
     try {
-      const sessionId = getFarkleSessionId()
+      let sessionId: string
+      try {
+        sessionId = getFarkleSessionId()
+      } catch {
+        const fallbackElement =
+          (currentEvent.value?.data as PvPData | undefined)?.player_party?.[0]?.element ?? 'fire'
+        const initResult = await initFarkleSession(playerId, fallbackElement)
+        if (!initResult?.farkle_session_id) {
+          throw new Error('Failed to initialize battle session')
+        }
+        sessionId = initResult.farkle_session_id
+      }
       const response = await apiCall(
-        () => getApiRoutes(api).battles.farkle['end-turn'].post({
+        () => getApiRoutes(api).battles.farkle.commit.post({
           player_id: playerId,
           farkle_session_id: sessionId,
         }),
@@ -626,6 +628,33 @@ export const useEventStore = defineStore('event', () => {
       throw error
     }
   }
+
+  async function farkleAssign(playerId: string, dieIndex: number, partyIndex: number) {
+    const { api, apiCall } = useApi()
+
+    try {
+      const sessionId = getFarkleSessionId()
+      const response = await apiCall(
+        () => getApiRoutes(api).battles.farkle.assign.post({
+          player_id: playerId,
+          farkle_session_id: sessionId,
+          die_index: dieIndex,
+          party_index: partyIndex,
+        }),
+        { silent: true }
+      )
+
+      if (response.data?.result?.battle_state && currentEvent.value) {
+        const data = currentEvent.value.data as PvPData
+        data.battle_state = response.data.result.battle_state as FarkleBattleState
+      }
+      return response.data
+    } catch (error) {
+      console.error('Failed to assign die:', error)
+      throw error
+    }
+  }
+
 
   async function skipWildEncounter(playerId: string) {
     const { api, apiCall } = useApi()
@@ -888,12 +917,11 @@ export const useEventStore = defineStore('event', () => {
     createEvent,
     resolveWildEncounter,
     startBattle,
-    chooseSetAsideElement,
     chooseWildSetAsideElement,
     farkleRoll,
     farkleReroll,
-    farkleSetAside,
     farkleContinue,
+    farkleAssign,
     farkleEndTurn,
     skipWildEncounter,
     wildEncounterFarkleRoll,

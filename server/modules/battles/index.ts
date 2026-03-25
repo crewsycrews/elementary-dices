@@ -4,13 +4,12 @@ import { UnauthorizedError } from "../../shared/errors";
 import { BattleService } from "./service";
 import {
   BattleStartDTO,
-  ChooseElementDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
   GenericFarkleRerollDTO,
-  GenericFarkleSetAsideDTO,
   GenericFarkleContinueDTO,
   GenericFarkleEndTurnDTO,
+  GenericFarkleAssignDTO,
 } from "../events/models/battle";
 import { resolveLocale } from "../../shared/i18n";
 
@@ -32,20 +31,6 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
     { body: BattleStartDTO },
   )
   .post(
-    "/choose-element",
-    async ({ body, user, battleService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only choose for your own battles");
-      }
-      const battleState = await battleService.chooseSetAsideElement(
-        body.player_id,
-        body.element,
-      );
-      return { battle_state: battleState };
-    },
-    { body: ChooseElementDTO },
-  )
-  .post(
     "/farkle/init",
     async ({ body, user, battleService }) => {
       if (user.id !== body.player_id) {
@@ -54,7 +39,7 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
       const result = await battleService.farkleInit(
         body.player_id,
         body.event_id,
-        body.set_aside_element,
+        body.set_aside_element ?? "fire",
       );
       return { result };
     },
@@ -78,32 +63,15 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
     "/farkle/reroll",
     async ({ body, user, battleService }) => {
       if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only reroll in your own battles");
+        throw new UnauthorizedError("You can only roll in your own battles");
       }
-      const result = await battleService.farkleReroll(
+      const result = await battleService.farkleRoll(
         body.player_id,
         body.farkle_session_id,
-        body.dice_indices_to_reroll,
       );
       return { result };
     },
     { body: GenericFarkleRerollDTO },
-  )
-  .post(
-    "/farkle/set-aside",
-    async ({ body, user, battleService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only set aside in your own battles");
-      }
-      const result = await battleService.farkleSetAside(
-        body.player_id,
-        body.farkle_session_id,
-        body.dice_indices,
-        body.one_for_all_element,
-      );
-      return { result };
-    },
-    { body: GenericFarkleSetAsideDTO },
   )
   .post(
     "/farkle/continue",
@@ -111,7 +79,7 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only continue your own battles");
       }
-      const result = await battleService.farkleContinue(
+      const result = await battleService.farkleRoll(
         body.player_id,
         body.farkle_session_id,
       );
@@ -120,10 +88,42 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
     { body: GenericFarkleContinueDTO },
   )
   .post(
+    "/farkle/assign",
+    async ({ body, user, battleService }) => {
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only assign in your own battles");
+      }
+      const result = await battleService.farkleAssign(
+        body.player_id,
+        body.farkle_session_id,
+        body.die_index,
+        body.party_index,
+      );
+      return { result };
+    },
+    { body: GenericFarkleAssignDTO },
+  )
+  .post(
+    "/farkle/commit",
+    async ({ body, user, locale, battleService }) => {
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only commit your own battle turn");
+      }
+      const result = await battleService.farkleEndTurn(
+        body.player_id,
+        body.farkle_session_id,
+        locale,
+      );
+      return { result };
+    },
+    { body: GenericFarkleEndTurnDTO },
+  )
+  // backward-compatible alias
+  .post(
     "/farkle/end-turn",
     async ({ body, user, locale, battleService }) => {
       if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only end your own battle turn");
+        throw new UnauthorizedError("You can only commit your own battle turn");
       }
       const result = await battleService.farkleEndTurn(
         body.player_id,

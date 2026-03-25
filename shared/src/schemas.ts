@@ -471,8 +471,10 @@ export const PlayerProgressSchema = t.Object({
 // ========================================
 
 export const CombinationType = t.Union([
+  t.Literal("doublet"),
   t.Literal("triplet"),
   t.Literal("quartet"),
+  t.Literal("quintet"),
   t.Literal("all_for_one"),
   t.Literal("one_for_all"),
   t.Literal("full_house"),
@@ -492,6 +494,8 @@ export const FarkleDieSchema = t.Object({
   faces: t.Array(ElementType),
   current_result: ElementType,
   is_set_aside: t.Boolean(),
+  is_assigned: t.Optional(t.Boolean()),
+  assigned_to_party_index: t.Optional(t.Nullable(t.Integer())),
 });
 
 export const FarkleTurnPhase = t.Union([
@@ -499,6 +503,7 @@ export const FarkleTurnPhase = t.Union([
   t.Literal("can_reroll"),
   t.Literal("set_aside"),
   t.Literal("rolling_remaining"),
+  t.Literal("ready_to_commit"),
   t.Literal("done"),
 ]);
 
@@ -513,6 +518,9 @@ export const FarkleTurnStateSchema = t.Object({
   accumulated_set_aside_elements: t.Optional(t.Array(ElementType)),
   is_dice_rush: t.Boolean(),
   busted: t.Boolean(),
+  assignment_required_party_indices: t.Optional(t.Array(t.Integer())),
+  assigned_party_indices: t.Optional(t.Array(t.Integer())),
+  can_commit: t.Optional(t.Boolean()),
 });
 
 export const OpponentTurnResultSchema = t.Object({

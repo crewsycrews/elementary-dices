@@ -4,7 +4,7 @@ export {
   FarkleInitDTO,
   GenericFarkleRollDTO,
   GenericFarkleRerollDTO,
-  GenericFarkleSetAsideDTO,
   GenericFarkleContinueDTO,
   GenericFarkleEndTurnDTO,
+  GenericFarkleAssignDTO,
 } from "../models";

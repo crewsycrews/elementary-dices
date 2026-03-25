@@ -31,20 +31,6 @@
       </div>
     </div>
 
-    <!-- Divider -->
-    <div class="h-8 w-px bg-border" />
-
-    <!-- Set-aside element indicator -->
-    <div class="flex flex-col items-center gap-0.5">
-      <span class="text-xs text-muted-foreground uppercase tracking-wide"
-        >{{ t("battle.set_aside") }}</span
-      >
-      <div v-if="setAsideElement" class="flex items-center gap-1">
-        <span class="text-xl">{{ getEmoji(setAsideElement) }}</span>
-        <span class="text-xs font-bold text-yellow-400">+10%</span>
-      </div>
-      <span v-else class="text-xs text-muted-foreground italic">{{ t("common.none") }}</span>
-    </div>
   </div>
 </template>
 
@@ -54,7 +40,6 @@ import { useI18n } from "@/i18n";
 const props = defineProps<{
   currentTurn: number;
   bonusesTotal: Record<string, number>;
-  setAsideElement: string | null;
 }>();
 const { t } = useI18n();
 

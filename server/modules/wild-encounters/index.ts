@@ -51,7 +51,7 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
       const result = await wildEncounterService.farkleInit(
         body.player_id,
         body.event_id,
-        body.set_aside_element,
+        body.set_aside_element ?? "fire",
       );
       return { result };
     },

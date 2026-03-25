@@ -108,3 +108,119 @@ Side Note for next iterations: Need to think of the modifiers on the elementals 
 Wild encounters should also become battle-based:
 - Player fights the encountered elemental using the same battle flow foundation.
 - Once encountered elemental is defeated in battle, player catches it.
+
+# Battles implementation V4.0
+
+Previous version is really stupid in practice. 
+EVOLVING AGAIN!
+
+No choosing an element in the beginning of the battle. We are now capable of set aside any dice after the roll. Reroll capability should be removed. And we are not only setting them aside, but also we assign the dices to some of our elementals.(Drag-n-Drop) Once assigned - elemental is deployed to the battle. We are still rolling for results the remaining dice trying to get the combinations. Targeting is the same. The only difference is that combinations will now add different bonuses based on the element thrown with the combination and we also want to introduce a 2-die combination(Doublet). 
+
+Water based combinations: heal the assigned elementals for the amount of their attack. 
+  - Doublet - attack x1, 
+  - Triplet - attack x1.5
+  - Quartet - attack x2
+  - Quintet - attack x3
+Earth: Adds armor to assigned elementals for the whole battle (max dmg reduce 50%)
+  - Doublet - reduce 5% of dmg
+  - Triplet - reduce 10% of dmg
+  - Quartet - reduce 15% of dmg
+  - Quintet - reduce 20% of dmg
+Fire: Increases damage for the whole battle with the same percentage amount like it was before(+20%, +30%, +40%, +50%)
+  - Doublet - +20%
+  - Triplet - +30%
+  - Quartet - +40%
+  - Quintet - +50%
+Wind: Adds dodge possibility for the whole battle.(max cap - 40%)
+  - Doublet - +5%
+  - Triplet - +8%
+  - Quartet - +12%
+  - Quintet - +15%
+Lightning: Add a chance for the double attack(max cap - 40%)
+  - Doublet - +5%
+  - Triplet - +8%
+  - Quartet - +12%
+  - Quintet - +15%
+
+One-For-All combination is now giving each Doublet bonus from every element to every assigned elemental. 
+
+Full House is just the combination of Doublet + Triplet. No specific improvements.
+
+## V4.0 Clarifications (locked)
+1. Deployment and assignment:
+   - One elemental can be assigned only one die per turn.
+   - Assignment is the only way to deploy.
+   - A die that is assigned cannot be rolled again in the same turn.
+2. Combination scope:
+   - Combination detection uses all set-aside dice in the turn state, including assigned and unassigned set-aside dice.
+3. Commit timing:
+   - All combination effects are applied only on commit, immediately before combat resolution starts.
+4. Combat mechanics:
+   - Armor damage reduction is applied after all damage multipliers.
+   - Dodge fully negates the incoming hit.
+   - Lightning double attack does not retarget. If the first hit kills the target, the second hit is lost.
+5. Full House:
+   - Full House gives only the Doublet + Triplet effects implied by its two parts, no extra unique effect.
+6. Hidden information:
+   - Opponent deployment remains hidden until combat is resolved.
+7. Turn end requirement:
+   - The strict requirement for ending turn is to deploy all possible elementals.
+   - Dice assignment is element-agnostic: a die can be assigned to any eligible elemental regardless of rolled element.
+   - "Possible" means any alive, not-yet-destroyed party elemental that can still receive an assignment this turn under assignment-slot constraints.
+   - Example: two fire elementals can both be deployed using non-fire rolled faces (for example earth and air), if assignment slots are available.
+8. Single-die bonuses:
+   - Singular set-aside/assigned elemental dice provide a small bonus.
+   - If a matching combination bonus exists for that elemental in the same turn, the combination bonus overwrites the single-die bonus (no stacking).
+   - Values:
+     - Water: heal assigned elemental for 0.5x attack
+     - Earth: +3% damage reduction
+     - Fire: +10% damage
+     - Air: +3% dodge
+     - Lightning: +3% double attack chance
+9. Naming:
+   - Continue using established naming in code/contracts (`air`), not `wind`.
+
+## V4.0 Implementation Plan (codebase-aligned)
+1. Shared contracts first:
+   - Update `shared/src/schemas.ts` Farkle/Battle DTOs for V4 turn flow.
+   - Add assignment fields on dice state (`is_set_aside`, `is_assigned`, `assigned_to_party_index`).
+   - Replace reroll-specific fields (`has_used_reroll`, `set_aside_element_bonus`) with assignment/deployment validation state.
+2. Event DTOs and API boundaries:
+   - Update `server/modules/events/models.ts` DTOs to expose V4 actions and result payloads.
+   - Keep payloads deterministic enough for reconnect and UI replay.
+3. Server battle engine split:
+   - Add pure V4 logic module (new file) next to existing battle/farkle logic:
+     - roll remaining dice
+     - detect combinations including Doublet
+     - enforce assignment limits and deploy-all-possible rule
+     - compute commit-time bonuses with non-stacking override
+   - Add V4 combat resolver module for dodge/armor/double-attack behavior.
+4. Orchestration integration in `EventService`:
+   - Refactor V3 flow in `server/modules/events/service.ts` from reroll pipeline to V4 pipeline:
+     - roll
+     - set aside
+     - assign/unassign
+     - commit
+   - Preserve hidden opponent deployment behavior.
+5. Battle/wild endpoints:
+   - Update route modules:
+     - `server/modules/battles/index.ts`
+     - `server/modules/wild-encounters/index.ts`
+   - Replace/remove reroll-oriented actions with assign/commit actions.
+6. Persistence alignment:
+   - Add a new migration after existing farkle-session migration to align stored session/state columns with V4 needs.
+   - Keep rich per-turn details in `events_farkle_state.meta`.
+7. Client store and composables:
+   - Update:
+     - `client/src/stores/event.ts`
+     - `client/src/composables/useBattle.ts`
+   - Remove choose-element/reroll assumptions and add assignment/commit validity.
+8. Battle UI updates:
+   - Update `client/src/views/BattleView.vue` and relevant game components for drag-and-drop die assignment and deployment status.
+   - Surface:
+     - set-aside vs assigned dice
+     - mandatory undeployed elementals
+     - final commit summary before combat.
+9. Validation and balancing:
+   - Add focused unit tests for new pure logic modules (combination detection, non-stacking override, deploy-all-possible gate, combat edge cases).
+   - Add combat log details needed for balancing and debugging.

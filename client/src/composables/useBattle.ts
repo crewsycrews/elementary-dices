@@ -25,8 +25,10 @@ const ELEMENT_CONFIG: Record<
 const ALL_ELEMENTS = ["fire", "water", "earth", "air", "lightning"] as const;
 
 const COMBINATION_LABELS: Record<string, string> = {
+  doublet: "Doublet",
   triplet: "Triplet",
   quartet: "Quartet",
+  quintet: "Quintet",
   all_for_one: "All-For-One",
   one_for_all: "One-For-All",
   full_house: "Full House",
@@ -40,7 +42,6 @@ export function useBattle() {
   const detectedCombinations = ref<Combination[]>([]);
   const isRolling = ref(false);
   const showingOpponentTurn = ref(false);
-  const selectedDiceIndices = ref<number[]>([]); // for reroll selection
 
   // Computed from battle state
   const battlePhase = computed(() => battleState.value?.phase ?? null);
@@ -52,9 +53,6 @@ export function useBattle() {
   );
   const opponentTurnsDone = computed(
     () => battleState.value?.opponent_turns_done ?? 0,
-  );
-  const setAsideElement = computed(
-    () => battleState.value?.set_aside_element ?? null,
   );
   const playerBonusesTotal = computed(
     () => battleState.value?.player_bonuses_total ?? {},
@@ -77,9 +75,6 @@ export function useBattle() {
     () => battleState.value?.player_turn ?? null,
   );
   const farkleDice = computed(() => farkleTurnState.value?.dice ?? []);
-  const hasUsedReroll = computed(
-    () => farkleTurnState.value?.has_used_reroll ?? false,
-  );
   const activeCombinations = computed(
     () => farkleTurnState.value?.active_combinations ?? [],
   );
@@ -96,32 +91,6 @@ export function useBattle() {
       (turnPhase.value === "initial_roll" || farkleTurnState.value === null),
   );
 
-  const canReroll = computed(
-    () => turnPhase.value === "can_reroll" && !hasUsedReroll.value,
-  );
-
-  const availableSetAsideCombinations = computed(() => {
-    if (!farkleTurnState.value) return [] as Combination[];
-
-    return detectedCombinations.value.filter((combo) =>
-      combo.dice_indices.some(
-        (index) => !farkleTurnState.value?.dice[index]?.is_set_aside,
-      ),
-    );
-  });
-
-  const canSetAside = computed(
-    () =>
-      (turnPhase.value === "can_reroll" || turnPhase.value === "set_aside") &&
-      availableSetAsideCombinations.value.length > 0,
-  );
-
-  const canContinue = computed(
-    () =>
-      turnPhase.value === "rolling_remaining" &&
-      farkleDice.value.some((die) => !die.is_set_aside),
-  );
-
   const canEndTurn = computed(
     () => {
       if (battlePhase.value !== "player_turn" || !farkleTurnState.value) {
@@ -134,7 +103,6 @@ export function useBattle() {
 
       return (
         activeCombinations.value.length > 0 ||
-        farkleTurnState.value.set_aside_element_bonus !== null ||
         hasAccumulatedDiceRushBonuses ||
         isBusted.value
       );
@@ -194,21 +162,6 @@ export function useBattle() {
     return ALL_ELEMENTS.filter((e) => elements.has(e));
   }
 
-  // Toggle dice index selection (for reroll)
-  function toggleDiceSelection(index: number) {
-    if (!canReroll.value) return;
-    const i = selectedDiceIndices.value.indexOf(index);
-    if (i >= 0) {
-      selectedDiceIndices.value.splice(i, 1);
-    } else {
-      selectedDiceIndices.value.push(index);
-    }
-  }
-
-  function clearDiceSelection() {
-    selectedDiceIndices.value = [];
-  }
-
   // Actions
   function initFromState(state: FarkleBattleState) {
     battleState.value = state;
@@ -224,7 +177,6 @@ export function useBattle() {
   }) {
     battleState.value = data.battle_state;
     detectedCombinations.value = data.detected_combinations ?? [];
-    selectedDiceIndices.value = [];
 
     if (data.is_resolved && data.result) {
       battleResult.value = data.result;
@@ -237,7 +189,6 @@ export function useBattle() {
     detectedCombinations.value = [];
     isRolling.value = false;
     showingOpponentTurn.value = false;
-    selectedDiceIndices.value = [];
   }
 
   return {
@@ -247,7 +198,6 @@ export function useBattle() {
     detectedCombinations,
     isRolling,
     showingOpponentTurn,
-    selectedDiceIndices,
     // Computed
     battlePhase,
     playerParty,
@@ -255,7 +205,6 @@ export function useBattle() {
     currentTurn,
     playerTurnsDone,
     opponentTurnsDone,
-    setAsideElement,
     playerBonusesTotal,
     opponentBonusesTotal,
     playerHealth,
@@ -263,16 +212,11 @@ export function useBattle() {
     opponentTurnResult,
     farkleTurnState,
     farkleDice,
-    hasUsedReroll,
     activeCombinations,
     isDiceRush,
     isBusted,
     turnPhase,
     canRoll,
-    canReroll,
-    availableSetAsideCombinations,
-    canSetAside,
-    canContinue,
     canEndTurn,
     totalPlayerPower,
     totalOpponentPower,
@@ -284,8 +228,6 @@ export function useBattle() {
     getCombinationBonusDescription,
     getTotalBonusForElement,
     getPartyElementsPresent,
-    toggleDiceSelection,
-    clearDiceSelection,
     // Actions
     initFromState,
     updateFromTurnResult,

@@ -31,7 +31,14 @@
         </span>
 
         <div
-          v-if="entry.die.is_set_aside"
+          v-if="entry.die.is_assigned"
+          class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+        >
+          A
+        </div>
+
+        <div
+          v-else-if="entry.die.is_set_aside"
           class="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
         >
           S
