@@ -3,7 +3,7 @@
     <button
       type="button"
       class="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border/70 bg-card/80 text-muted-foreground transition-colors hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/60"
-      aria-label="Show possible dice combinations"
+      :aria-label="t('dice_combo.aria')"
       @mouseenter="handlePointerEnter"
       @mousemove="handlePointerMove"
       @mouseleave="hideTooltip"
@@ -21,15 +21,15 @@
       role="tooltip"
     >
       <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-        Possible combinations
+        {{ t("dice_combo.title") }}
       </p>
 
       <table class="mt-2 w-full text-left text-xs">
         <thead class="text-muted-foreground">
           <tr>
-            <th class="pb-1 pr-2 font-semibold">Combination</th>
-            <th class="pb-1 pr-2 font-semibold">Pattern</th>
-            <th class="pb-1 font-semibold">Bonus</th>
+            <th class="pb-1 pr-2 font-semibold">{{ t("dice_combo.col_combination") }}</th>
+            <th class="pb-1 pr-2 font-semibold">{{ t("dice_combo.col_pattern") }}</th>
+            <th class="pb-1 font-semibold">{{ t("dice_combo.col_bonus") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -57,6 +57,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref } from "vue";
 import { HelpCircle } from "lucide-vue-next";
+import { useI18n } from "@/i18n";
 
 type CombinationRow = {
   name: string;
@@ -64,12 +65,14 @@ type CombinationRow = {
   bonus: string;
 };
 
+const { t } = useI18n();
+
 const COMBINATION_ROWS: CombinationRow[] = [
-  { name: "Triplet", pattern: "3 dice, same element", bonus: "+30% to that element" },
-  { name: "Quartet", pattern: "4 dice, same element", bonus: "+40% to that element" },
-  { name: "All-For-One", pattern: "5 dice, same element", bonus: "+50% to that element" },
-  { name: "Full House", pattern: "3 dice + 2 dice", bonus: "+35% triplet, +25% pair" },
-  { name: "One-For-All", pattern: "all 5 dice different", bonus: "choose 1 element for +30%" },
+  { name: "Triplet", pattern: t("dice_combo.triplet_pattern"), bonus: t("dice_combo.triplet_bonus") },
+  { name: "Quartet", pattern: t("dice_combo.quartet_pattern"), bonus: t("dice_combo.quartet_bonus") },
+  { name: "All-For-One", pattern: t("dice_combo.all_for_one_pattern"), bonus: t("dice_combo.all_for_one_bonus") },
+  { name: "Full House", pattern: t("dice_combo.full_house_pattern"), bonus: t("dice_combo.full_house_bonus") },
+  { name: "One-For-All", pattern: t("dice_combo.one_for_all_pattern"), bonus: t("dice_combo.one_for_all_bonus") },
 ];
 
 const isVisible = ref(false);

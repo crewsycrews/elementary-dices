@@ -1,4 +1,5 @@
 import { EventService } from "./service";
+import type { Locale } from "../../shared/i18n";
 
 type FarkleContext = "pvp_battle" | "wild_encounter";
 
@@ -50,6 +51,25 @@ export class SharedFarkleService {
   }
 
   endTurn(playerId: string, farkleSessionId: string, itemId?: string) {
-    return this.eventService.farkleEndTurnGeneric(playerId, farkleSessionId, itemId);
+    return this.eventService.farkleEndTurnGeneric(
+      playerId,
+      farkleSessionId,
+      itemId,
+      "en",
+    );
+  }
+
+  endTurnWithLocale(
+    playerId: string,
+    farkleSessionId: string,
+    locale: Locale,
+    itemId?: string,
+  ) {
+    return this.eventService.farkleEndTurnGeneric(
+      playerId,
+      farkleSessionId,
+      itemId,
+      locale,
+    );
   }
 }

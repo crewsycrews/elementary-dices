@@ -2,15 +2,15 @@
   <div class="container mx-auto p-4 md:p-6 space-y-6">
     <ViewOnboardingModal
       v-if="showOnboarding"
-      title="Wild Encounter Basics"
-      subtitle="Shown once when you first open Wild Encounter."
+      :title="t('wild.title')"
+      :subtitle="onboardingSubtitle"
       :steps="onboardingSteps"
       @close="dismissOnboarding"
       @complete="dismissOnboarding"
     />
 
     <div v-if="loading" class="text-center py-12">
-      <p class="text-xl font-semibold">Loading encounter...</p>
+      <p class="text-xl font-semibold">{{ t("wild.loading") }}</p>
     </div>
 
     <div
@@ -20,15 +20,15 @@
       "
       class="text-center py-12"
     >
-      <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
+      <h1 class="text-3xl font-bold mb-4">{{ t("common.no_active_event") }}</h1>
       <p class="text-muted-foreground mb-6">
-        Trigger an event from the dashboard to start your adventure.
+        {{ t("wild.trigger_event_hint") }}
       </p>
       <button
         @click="router.push('/')"
         class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
       >
-        Back to Dashboard
+        {{ t("common.back_to_dashboard") }}
       </button>
     </div>
 
@@ -39,10 +39,10 @@
           class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <span class="text-xl">&larr;</span>
-          <span class="font-semibold">Back</span>
+          <span class="font-semibold">{{ t("common.back") }}</span>
         </button>
         <div class="text-center">
-          <h1 class="text-3xl font-bold mb-2">Wild Encounter</h1>
+          <h1 class="text-3xl font-bold mb-2">{{ t("wild.title") }}</h1>
           <div
             v-if="!captureResult"
             class="inline-block px-4 py-2 rounded-lg font-semibold"
@@ -50,7 +50,7 @@
               getDifficultyClass(eventStore.wildEncounterData?.capture_difficulty)
             "
           >
-            Capture difficulty:
+            {{ t("wild.capture_difficulty") }}
             {{ eventStore.wildEncounterData?.capture_difficulty?.toUpperCase() }}
           </div>
         </div>
@@ -71,7 +71,7 @@
             class="inline-flex items-center gap-2 self-start rounded-lg border border-border bg-card/60 px-3 py-2"
           >
             <span class="text-lg">{{ getElementEmoji(encounterElement) }}</span>
-            <span class="text-sm text-muted-foreground">Encounter element:</span>
+            <span class="text-sm text-muted-foreground">{{ t("wild.encounter_element") }}</span>
             <span class="text-sm font-semibold capitalize">{{ encounterElement }}</span>
           </div>
 
@@ -80,13 +80,13 @@
             class="inline-flex items-center gap-2 self-start rounded-lg border border-yellow-500/60 bg-card/60 px-3 py-2"
           >
             <span class="text-lg">{{ getElementEmoji(chosenSetAsideElement) }}</span>
-            <span class="text-sm text-muted-foreground">Set-aside element:</span>
+            <span class="text-sm text-muted-foreground">{{ t("wild.set_aside_element") }}</span>
             <span class="text-sm font-semibold capitalize">{{ chosenSetAsideElement }}</span>
           </div>
 
           <div v-if="needsSetAsideSelection && !captureResult" class="space-y-3">
             <p class="text-sm text-muted-foreground">
-              Pick one element from your party for set-aside bonuses.
+              {{ t("wild.pick_set_aside") }}
             </p>
             <div class="flex flex-wrap gap-2">
               <button
@@ -99,7 +99,7 @@
                 <span class="text-2xl">{{ getElementEmoji(el) }}</span>
                 <span class="text-sm font-semibold capitalize">{{ el }}</span>
                 <span class="text-[11px] text-muted-foreground leading-tight">
-                  {{ getPartyCountForElement(el) }} in party
+                  {{ getPartyCountForElement(el) }} {{ t("common.in_party") }}
                 </span>
               </button>
             </div>
@@ -111,7 +111,7 @@
             :disabled="isBusy"
             class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
           >
-            {{ isBusy ? "ROLLING..." : "Start round" }}
+            {{ isBusy ? t("wild.rolling") : t("wild.start_round") }}
           </button>
         </div>
 
@@ -124,17 +124,17 @@
             :opponent-party="wildBattleState.enemy_party"
             :player-health="wildBattleState.player_health"
             :opponent-health="wildBattleState.enemy_health"
-            :opponent-name="wildElemental?.name ?? 'Wild Elemental'"
+            :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
           />
 
           <div class="rounded-xl border border-border bg-card/40 p-4">
             <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
               <p>
-                Current round:
+                {{ t("wild.current_round") }}
                 <span class="font-semibold">{{ wildBattleState.round }}</span>
               </p>
               <p>
-                Resolved rounds:
+                {{ t("wild.resolved_rounds") }}
                 <span class="font-semibold">{{ roundsResolved }}</span>
               </p>
             </div>
@@ -148,27 +148,29 @@
             class="rounded-xl border border-border bg-card/40 p-4 space-y-1.5 text-sm"
           >
             <p class="text-xs uppercase tracking-wide text-muted-foreground">
-              Round {{ lastRoundSummary.round }} summary
+              {{ t("wild.round_summary", { round: lastRoundSummary.round }) }}
             </p>
             <p>
-              First attacker:
+              {{ t("wild.first_attacker") }}
               <span class="font-semibold">{{
-                lastRoundSummary.firstAttacker === "player" ? "You" : "Wild"
+                lastRoundSummary.firstAttacker === "player"
+                  ? t("wild.attacker_you")
+                  : t("wild.attacker_wild")
               }}</span>
             </p>
             <p>
-              You took
+              {{ t("wild.you_took") }}
               <span class="font-semibold text-red-300">{{
                 lastRoundSummary.playerHealthDamage
               }}</span>
-              direct HP damage.
+              {{ t("wild.direct_hp_damage") }}
             </p>
             <p>
-              Wild took
+              {{ t("wild.wild_took") }}
               <span class="font-semibold text-blue-300">{{
                 lastRoundSummary.opponentHealthDamage
               }}</span>
-              direct HP damage.
+              {{ t("wild.direct_hp_damage") }}
             </p>
           </div>
         </div>
@@ -184,12 +186,20 @@
             "
           >
             <h2 class="text-2xl font-bold mb-2">
-              {{ captureResult.success ? "Capture Successful" : "Capture Failed" }}
+              {{
+                captureResult.success
+                  ? t("wild.capture_success")
+                  : t("wild.capture_failed")
+              }}
             </h2>
             <p class="text-lg mb-2">{{ captureResult.message }}</p>
             <p v-if="finalHealthSummary" class="text-sm text-muted-foreground">
-              Final HP: You {{ finalHealthSummary.player }} / Wild
-              {{ finalHealthSummary.enemy }}
+              {{
+                t("wild.final_hp", {
+                  player: finalHealthSummary.player,
+                  enemy: finalHealthSummary.enemy,
+                })
+              }}
             </p>
 
             <div
@@ -200,7 +210,9 @@
                 {{ captureResult.elemental_caught.name }}
               </p>
               <p class="text-sm text-muted-foreground">
-                Level {{ captureResult.elemental_caught.level }}
+                {{
+                  t("wild.level", { level: captureResult.elemental_caught.level })
+                }}
               </p>
             </div>
 
@@ -208,7 +220,7 @@
               @click="proceedToNext"
               class="w-full mt-6 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
             >
-              Proceed
+              {{ t("wild.proceed") }}
             </button>
           </div>
 
@@ -244,7 +256,7 @@
                   :disabled="isBusy || selectedDiceIndices.length === 0"
                   class="px-4 py-2 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
                 >
-                  Reroll selected ({{ selectedDiceIndices.length }})
+                  {{ t("wild.reroll_selected", { count: selectedDiceIndices.length }) }}
                 </button>
 
                 <button
@@ -253,7 +265,7 @@
                   :disabled="isBusy"
                   class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
                 >
-                  Set aside best combo
+                  {{ t("wild.set_aside_best") }}
                 </button>
 
                 <button
@@ -262,7 +274,7 @@
                   :disabled="isBusy"
                   class="px-4 py-2 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
                 >
-                  Set aside chosen element
+                  {{ t("wild.set_aside_chosen") }}
                 </button>
 
                 <button
@@ -271,7 +283,7 @@
                   :disabled="isBusy"
                   class="px-4 py-2 bg-sky-500/20 text-foreground border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
                 >
-                  Roll remaining dice
+                  {{ t("wild.roll_remaining") }}
                 </button>
               </div>
 
@@ -285,7 +297,7 @@
                     : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50'
                 "
               >
-                Deploy &amp; Resolve Round
+                {{ t("wild.deploy_resolve") }}
               </button>
             </div>
           </template>
@@ -298,7 +310,7 @@
         :disabled="isBusy || !!captureResult"
         class="mx-auto block w-fit px-6 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all disabled:opacity-50"
       >
-        Skip Encounter
+        {{ t("wild.skip_encounter") }}
       </button>
     </div>
   </div>
@@ -322,12 +334,14 @@ import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
+import { useI18n } from "@/i18n";
 
 const router = useRouter();
 const eventStore = useEventStore();
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
+const { t, locale } = useI18n();
 
 const loading = ref(false);
 const isActing = ref(false);
@@ -342,28 +356,59 @@ const wildElemental = ref<any>(null);
 const showOnboarding = ref(false);
 const onboardingStorageScope = "wild-encounter-v1";
 
-const onboardingSteps = [
-  {
-    title: "Capture flow",
-    description:
-      "Wild encounters now use battle rounds. You resolve rounds with Farkle actions, then battle simulation determines capture outcome.",
-    bullets: [
-      "Start a wild encounter from Current Event.",
-      "Deploy and resolve rounds until the encounter battle ends.",
-      "If the wild elemental is defeated, capture succeeds.",
-    ],
-  },
-  {
-    title: "Encounter turn decisions",
-    description:
-      "Use rerolls and set-aside choices to bias bonuses toward your current objective and survive long enough to close the fight.",
-    bullets: [
-      "Set aside best combinations or chosen set-aside element opportunities.",
-      "Bust removes turn bonuses, so commit deployment at the right time.",
-      "Review round summaries to adjust next turn choices.",
-    ],
-  },
-];
+const onboardingSubtitle = computed(() =>
+  locale.value === "ru"
+    ? "Показывается один раз при первом открытии Дикой встречи."
+    : "Shown once when you first open Wild Encounter.",
+);
+
+const onboardingSteps = computed(() =>
+  locale.value === "ru"
+    ? [
+        {
+          title: "Поток поимки",
+          description:
+            "Дикие встречи теперь используют боевые раунды. Вы разыгрываете раунды через Farkle, затем симуляция боя определяет исход поимки.",
+          bullets: [
+            "Запустите дикую встречу через Текущее событие.",
+            "Выставляйтесь и завершайте раунды, пока бой встречи не закончится.",
+            "Если дикий элементаль побежден, поимка успешна.",
+          ],
+        },
+        {
+          title: "Решения в ходе встречи",
+          description:
+            "Используйте перебросы и откладывание костей, чтобы направлять бонусы под текущую цель и продержаться достаточно долго для завершения боя.",
+          bullets: [
+            "Откладывайте лучшие комбинации или возможности выбранного отложенного элемента.",
+            "Bust сбрасывает бонусы хода, поэтому выставляйтесь в подходящий момент.",
+            "Смотрите сводки раундов, чтобы скорректировать следующий ход.",
+          ],
+        },
+      ]
+    : [
+        {
+          title: "Capture flow",
+          description:
+            "Wild encounters now use battle rounds. You resolve rounds with Farkle actions, then battle simulation determines capture outcome.",
+          bullets: [
+            "Start a wild encounter from Current Event.",
+            "Deploy and resolve rounds until the encounter battle ends.",
+            "If the wild elemental is defeated, capture succeeds.",
+          ],
+        },
+        {
+          title: "Encounter turn decisions",
+          description:
+            "Use rerolls and set-aside choices to bias bonuses toward your current objective and survive long enough to close the fight.",
+          bullets: [
+            "Set aside best combinations or chosen set-aside element opportunities.",
+            "Bust removes turn bonuses, so commit deployment at the right time.",
+            "Review round summaries to adjust next turn choices.",
+          ],
+        },
+      ],
+);
 
 const getOnboardingStorageKey = () => {
   if (!userStore.userId) return null;
@@ -771,7 +816,7 @@ const handleEndTurn = async () => {
     }
 
     roundStatusMessage.value =
-      turnResult?.result?.message ?? "Battle continues. Roll again.";
+      turnResult?.result?.message ?? t("wild.battle_continues");
 
     await eventStore.initializeEventState(userStore.userId);
     detectedCombinations.value = (farkleState.value?.detected_combinations ??

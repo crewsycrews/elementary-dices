@@ -3,21 +3,21 @@
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
       <div class="text-6xl mb-4">вЏі</div>
-      <p class="text-xl font-semibold">Loading merchant...</p>
+      <p class="text-xl font-semibold">{{ t("merchant.loading") }}</p>
     </div>
 
     <!-- No Active Event -->
     <div v-else-if="!eventStore.isEventActive" class="text-center py-12">
       <div class="text-6xl mb-4">рџЋІ</div>
-      <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
+      <h1 class="text-3xl font-bold mb-4">{{ t("merchant.no_event") }}</h1>
       <p class="text-muted-foreground mb-6">
-        Trigger an event from the dashboard to start your adventure!
+        {{ t("merchant.trigger_event_hint") }}
       </p>
       <button
         @click="router.push('/')"
         class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
       >
-        Back to Dashboard
+        {{ t("merchant.back_to_dashboard") }}
       </button>
     </div>
 
@@ -29,10 +29,10 @@
           class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <span class="text-xl">&larr;</span>
-          <span class="font-semibold">Back</span>
+          <span class="font-semibold">{{ t("common.back") }}</span>
         </button>
         <div class="text-center">
-        <h1 class="text-3xl font-bold mb-2">рџЏЄ Traveling Merchant!</h1>
+        <h1 class="text-3xl font-bold mb-2">{{ t("merchant.title") }}</h1>
         <p class="text-muted-foreground">
           {{ eventStore.currentEvent?.description }}
         </p>
@@ -44,13 +44,13 @@
       <div class="max-w-4xl mx-auto space-y-6">
         <!-- Current Balance -->
         <div class="rounded-lg border bg-card p-4">
-          <p class="text-sm text-muted-foreground">Current Balance</p>
+          <p class="text-sm text-muted-foreground">{{ t("merchant.balance") }}</p>
           <p class="text-2xl font-bold">{{ userStore.currency }}</p>
         </div>
 
         <!-- Dice -->
         <div v-if="merchantDice.length > 0">
-          <h2 class="text-2xl font-bold mb-4">Dice for Sale</h2>
+          <h2 class="text-2xl font-bold mb-4">{{ t("merchant.dice_for_sale") }}</h2>
           <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             <DiceShopCard
               v-for="dice in merchantDice"
@@ -68,7 +68,7 @@
             @click="handleLeaveMerchant"
             class="px-8 py-3 border-2 border-border rounded-lg font-bold hover:bg-muted transition-all"
           >
-            Leave Merchant
+            {{ t("merchant.leave") }}
           </button>
         </div>
       </div>
@@ -83,11 +83,13 @@ import { useEventStore } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useInventoryStore } from "@/stores/inventory";
 import DiceShopCard from "@/components/game/DiceShopCard.vue";
+import { useI18n } from "@/i18n";
 
 const router = useRouter();
 const eventStore = useEventStore();
 const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
+const { t } = useI18n();
 
 const loading = ref(false);
 

@@ -53,9 +53,9 @@
         <table class="probability-table">
           <thead>
             <tr>
-              <th>Element</th>
-              <th>Faces</th>
-              <th>Chance</th>
+              <th>{{ t("dice3d.element") }}</th>
+              <th>{{ t("dice3d.faces") }}</th>
+              <th>{{ t("dice3d.chance") }}</th>
             </tr>
           </thead>
           <tbody>
@@ -76,6 +76,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
+import { useI18n } from "@/i18n";
 import {
   getGeometry,
   type DiceType,
@@ -150,6 +151,7 @@ const isAnimating = ref(false);
 const isTooltipVisible = ref(false);
 const tooltipPosition = ref({ x: 0, y: 0 });
 const TOOLTIP_Y_OFFSET = 16;
+const { t } = useI18n();
 
 // Get geometry for this dice type
 const geometry = computed(() => getGeometry(props.diceType));

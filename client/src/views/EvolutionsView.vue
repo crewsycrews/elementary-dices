@@ -2,8 +2,8 @@
   <div class="container mx-auto p-6 space-y-6 max-w-4xl">
     <ViewOnboardingModal
       v-if="showOnboarding"
-      title="Evolutions Basics"
-      subtitle="Shown once when you first open Evolutions."
+      :title="t('evolutions.onboarding_title')"
+      :subtitle="t('evolutions.onboarding_subtitle')"
       :steps="onboardingSteps"
       @close="dismissOnboarding"
       @complete="dismissOnboarding"
@@ -16,10 +16,10 @@
       class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
-      <span class="font-semibold">Back to Party</span>
+      <span class="font-semibold">{{ t("evolutions.back_to_party") }}</span>
     </button>
 
-    <h1 class="text-3xl font-bold">Elemental Evolutions</h1>
+    <h1 class="text-3xl font-bold">{{ t("evolutions.title") }}</h1>
     </div>
 
     <!-- Result Banner -->
@@ -38,7 +38,7 @@
           @click="lastResult = null"
           class="text-sm opacity-60 hover:opacity-100 mt-1"
         >
-          Dismiss
+          {{ t("evolutions.dismiss") }}
         </button>
       </div>
     </Transition>
@@ -48,7 +48,7 @@
       <p
         class="text-center text-sm text-muted-foreground mb-6 uppercase tracking-widest"
       >
-        Ritual Arena
+        {{ t("evolutions.ritual_arena") }}
       </p>
 
       <!-- Triangle layout: top + bottom row -->
@@ -137,8 +137,8 @@
               : 'bg-muted text-muted-foreground cursor-not-allowed opacity-50'
           "
         >
-          <span v-if="isProcessing">Evolving...</span>
-          <span v-else>EVOLVE</span>
+          <span v-if="isProcessing">{{ t("evolutions.evolving") }}</span>
+          <span v-else>{{ t("evolutions.evolve") }}</span>
         </button>
         <p
           v-if="filledSlotsCount > 0 && !isValidCombination"
@@ -151,7 +151,7 @@
           @click="clearAllSlots"
           class="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
-          Clear all
+          {{ t("evolutions.clear_all") }}
         </button>
       </div>
     </div>
@@ -159,21 +159,21 @@
     <!-- Elemental Collection -->
     <div>
       <p class="text-sm text-muted-foreground uppercase tracking-widest mb-3">
-        All elementals ({{ allPlayerElementals.length }})
+        {{ t("evolutions.all_elementals", { count: allPlayerElementals.length }) }}
       </p>
 
       <div
         v-if="isLoadingElementals"
         class="text-center py-8 text-muted-foreground"
       >
-        Loading elementals...
+        {{ t("evolutions.loading_elementals") }}
       </div>
 
       <div
         v-else-if="allPlayerElementals.length === 0"
         class="text-center py-8 text-muted-foreground"
       >
-        No elementals found. Go explore to find some!
+        {{ t("evolutions.empty_elementals") }}
       </div>
 
       <div v-else class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
@@ -209,9 +209,11 @@ import { useElementalCombination } from "@/composables/useElementalCombination";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { PlayerElemental, Elemental } from "@elementary-dices/shared";
+import { useI18n } from "@/i18n";
 
 const elementalsStore = useElementalsStore();
 const userStore = useUserStore();
+const { t, locale } = useI18n();
 
 const {
   slots,
@@ -231,28 +233,53 @@ const lastResult = ref<{ success: boolean; message: string } | null>(null);
 const showOnboarding = ref(false);
 const onboardingStorageScope = "evolutions-v1";
 
-const onboardingSteps = [
-  {
-    title: "Evolution consumes selected elementals",
-    description:
-      "Pick valid ingredients in the ritual slots, then evolve to create a stronger result based on configured recipes.",
-    bullets: [
-      "Use the three ritual slots to compose a valid recipe.",
-      "Invalid combinations are rejected without creating a new unit.",
-      "Successful evolutions should be reflected in your roster.",
-    ],
-  },
-  {
-    title: "Plan around level and deployment requirements",
-    description:
-      "Higher-level elementals are stronger, and level 3-4 deployment has stricter requirements in Dice Rush chains.",
-    bullets: [
-      "Keep ingredient diversity for flexible future compositions.",
-      "Do not over-invest into a single element too early.",
-      "Build evolutions that match your preferred dice strategy.",
-    ],
-  },
-];
+const onboardingSteps = computed(() =>
+  locale.value === "ru"
+    ? [
+        {
+          title: "Эволюция расходует выбранных элементалей",
+          description:
+            "Выберите валидные ингредиенты в ритуальных слотах, затем выполните эволюцию и получите более сильный результат по рецептам.",
+          bullets: [
+            "Используйте три ритуальных слота для составления корректного рецепта.",
+            "Невалидные комбинации отклоняются и не создают нового юнита.",
+            "Успешные эволюции должны отразиться в вашем ростере.",
+          ],
+        },
+        {
+          title: "Планируйте уровни и требования выставления",
+          description:
+            "Элементали высокого уровня сильнее, а для выставления 3-4 уровней в цепочках Dice Rush требования строже.",
+          bullets: [
+            "Сохраняйте разнообразие ингредиентов для гибких будущих сборок.",
+            "Не вкладывайтесь слишком рано только в один элемент.",
+            "Стройте эволюции под ваш предпочтительный стиль костей.",
+          ],
+        },
+      ]
+    : [
+        {
+          title: "Evolution consumes selected elementals",
+          description:
+            "Pick valid ingredients in the ritual slots, then evolve to create a stronger result based on configured recipes.",
+          bullets: [
+            "Use the three ritual slots to compose a valid recipe.",
+            "Invalid combinations are rejected without creating a new unit.",
+            "Successful evolutions should be reflected in your roster.",
+          ],
+        },
+        {
+          title: "Plan around level and deployment requirements",
+          description:
+            "Higher-level elementals are stronger, and level 3-4 deployment has stricter requirements in Dice Rush chains.",
+          bullets: [
+            "Keep ingredient diversity for flexible future compositions.",
+            "Do not over-invest into a single element too early.",
+            "Build evolutions that match your preferred dice strategy.",
+          ],
+        },
+      ],
+);
 
 const getOnboardingStorageKey = () => {
   if (!userStore.userId) return null;

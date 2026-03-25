@@ -1,5 +1,6 @@
 import { EventService } from "../events/service";
 import { SharedFarkleService } from "../events/shared-farkle-service";
+import type { Locale } from "../../shared/i18n";
 
 export class BattleService {
   constructor(
@@ -54,7 +55,11 @@ export class BattleService {
     return this.sharedFarkleService.continue(playerId, farkleSessionId);
   }
 
-  farkleEndTurn(playerId: string, farkleSessionId: string) {
-    return this.sharedFarkleService.endTurn(playerId, farkleSessionId);
+  farkleEndTurn(playerId: string, farkleSessionId: string, locale: Locale = "en") {
+    return this.sharedFarkleService.endTurnWithLocale(
+      playerId,
+      farkleSessionId,
+      locale,
+    );
   }
 }

@@ -2,6 +2,7 @@ import { EvolutionRepository } from './repository';
 import { NotFoundError, BadRequestError } from '../../shared/errors';
 import { db } from '../../db';
 import type { CombineElementalsData, CombineResult, EvolutionRecipe } from './models';
+import { t, type Locale } from "../../shared/i18n";
 
 export class EvolutionService {
   constructor(private repository = new EvolutionRepository()) {}
@@ -25,7 +26,7 @@ export class EvolutionService {
   /**
    * Combine elementals to create a new evolved elemental
    */
-  async combineElementals(data: CombineElementalsData): Promise<CombineResult> {
+  async combineElementals(data: CombineElementalsData, locale: Locale = "en"): Promise<CombineResult> {
     // Validate player owns all elementals
     const playerElementals = await db('player_elementals')
       .whereIn('player_elementals.id', data.player_elemental_ids)
@@ -54,7 +55,7 @@ export class EvolutionService {
     if (!recipe) {
       return {
         success: false,
-        message: 'No evolution recipe found for these elementals. Try different combinations!',
+        message: t(locale, "evolution.no_recipe"),
         consumed_elementals: [],
       };
     }
@@ -99,7 +100,7 @@ export class EvolutionService {
 
     return {
       success: true,
-      message: `Successfully evolved into ${newElemental.name}!`,
+      message: t(locale, "evolution.success", { name: newElemental.name }),
       new_elemental: {
         id: newPlayerElemental.id,
         elemental_id: recipe.result_elemental_id,

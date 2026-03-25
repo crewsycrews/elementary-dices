@@ -12,8 +12,12 @@ import {
   GenericFarkleContinueDTO,
   GenericFarkleEndTurnDTO,
 } from "../events/models/battle";
+import { resolveLocale } from "../../shared/i18n";
 
 export const battlesModule = new Elysia({ prefix: "/api/battles" })
+  .derive(({ headers }) => ({
+    locale: resolveLocale(headers as Record<string, string | undefined>),
+  }))
   .decorate("battleService", new BattleService())
   .use(requireAuth)
   .post(
@@ -117,13 +121,14 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
   )
   .post(
     "/farkle/end-turn",
-    async ({ body, user, battleService }) => {
+    async ({ body, user, locale, battleService }) => {
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only end your own battle turn");
       }
       const result = await battleService.farkleEndTurn(
         body.player_id,
         body.farkle_session_id,
+        locale,
       );
       return { result };
     },

@@ -4,8 +4,12 @@ import { CombineElementalsDTO } from "./models";
 import { requireAuth } from "../auth/middleware";
 import { UnauthorizedError } from "../../shared/errors";
 import type { AccessTokenPayload } from "../auth/models";
+import { resolveLocale } from "../../shared/i18n";
 
 export const evolutionModule = new Elysia({ prefix: "/api/evolution" })
+  .derive(({ headers }) => ({
+    locale: resolveLocale(headers as Record<string, string | undefined>),
+  }))
   .decorate("evolutionService", new EvolutionService())
 
   // Public routes (recipe catalog)
@@ -56,13 +60,13 @@ export const evolutionModule = new Elysia({ prefix: "/api/evolution" })
   .post(
     "/combine",
     async (context) => {
-      const { body, evolutionService } = context;
+      const { body, locale, evolutionService } = context;
       const user = context.user;
 
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only combine your own elementals");
       }
-      const result = await evolutionService.combineElementals(body);
+      const result = await evolutionService.combineElementals(body, locale);
       return result;
     },
     {

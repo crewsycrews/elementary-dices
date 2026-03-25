@@ -7,11 +7,11 @@
           <p v-if="subtitle" class="subtitle">{{ subtitle }}</p>
         </div>
         <button class="skip-button" type="button" @click="handleClose">
-          Skip
+          {{ t("onboarding.skip") }}
         </button>
       </div>
 
-      <div class="progress-row" role="tablist" aria-label="Onboarding steps">
+      <div class="progress-row" role="tablist" :aria-label="t('onboarding.steps_label')">
         <button
           v-for="(step, index) in steps"
           :key="`${step.title}-${index}`"
@@ -25,7 +25,7 @@
       </div>
 
       <div class="step-card">
-        <p class="step-label">Step {{ currentIndex + 1 }} of {{ steps.length }}</p>
+        <p class="step-label">{{ t("onboarding.step_of", { current: currentIndex + 1, total: steps.length }) }}</p>
         <h3 class="step-title">{{ currentStep.title }}</h3>
         <p class="step-description">{{ currentStep.description }}</p>
 
@@ -43,7 +43,7 @@
           :disabled="currentIndex === 0"
           @click="prev"
         >
-          Back
+          {{ t("onboarding.back") }}
         </button>
         <button
           v-if="!isLastStep"
@@ -51,7 +51,7 @@
           class="primary-button"
           @click="next"
         >
-          Next
+          {{ t("onboarding.next") }}
         </button>
         <button
           v-else
@@ -59,7 +59,7 @@
           class="primary-button"
           @click="handleComplete"
         >
-          Finish
+          {{ t("onboarding.finish") }}
         </button>
       </div>
     </div>
@@ -68,6 +68,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
+import { useI18n } from "@/i18n";
 
 type Step = {
   title: string;
@@ -90,13 +91,14 @@ const emit = defineEmits<{
   close: [];
   complete: [];
 }>();
+const { t } = useI18n();
 
 const currentIndex = ref(0);
 
 const safeSteps = computed<Step[]>(() =>
   props.steps.length > 0
     ? props.steps
-    : [{ title: "No steps", description: "", bullets: [] }],
+    : [{ title: t("onboarding.no_steps"), description: "", bullets: [] }],
 );
 
 const currentStep = computed(() => safeSteps.value[currentIndex.value]);

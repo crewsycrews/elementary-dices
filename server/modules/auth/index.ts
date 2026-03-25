@@ -4,6 +4,10 @@ import { AuthService } from "./service";
 import { LoginDTO, AuthResponseDTO } from "./models";
 import { generateState } from "./utils";
 import { UserService } from "../users/service";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+} from "./cookie-options";
 
 export const authModule = new Elysia({ prefix: "/api/auth" })
   .decorate("authService", new AuthService())
@@ -26,24 +30,8 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       const { user, accessToken, refreshToken } =
         await authService.loginWithPassword(body.username, body.password);
 
-      // Set HTTP-only cookies
-      cookie.access_token.set({
-        value: accessToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 15 * 60, // 15 minutes
-        path: "/",
-      });
-
-      cookie.refresh_token.set({
-        value: refreshToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60, // 7 days
-        path: "/",
-      });
+      cookie.access_token.set(getAccessTokenCookieOptions(accessToken));
+      cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
       return { user };
     },
@@ -64,23 +52,8 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     );
 
     // Update cookies with new tokens
-    cookie.access_token.set({
-      value: accessToken,
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 15 * 60,
-      path: "/",
-    });
-
-    cookie.refresh_token.set({
-      value: refreshToken,
-      httpOnly: true,
-      secure: false,
-      sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60,
-      path: "/",
-    });
+    cookie.access_token.set(getAccessTokenCookieOptions(accessToken));
+    cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
     return { success: true };
   })
@@ -138,24 +111,8 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       const { accessToken, refreshToken } =
         await authService.handleGoogleCallback(code, codeVerifier);
 
-      // Set HTTP-only cookies
-      cookie.access_token.set({
-        value: accessToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 15 * 60, // 15 minutes
-        path: "/",
-      });
-
-      cookie.refresh_token.set({
-        value: refreshToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60, // 7 days
-        path: "/",
-      });
+      cookie.access_token.set(getAccessTokenCookieOptions(accessToken));
+      cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
       // Redirect to frontend with success
       return Response.redirect(`${process.env.CLIENT_URL}/?auth=success`);

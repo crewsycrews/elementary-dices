@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
+import { t, type Locale } from "../../shared/i18n";
 import { PlayerElementalsRepository } from "./repository";
 import type {
   AddPlayerElementalData,
@@ -132,7 +133,7 @@ export class PlayerElementalsService {
    * Start game - Roll d10 to get first elemental
    * Result element determines the starter's element type
    */
-  async startGame(data: StartGameData): Promise<StartGameResult> {
+  async startGame(data: StartGameData, locale: Locale = "en"): Promise<StartGameResult> {
     // Check if player already has elementals
     const count = await this.repository.countByPlayerId(data.player_id);
     if (count > 0) {
@@ -180,7 +181,10 @@ export class PlayerElementalsService {
 
     return {
       success: true,
-      message: `Welcome to Elementary Dices! You rolled ${resultElement} and received ${selectedElemental.name}!`,
+      message: t(locale, "start_game.welcome", {
+        element: resultElement,
+        name: selectedElemental.name,
+      }),
       first_elemental: playerElemental,
       dice_roll: {
         roll_value: rollValue + 1, // 1-10 for display

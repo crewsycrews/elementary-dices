@@ -40,7 +40,7 @@
       <!-- Faces -->
       <div class="space-y-1 text-sm">
         <div class="flex justify-between">
-          <span class="text-muted-foreground">Faces:</span>
+          <span class="text-muted-foreground">{{ t("dice_shop.faces") }}</span>
           <span class="font-bold">
             <span v-for="(face, idx) in dice.faces" :key="idx" :title="face">{{ ELEMENT_EMOJI[face] || face }}</span>
           </span>
@@ -71,13 +71,13 @@
               : 'bg-muted text-muted-foreground cursor-not-allowed',
           ]"
         >
-          {{ isPurchasing ? "Buying..." : "Buy" }}
+          {{ isPurchasing ? t("dice_shop.buying") : t("dice_shop.buy") }}
         </button>
       </div>
 
       <!-- Insufficient Funds Warning -->
       <div v-if="!canAfford" class="text-xs text-red-600 text-center">
-        You need {{ dice.price - playerCurrency }} more currency
+        {{ t("dice_shop.need_more", { amount: dice.price - playerCurrency }) }}
       </div>
     </div>
   </div>
@@ -87,6 +87,7 @@
 import { computed } from "vue";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry";
+import { useI18n } from "@/i18n";
 
 const ELEMENT_EMOJI: Record<string, string> = {
   fire: '\uD83D\uDD25',
@@ -114,6 +115,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   isPurchasing: false,
 });
+const { t } = useI18n();
 const emit = defineEmits<{
   purchase: [];
 }>();

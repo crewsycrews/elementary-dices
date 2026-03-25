@@ -30,7 +30,7 @@
     >
       <div class="text-4xl text-muted-foreground mb-2">👤</div>
       <div class="text-xs text-muted-foreground text-center">
-        {{ emptyText }}
+        {{ emptyLabel }}
       </div>
     </div>
 
@@ -65,7 +65,7 @@
         <div>
           <h4 class="font-bold text-sm truncate">{{ elemental.name }}</h4>
           <div class="flex items-center gap-2 mt-1">
-            <span class="text-xs text-muted-foreground">Lvl {{ elemental.level }}</span>
+            <span class="text-xs text-muted-foreground">{{ t("party_slot.level", { level: elemental.level }) }}</span>
             <div class="flex gap-1">
               <span
                 v-for="element in elemental.element_types"
@@ -107,6 +107,7 @@
 import { ref, computed } from 'vue';
 import type { PlayerElementalSchema, ElementalSchema } from '@elementary-dices/shared/schemas';
 import StatsDisplay from './StatsDisplay.vue';
+import { useI18n } from '@/i18n';
 
 interface Props {
   position: number; // 1-5
@@ -126,8 +127,9 @@ const props = withDefaults(defineProps<Props>(), {
   isSelected: false,
   showHealth: true,
   showStats: true,
-  emptyText: 'Empty Slot',
 });
+const { t } = useI18n();
+const emptyLabel = computed(() => props.emptyText || t("common.empty_slot"));
 
 const emit = defineEmits<{
   click: [position: number];

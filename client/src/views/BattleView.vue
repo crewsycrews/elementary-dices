@@ -2,8 +2,8 @@
   <div class="container mx-auto p-4 md:p-6 space-y-4 md:space-y-5">
     <ViewOnboardingModal
       v-if="showOnboarding"
-      title="Battle + Farkle Basics"
-      subtitle="Shown once when you first open PvP Battle."
+      :title="t('battle.title')"
+      :subtitle="onboardingSubtitle"
       :steps="onboardingSteps"
       @close="dismissOnboarding"
       @complete="dismissOnboarding"
@@ -12,21 +12,21 @@
     <!-- Loading State -->
     <div v-if="loading" class="text-center py-12">
       <div class="text-6xl mb-4">&#x23F3;</div>
-      <p class="text-xl font-semibold">Loading battle...</p>
+      <p class="text-xl font-semibold">{{ t("battle.loading") }}</p>
     </div>
 
     <!-- No Active Event -->
     <div v-else-if="!eventStore.isEventActive" class="text-center py-12">
       <div class="text-6xl mb-4">&#x1F3B2;</div>
-      <h1 class="text-3xl font-bold mb-4">No Active Event</h1>
+      <h1 class="text-3xl font-bold mb-4">{{ t("common.no_active_event") }}</h1>
       <p class="text-muted-foreground mb-6">
-        Trigger an event from the dashboard to start your adventure!
+        {{ t("wild.trigger_event_hint") }}
       </p>
       <button
         @click="router.push('/')"
         class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
       >
-        Back to Dashboard
+        {{ t("common.back_to_dashboard") }}
       </button>
     </div>
 
@@ -39,15 +39,15 @@
           class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <span class="text-xl">&larr;</span>
-          <span class="font-semibold">Back</span>
+          <span class="font-semibold">{{ t("common.back") }}</span>
         </button>
 
         <div class="text-center">
-          <h1 class="text-3xl font-bold mb-1">PvP Battle!</h1>
+          <h1 class="text-3xl font-bold mb-1">{{ t("battle.title") }}</h1>
           <p class="text-muted-foreground">
-            vs {{ eventStore.pvpData?.opponent_name }}
+            {{ t("battle.vs", { name: eventStore.pvpData?.opponent_name ?? t("battle.opponent_name") }) }}
             <span v-if="eventStore.pvpData?.potential_reward" class="ml-2">
-              | Reward: {{ eventStore.pvpData?.potential_reward }}
+              | {{ t("battle.reward", { reward: eventStore.pvpData?.potential_reward }) }}
             </span>
           </p>
         </div>
@@ -60,11 +60,11 @@
         <div class="text-center mb-4">
           <div class="inline-block px-4 py-2 bg-primary/10 rounded-lg">
             <span class="text-sm font-bold text-primary"
-              >Phase 1: Target Assignment</span
+              >{{ t("battle.phase1") }}</span
             >
           </div>
           <p class="text-sm text-muted-foreground mt-2">
-            Your elementals have chosen their targets.
+            {{ t("battle.targets_chosen") }}
           </p>
         </div>
 
@@ -73,7 +73,7 @@
           :opponent-party="battle.opponentParty.value"
           :player-health="battle.playerHealth.value"
           :opponent-health="battle.opponentHealth.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
+          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
           :show-targets="true"
           :target-lines="battle.targetLines.value"
         >
@@ -83,7 +83,7 @@
               :disabled="isStarting"
               class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
             >
-              {{ isStarting ? "Starting..." : "Start Battle!" }}
+              {{ isStarting ? t("battle.starting") : t("battle.start") }}
             </button>
           </template>
         </BattleArena>
@@ -94,13 +94,11 @@
         <div class="text-center mb-4">
           <div class="inline-block px-4 py-2 bg-yellow-500/10 rounded-lg">
             <span class="text-sm font-bold text-yellow-400"
-              >Choose Your Set-Aside Element</span
+              >{{ t("battle.choose_set_aside") }}</span
             >
           </div>
           <p class="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-            Pick one element. Dice showing this element can always be set aside
-            for a
-            <strong>+10% attack bonus</strong>, even without a combination.
+            {{ t("battle.choose_set_aside_desc") }}
           </p>
         </div>
 
@@ -109,7 +107,7 @@
           :opponent-party="battle.opponentParty.value"
           :player-health="battle.playerHealth.value"
           :opponent-health="battle.opponentHealth.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
+          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
         >
           <template #centerActions>
             <div class="flex justify-center gap-2 flex-wrap max-w-md">
@@ -125,7 +123,7 @@
                 }}</span>
                 <span class="text-sm font-semibold capitalize">{{ el }}</span>
                 <span class="text-[11px] text-muted-foreground leading-tight">
-                  {{ getPartyCountForElement(el) }} in party
+                  {{ getPartyCountForElement(el) }} {{ t("common.in_party") }}
                 </span>
               </button>
             </div>
@@ -142,7 +140,7 @@
           :set-aside-element="battle.setAsideElement.value"
         />
         <p class="text-center text-xs text-muted-foreground">
-          Battle continues until one player reaches 0 HP.
+          {{ t("battle.continues_to_zero") }}
         </p>
 
         <!-- Battle Arena -->
@@ -151,7 +149,7 @@
           :opponent-party="battle.opponentParty.value"
           :player-health="battle.playerHealth.value"
           :opponent-health="battle.opponentHealth.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? 'Opponent'"
+          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
           :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
           :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
         >
@@ -186,7 +184,7 @@
                   <p
                     class="text-xs font-bold text-muted-foreground uppercase tracking-wide text-center"
                   >
-                    Set aside:
+                    {{ t("battle.set_aside") }}
                   </p>
                   <CombinationDisplay
                     v-if="!isBusy"
@@ -202,7 +200,7 @@
                   :disabled="isBusy"
                   class="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
                 >
-                  {{ isBusy ? "Rolling..." : "&#x1F3B2; Roll all dice!" }}
+                  {{ isBusy ? t("battle.rolling") : t("battle.roll_all") }}
                 </button>
               </div>
 
@@ -221,14 +219,14 @@
                     isBusy || battle.selectedDiceIndices.value.length === 0
                   "
                   class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
-                >Reroll ({{ battle.selectedDiceIndices.value.length }})</button>
+                >{{ t("battle.reroll", { count: battle.selectedDiceIndices.value.length }) }}</button>
 
                 <button
                   v-if="battle.canSetAside.value"
                   @click="handleSetAside"
                   :disabled="isBusy"
                   class="px-3 py-1.5 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50 text-sm"
-                >Set aside combo</button>
+                >{{ t("battle.set_aside_combo") }}</button>
 
                 <button
                   v-if="canSetAsideChosenElement"
@@ -237,7 +235,7 @@
                   class="px-3 py-1.5 bg-yellow-500/20 text-foreground border border-yellow-500/50 rounded-lg font-semibold hover:bg-yellow-500/30 transition-all disabled:opacity-50 text-sm"
                 >
                   {{ battle.getElementConfig(battle.setAsideElement.value!).emoji }}
-                  Set aside element
+                  {{ t("battle.set_aside_element") }}
                 </button>
 
                 <button
@@ -246,7 +244,7 @@
                   :disabled="isBusy"
                   class="px-3 py-1.5 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-bold hover:bg-blue-500/30 transition-all disabled:opacity-50 text-sm"
                 >
-                  &#x1F3B2; Roll undeployed dice
+                  {{ t("battle.roll_undeployed") }}
                 </button>
 
                 <button
@@ -256,7 +254,7 @@
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy || !canEndTurn"
                   class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
-                >Deploy &amp; Resolve Round</button>
+                >{{ t("battle.deploy_resolve") }}</button>
               </div>
 
               <div
@@ -267,10 +265,10 @@
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy"
                   class="px-4 py-2 bg-card border border-border rounded-lg font-bold text-foreground hover:bg-card/80 transition-all disabled:opacity-50"
-                >Deploy &amp; Resolve Round (no bonuses)</button>
+                >{{ t("battle.deploy_resolve_no_bonus") }}</button>
               </div>
               <p v-if="!canEndTurn && !battle.isBusted.value" class="text-center text-xs text-muted-foreground">
-                Set aside a valid combination or chosen element before deploying.
+                {{ t("battle.need_set_aside") }}
               </p>
             </div>
           </template>
@@ -282,7 +280,7 @@
           class="text-center py-3 bg-purple-500/20 rounded-xl border border-purple-500 animate-pulse"
         >
           <p class="text-lg font-bold text-purple-300">
-            &#x1F3B2; DICE RUSH! All 5 dice used — roll again or end turn.
+            {{ t("battle.dice_rush") }}
           </p>
         </div>
 
@@ -292,42 +290,47 @@
           class="text-center py-3 bg-red-500/20 rounded-xl border border-red-500"
         >
           <p class="text-lg font-bold text-red-400">
-            &#x1F4A5; BUST! No combinations — all turn bonuses lost.
+            {{ t("battle.bust") }}
           </p>
           <p class="text-sm text-muted-foreground mt-1">
-            Deploy now to resolve this round.
+            {{ t("battle.deploy_now") }}
           </p>
         </div>
         <div v-if="lastRoundSummary" class="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
             <p class="text-xs uppercase tracking-wide text-muted-foreground">
-              Round {{ lastRoundSummary.round }} resolved
+              {{ t("battle.round_resolved", { round: lastRoundSummary.round }) }}
             </p>
             <p class="text-sm">
-              First attacker:
+              {{ t("battle.first_attacker") }}
               <span class="font-semibold">
-                {{ lastRoundSummary.firstAttacker === "player" ? "You" : eventStore.pvpData?.opponent_name ?? "Opponent" }}
+                {{ lastRoundSummary.firstAttacker === "player" ? t("battle.you") : eventStore.pvpData?.opponent_name ?? t("battle.opponent_name") }}
               </span>
             </p>
             <p class="text-sm">
-              Your deployment:
+              {{ t("battle.your_deployment") }}
               <span class="font-semibold">{{ deployedPlayerNames }}</span>
             </p>
             <p class="text-sm">
-              Opponent deployment:
+              {{ t("battle.opponent_deployment") }}
               <span class="font-semibold">{{ deployedOpponentNames }}</span>
             </p>
           </div>
           <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">Round impact</p>
+            <p class="text-xs uppercase tracking-wide text-muted-foreground">{{ t("battle.round_impact") }}</p>
             <p class="text-sm text-red-300">
-              You took {{ lastRoundSummary.playerHealthDamage }} direct HP damage
+              {{ t("battle.you_took_damage", { damage: lastRoundSummary.playerHealthDamage }) }}
             </p>
             <p class="text-sm text-blue-300">
-              Opponent took {{ lastRoundSummary.opponentHealthDamage }} direct HP damage
+              {{ t("battle.opponent_took_damage", { damage: lastRoundSummary.opponentHealthDamage }) }}
             </p>
             <p class="text-sm">
-              Units destroyed: You lost {{ lastRoundSummary.playerUnitsDestroyed }}, Opponent lost {{ lastRoundSummary.opponentUnitsDestroyed }}
+              {{
+                t("battle.units_destroyed", {
+                  player: lastRoundSummary.playerUnitsDestroyed,
+                  opponent: lastRoundSummary.opponentUnitsDestroyed,
+                })
+              }}
             </p>
           </div>
         </div>
@@ -337,12 +340,12 @@
           class="rounded-xl border border-border bg-card/40 p-4 space-y-3"
         >
           <div class="flex items-center justify-between">
-            <p class="text-sm font-bold text-red-400">Opponent private roll (revealed after resolution)</p>
+            <p class="text-sm font-bold text-red-400">{{ t("battle.opponent_private_roll") }}</p>
             <button
               @click="isCombatHistoryOpen = !isCombatHistoryOpen"
               class="text-xs px-2 py-1 rounded border border-border hover:bg-card transition-colors"
             >
-              {{ isCombatHistoryOpen ? "Hide combat log" : "Show combat log" }}
+              {{ isCombatHistoryOpen ? t("battle.hide_combat_log") : t("battle.show_combat_log") }}
             </button>
           </div>
           <div class="flex justify-center gap-2 flex-wrap">
@@ -356,13 +359,13 @@
           </div>
           <div class="text-center text-sm">
             <span v-if="battle.opponentTurnResult.value.busted" class="text-red-400 font-semibold">
-              Opponent busted this round.
+              {{ t("battle.opponent_busted") }}
             </span>
             <span v-else-if="battle.opponentTurnResult.value.combination" class="font-semibold">
-              {{ getCombinationLabel(battle.opponentTurnResult.value.combination) }} activated.
+              {{ t("battle.combination_activated", { label: getCombinationLabel(battle.opponentTurnResult.value.combination) }) }}
             </span>
             <span v-else-if="battle.opponentTurnResult.value.set_aside_element_used" class="text-yellow-400">
-              Set-aside element bonus applied.
+              {{ t("battle.set_aside_bonus_applied") }}
             </span>
           </div>
           <div
@@ -374,14 +377,14 @@
               :key="`${entry.round}-${entry.step}-${entry.side}-${entry.attacker_index}`"
               class="text-xs rounded-md bg-card/70 p-2"
             >
-              <span class="font-semibold">Step {{ entry.step }}:</span>
+              <span class="font-semibold">{{ t("battle.step", { step: entry.step }) }}</span>
               {{ entry.attacker_name }} ({{ getElementEmoji(entry.attacker_element) }})
-              attacked
+              {{ t("battle.attacked") }}
               <span v-if="entry.target === 'unit'">
                 {{ entry.defender_name }} ({{ getElementEmoji(entry.defender_element ?? "") }})
               </span>
-              <span v-else>player HP</span>
-              for <span class="font-semibold">{{ entry.damage }}</span>.
+              <span v-else>{{ t("battle.player_hp") }}</span>
+              {{ t("battle.for_damage", { damage: entry.damage }) }}
             </div>
           </div>
         </div>
@@ -409,48 +412,53 @@
               }}
             </div>
             <h2 class="text-3xl font-bold mb-2">
-              {{ isVictory ? "Victory!" : "Defeat!" }}
+              {{ isVictory ? t("battle.victory") : t("battle.defeat") }}
             </h2>
             <p class="text-lg text-muted-foreground">
               {{ resolvedMessage }}
             </p>
             <p class="text-sm text-muted-foreground mt-1">
-              Final HP: You {{ battle.playerHealth.value }} / Opponent {{ battle.opponentHealth.value }}
+              {{
+                t("battle.final_hp", {
+                  player: battle.playerHealth.value,
+                  opponent: battle.opponentHealth.value,
+                })
+              }}
             </p>
 
             <!-- Core Summary -->
             <div class="grid grid-cols-2 gap-4 mt-6">
               <div class="p-4 bg-blue-500/10 rounded-lg space-y-1">
-                <p class="text-sm text-muted-foreground">Damage to Opponent HP</p>
+                <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_opponent") }}</p>
                 <p class="text-3xl font-bold text-blue-400">{{ totalOpponentHealthDamage }}</p>
                 <p class="text-xs text-muted-foreground">
-                  Opponent units destroyed: {{ totalOpponentUnitsDestroyed }}
+                  {{ t("battle.opponent_units_destroyed", { count: totalOpponentUnitsDestroyed }) }}
                 </p>
               </div>
               <div class="p-4 bg-red-500/10 rounded-lg space-y-1">
-                <p class="text-sm text-muted-foreground">Damage to Your HP</p>
+                <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_you") }}</p>
                 <p class="text-3xl font-bold text-red-400">{{ totalPlayerHealthDamage }}</p>
                 <p class="text-xs text-muted-foreground">
-                  Your units destroyed: {{ totalPlayerUnitsDestroyed }}
+                  {{ t("battle.your_units_destroyed", { count: totalPlayerUnitsDestroyed }) }}
                 </p>
               </div>
             </div>
 
             <div class="p-4 bg-card/40 border border-border rounded-lg">
-              <p class="text-xs uppercase tracking-wide text-muted-foreground">Battle length</p>
-              <p class="text-2xl font-bold">{{ roundsResolved }} rounds</p>
+              <p class="text-xs uppercase tracking-wide text-muted-foreground">{{ t("battle.battle_length") }}</p>
+              <p class="text-2xl font-bold">{{ t("battle.rounds", { count: roundsResolved }) }}</p>
             </div>
 
             <!-- Legacy Attack Snapshot -->
             <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
               <div>
-                <p class="font-bold mb-1">Remaining attack (you)</p>
+                <p class="font-bold mb-1">{{ t("battle.remaining_attack_you") }}</p>
                 <p class="text-blue-300 font-semibold">
                   {{ battle.battleResult.value?.player_total_attack?.toFixed(0) ?? "—" }}
                 </p>
               </div>
               <div>
-                <p class="font-bold mb-1">Remaining attack (opponent)</p>
+                <p class="font-bold mb-1">{{ t("battle.remaining_attack_opponent") }}</p>
                 <p class="text-red-300 font-semibold">
                   {{ battle.battleResult.value?.opponent_total_attack?.toFixed(0) ?? "—" }}
                 </p>
@@ -462,7 +470,7 @@
               class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground"
             >
               <div>
-                <p class="font-bold mb-1">Your bonuses</p>
+                <p class="font-bold mb-1">{{ t("battle.your_bonuses") }}</p>
                 <div
                   v-for="(pct, el) in battle.playerBonusesTotal.value"
                   :key="el"
@@ -475,7 +483,7 @@
                 </div>
               </div>
               <div>
-                <p class="font-bold mb-1">Opponent bonuses</p>
+                <p class="font-bold mb-1">{{ t("battle.opponent_bonuses") }}</p>
                 <div
                   v-for="(pct, el) in battle.opponentBonusesTotal.value"
                   :key="el"
@@ -497,9 +505,9 @@
               "
               class="mt-4 p-3 bg-yellow-500/10 rounded-lg"
             >
-              <p class="text-sm text-muted-foreground mb-1">Reward Earned</p>
+              <p class="text-sm text-muted-foreground mb-1">{{ t("battle.reward_earned") }}</p>
               <p class="font-bold text-xl text-yellow-500">
-                {{ battle.battleResult.value.reward }} coins
+                {{ t("battle.coins", { amount: battle.battleResult.value.reward }) }}
               </p>
             </div>
 
@@ -512,8 +520,11 @@
               class="mt-4 p-3 bg-orange-500/10 rounded-lg"
             >
               <p class="text-sm text-orange-500">
-                {{ battle.battleResult.value.penalty.downgraded_elemental }} was
-                downgraded!
+                {{
+                  t("battle.was_downgraded", {
+                    name: battle.battleResult.value.penalty.downgraded_elemental,
+                  })
+                }}
               </p>
             </div>
           </div>
@@ -523,7 +534,7 @@
             @click="proceedToNext"
             class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
           >
-            Proceed to Next Event
+            {{ t("battle.proceed_next") }}
           </button>
         </div>
       </template>
@@ -546,6 +557,7 @@ import FarkleBonusTracker from "@/components/game/FarkleBonusTracker.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { Combination } from "@/stores/event";
+import { useI18n } from "@/i18n";
 
 const router = useRouter();
 const eventStore = useEventStore();
@@ -553,6 +565,7 @@ const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
 const battle = useBattle();
+const { t, locale } = useI18n();
 
 const loading = ref(false);
 const isStarting = ref(false);
@@ -566,38 +579,79 @@ const showOnboarding = ref(false);
 const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 
-const onboardingSteps = [
-  {
-    title: "Round flow: roll, set aside, deploy",
-    description:
-      "Each round starts with Farkle actions, then you can commit current bonuses and deploy available elementals into combat.",
-    bullets: [
-      "Choose one set-aside element for direct +10% attack access.",
-      "Roll all five dice, reroll once after first throw, then set aside valid outcomes.",
-      "You may stop after set-aside and deploy immediately.",
-    ],
-  },
-  {
-    title: "Element interactions and targeting",
-    description:
-      "Combat uses attack and health. Weakness advantage gives +10% damage when attacker counters defender.",
-    bullets: [
-      "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
-      "Lightning remains neutral with no passive weakness or bonus.",
-      "Targeting prioritizes weakness exploitation, then any alive target.",
-    ],
-  },
-  {
-    title: "Damage overflow and win condition",
-    description:
-      "Enemy attacks hit deployed defenders first. Remaining attacks overflow to player HP. Destroyed elementals stay destroyed for this battle.",
-    bullets: [
-      "If you deploy nothing, all enemy deployed attacks hit player HP directly.",
-      "Battle continues until one player reaches 0 HP.",
-      "Rewards and penalties resolve only when the full battle ends.",
-    ],
-  },
-];
+const onboardingSubtitle = computed(() =>
+  locale.value === "ru"
+    ? "Показывается один раз при первом открытии PvP-битвы."
+    : "Shown once when you first open PvP Battle.",
+);
+
+const onboardingSteps = computed(() =>
+  locale.value === "ru"
+    ? [
+        {
+          title: "Ход раунда: бросок, отложить, выставить",
+          description:
+            "Каждый раунд начинается с действий Farkle, затем вы можете зафиксировать бонусы и выставить доступных элементалей в бой.",
+          bullets: [
+            "Выберите один отложенный элемент для прямого доступа к +10% атаке.",
+            "Бросьте все пять костей, после первого броска можно сделать один переброс, затем отложите валидные результаты.",
+            "После отложения можно сразу остановиться и выставиться.",
+          ],
+        },
+        {
+          title: "Взаимодействие элементов и выбор целей",
+          description:
+            "Бой использует атаку и здоровье. Преимущество по слабостям дает +10% урона, когда атакующий контрит защитника.",
+          bullets: [
+            "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+            "Lightning нейтрален: без пассивной слабости и бонуса.",
+            "Таргетинг сначала приоритизирует уязвимости, затем любую живую цель.",
+          ],
+        },
+        {
+          title: "Переполнение урона и условие победы",
+          description:
+            "Атаки соперника сначала бьют выставленных защитников. Остаток урона переходит в HP игрока. Уничтоженные элементали остаются уничтоженными до конца битвы.",
+          bullets: [
+            "Если никого не выставить, весь выставленный урон соперника идет напрямую в HP игрока.",
+            "Битва продолжается, пока один из игроков не достигнет 0 HP.",
+            "Награды и штрафы применяются только после полного завершения битвы.",
+          ],
+        },
+      ]
+    : [
+        {
+          title: "Round flow: roll, set aside, deploy",
+          description:
+            "Each round starts with Farkle actions, then you can commit current bonuses and deploy available elementals into combat.",
+          bullets: [
+            "Choose one set-aside element for direct +10% attack access.",
+            "Roll all five dice, reroll once after first throw, then set aside valid outcomes.",
+            "You may stop after set-aside and deploy immediately.",
+          ],
+        },
+        {
+          title: "Element interactions and targeting",
+          description:
+            "Combat uses attack and health. Weakness advantage gives +10% damage when attacker counters defender.",
+          bullets: [
+            "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+            "Lightning remains neutral with no passive weakness or bonus.",
+            "Targeting prioritizes weakness exploitation, then any alive target.",
+          ],
+        },
+        {
+          title: "Damage overflow and win condition",
+          description:
+            "Enemy attacks hit deployed defenders first. Remaining attacks overflow to player HP. Destroyed elementals stay destroyed for this battle.",
+          bullets: [
+            "If you deploy nothing, all enemy deployed attacks hit player HP directly.",
+            "Battle continues until one player reaches 0 HP.",
+            "Rewards and penalties resolve only when the full battle ends.",
+          ],
+        },
+      ],
+);
 
 const getOnboardingStorageKey = () => {
   if (!userStore.userId) return null;
@@ -639,11 +693,11 @@ function getElementEmoji(element: string): string {
 
 function getCombinationLabel(combo: Combination): string {
   const labels: Record<string, string> = {
-    triplet: "Triplet",
-    quartet: "Quartet",
-    all_for_one: "All-For-One",
-    one_for_all: "One-For-All",
-    full_house: "Full House",
+    triplet: t("battle.combo.triplet"),
+    quartet: t("battle.combo.quartet"),
+    all_for_one: t("battle.combo.all_for_one"),
+    one_for_all: t("battle.combo.one_for_all"),
+    full_house: t("battle.combo.full_house"),
   };
   return labels[combo.type] ?? combo.type;
 }
@@ -725,7 +779,7 @@ const lastRoundSummary = computed(() => {
 
 const deployedPlayerNames = computed(() => {
   const indices = battle.battleState.value?.last_player_deployment ?? [];
-  if (indices.length === 0) return "None";
+  if (indices.length === 0) return t("battle.none");
   return indices
     .map((idx) => battle.playerParty.value[idx]?.name)
     .filter(Boolean)
@@ -734,7 +788,7 @@ const deployedPlayerNames = computed(() => {
 
 const deployedOpponentNames = computed(() => {
   const indices = battle.battleState.value?.last_opponent_deployment ?? [];
-  if (indices.length === 0) return "None";
+  if (indices.length === 0) return t("battle.none");
   return indices
     .map((idx) => battle.opponentParty.value[idx]?.name)
     .filter(Boolean)
@@ -792,10 +846,10 @@ const resolvedMessage = computed(() => {
     return battle.battleResult.value.message;
   }
   const winner = battle.battleState.value?.winner;
-  if (winner === "player") return "You won by reducing enemy HP to zero.";
-  if (winner === "opponent") return "Your HP reached zero first.";
-  if (winner === "draw") return "The battle ended in a draw.";
-  return "Battle resolved.";
+  if (winner === "player") return t("battle.resolved_win");
+  if (winner === "opponent") return t("battle.resolved_lose");
+  if (winner === "draw") return t("battle.resolved_draw");
+  return t("battle.resolved_generic");
 });
 
 const scheduleForcedDiceAnimation = (indices: number[]) => {

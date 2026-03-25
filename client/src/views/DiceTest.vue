@@ -1,6 +1,6 @@
 <template>
   <div class="dice-test">
-    <h1>Dice Test Playground</h1>
+    <h1>{{ t("dice_test.title") }}</h1>
 
     <!-- Dice type picker -->
     <div class="dice-picker">
@@ -31,17 +31,17 @@
     <!-- Roll controls -->
     <div class="controls">
       <button class="roll-btn" :disabled="isRolling" @click="rollDice">
-        {{ isRolling ? "Rolling..." : "Roll" }}
+        {{ isRolling ? t("dice_test.rolling") : t("dice_test.roll") }}
       </button>
       <label class="outcome-pick">
-        <span>Force element:</span>
+        <span>{{ t("dice_test.force_element") }}</span>
         <select v-model="forcedElement">
-          <option value="">Random</option>
-          <option value="fire">Fire</option>
-          <option value="water">Water</option>
-          <option value="earth">Earth</option>
-          <option value="air">Air</option>
-          <option value="lightning">Lightning</option>
+          <option value="">{{ t("dice_test.random") }}</option>
+          <option value="fire">{{ t("element.fire") }}</option>
+          <option value="water">{{ t("element.water") }}</option>
+          <option value="earth">{{ t("element.earth") }}</option>
+          <option value="air">{{ t("element.air") }}</option>
+          <option value="lightning">{{ t("element.lightning") }}</option>
         </select>
       </label>
     </div>
@@ -57,7 +57,7 @@
 
     <!-- Roll log -->
     <div v-if="rollLog.length" class="roll-log">
-      <h3>Roll Log</h3>
+      <h3>{{ t("dice_test.roll_log") }}</h3>
       <div v-for="(entry, i) in rollLog" :key="i" class="log-entry">
         <span class="log-dice">{{ entry.dice }}</span>
         <span class="log-value">{{ entry.value }}</span>
@@ -74,18 +74,20 @@ import { ref, nextTick } from "vue";
 import DiceRollVisualization, {
   type DiceRollResult,
 } from "@/components/game/DiceRollVisualization.vue";
+import { useI18n } from "@/i18n";
 
 type DiceType = "d4" | "d6" | "d10" | "d12" | "d20";
 type Affinity = "fire" | "water" | "earth" | "air" | "lightning";
 
 const diceTypes: DiceType[] = ["d4", "d6", "d10", "d12", "d20"];
+const { t } = useI18n();
 const affinities: { label: string; value: Affinity | undefined }[] = [
-  { label: "None", value: undefined },
-  { label: "🔥 Fire", value: "fire" },
-  { label: "💧 Water", value: "water" },
-  { label: "🌍 Earth", value: "earth" },
-  { label: "🌬️ Air", value: "air" },
-  { label: "⚡ Lightning", value: "lightning" },
+  { label: t("element.none"), value: undefined },
+  { label: `🔥 ${t("element.fire")}`, value: "fire" },
+  { label: `💧 ${t("element.water")}`, value: "water" },
+  { label: `🌍 ${t("element.earth")}`, value: "earth" },
+  { label: `🌬️ ${t("element.air")}`, value: "air" },
+  { label: `⚡ ${t("element.lightning")}`, value: "lightning" },
 ];
 const ELEMENTS: DiceRollResult["result_element"][] = [
   "fire",

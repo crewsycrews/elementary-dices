@@ -23,19 +23,21 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useEventStore } from '@/stores/event'
+import { useI18n } from '@/i18n'
 
 const route = useRoute()
 const eventStore = useEventStore()
+const { t } = useI18n()
 
 const navigationRoutes = computed(() => [
-  { name: 'Dashboard', label: 'Dashboard' },
-  { name: 'Shop', label: 'Shop' },
+  { name: 'Dashboard', label: t("nav.dashboard") },
+  { name: 'Shop', label: t("nav.shop") },
   {
     name: 'Event',
-    label: eventStore.isEventActive ? '⚡ Event' : 'Trigger Event',
+    label: eventStore.isEventActive ? t("nav.event_active") : t("nav.event_trigger"),
   },
-  { name: 'Evolution', label: 'Evolution' },
-  { name: 'Collection', label: 'Collection' },
-  { name: 'Profile', label: 'Profile' },
+  { name: 'Evolution', label: t("nav.evolution") },
+  { name: 'Collection', label: t("nav.collection") },
+  { name: 'Profile', label: t("nav.profile") },
 ])
 </script>

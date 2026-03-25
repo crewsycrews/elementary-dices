@@ -15,9 +15,9 @@
       :class="detailsContainerClass"
     >
       <div class="text-center">
-        <h2 class="text-xl font-bold">{{ selectedDiceType.toUpperCase() }} Collection</h2>
+        <h2 class="text-xl font-bold">{{ t("dice_inventory.collection", { type: selectedDiceType.toUpperCase() }) }}</h2>
         <p class="text-sm text-muted-foreground">
-          {{ diceOfSelectedType.length }} {{ selectedDiceType }} dice owned
+          {{ t("dice_inventory.owned", { count: diceOfSelectedType.length, type: selectedDiceType }) }}
         </p>
       </div>
 
@@ -37,9 +37,9 @@
         v-else
         class="p-8 border-2 border-dashed rounded-lg text-center"
       >
-        <h3 class="text-lg font-bold mb-2">No {{ selectedDiceType.toUpperCase() }} Dice</h3>
+        <h3 class="text-lg font-bold mb-2">{{ t("dice_inventory.none", { type: selectedDiceType.toUpperCase() }) }}</h3>
         <p class="text-muted-foreground text-sm">
-          Purchase {{ selectedDiceType }} dice from merchants during events.
+          {{ t("dice_inventory.purchase_hint", { type: selectedDiceType }) }}
         </p>
       </div>
     </div>
@@ -53,6 +53,7 @@ import { useInventoryStore } from "@/stores/inventory";
 import { useUIStore } from "@/stores/ui";
 import HandDiceSelector from "@/components/game/HandDiceSelector.vue";
 import DiceCard from "@/components/game/DiceCard.vue";
+import { useI18n } from "@/i18n";
 
 interface Props {
   disabled?: boolean;
@@ -67,6 +68,7 @@ const props = withDefaults(defineProps<Props>(), {
 const inventoryStore = useInventoryStore();
 const userStore = useUserStore();
 const uiStore = useUIStore();
+const { t } = useI18n();
 
 const selectedDiceType = ref<string | null>(null);
 const favoriteDiceId = computed(() => userStore.favoriteDiceId);
@@ -86,16 +88,19 @@ const handleEquipDice = async (dice: any) => {
   if (!userStore.userId || dice.is_equipped) return;
   try {
     await inventoryStore.equipDice(userStore.userId, dice.id);
-    uiStore.showToast(`${dice.dice_type?.dice_notation?.toUpperCase()} equipped!`, "success");
+    uiStore.showToast(
+      t("dice_inventory.toast_equipped", { type: dice.dice_type?.dice_notation?.toUpperCase() ?? "D6" }),
+      "success",
+    );
   } catch (error) {
     console.error("Failed to equip dice:", error);
-    uiStore.showToast("Failed to equip dice", "error");
+    uiStore.showToast(t("dice_inventory.error_equip"), "error");
   }
 };
 
 const handleUnequipDice = async (dice: any) => {
   if (!dice.is_equipped) return;
-  uiStore.showToast("Dice is currently equipped. Equip another dice to replace it.", "info");
+  uiStore.showToast(t("dice_inventory.toast_replace_info"), "info");
 };
 
 const handleSetFavoriteDice = async (dice: any) => {
@@ -105,12 +110,12 @@ const handleSetFavoriteDice = async (dice: any) => {
   try {
     await inventoryStore.setFavoriteDice(dice.id);
     uiStore.showToast(
-      `${dice.dice_type?.dice_notation?.toUpperCase()} set as favorite!`,
+      t("dice_inventory.toast_favorite", { type: dice.dice_type?.dice_notation?.toUpperCase() ?? "D6" }),
       "success",
     );
   } catch (error) {
     console.error("Failed to set favorite dice:", error);
-    uiStore.showToast("Failed to set favorite dice", "error");
+    uiStore.showToast(t("dice_inventory.error_favorite"), "error");
   }
 };
 

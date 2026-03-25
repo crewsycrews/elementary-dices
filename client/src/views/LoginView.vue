@@ -9,8 +9,8 @@
         <p class="text-muted-foreground">
           {{
             isRegistering
-              ? "Create an account to start your adventure"
-              : "Welcome back, adventurer!"
+              ? t("login.subtitle_register")
+              : t("login.subtitle_login")
           }}
         </p>
       </div>
@@ -28,7 +28,7 @@
                 : 'text-muted-foreground hover:text-foreground'
             "
           >
-            Login
+            {{ t("login.tab_login") }}
           </button>
           <button
             @click="isRegistering = true"
@@ -39,7 +39,7 @@
                 : 'text-muted-foreground hover:text-foreground'
             "
           >
-            Register
+            {{ t("login.tab_register") }}
           </button>
         </div>
 
@@ -48,7 +48,7 @@
           <!-- Username -->
           <div class="space-y-2">
             <label for="username" class="block text-sm font-semibold">
-              Username
+              {{ t("login.username") }}
             </label>
             <input
               id="username"
@@ -57,24 +57,24 @@
               required
               minlength="3"
               maxlength="20"
-              placeholder="Enter your username"
+              :placeholder="t('login.username_placeholder')"
               class="w-full px-4 py-2 rounded-lg border-2 bg-background border-border focus:border-primary focus:outline-none transition-colors"
               :disabled="isLoading"
             />
-            <p class="text-xs text-muted-foreground">3-20 characters</p>
+            <p class="text-xs text-muted-foreground">{{ t("login.username_hint") }}</p>
           </div>
 
           <!-- Email (only for registration) -->
           <div v-if="isRegistering" class="space-y-2">
             <label for="email" class="block text-sm font-semibold">
-              Email
+              {{ t("login.email") }}
             </label>
             <input
               id="email"
               v-model="form.email"
               type="email"
               required
-              placeholder="Enter your email"
+              :placeholder="t('login.email_placeholder')"
               class="w-full px-4 py-2 rounded-lg border-2 bg-background border-border focus:border-primary focus:outline-none transition-colors"
               :disabled="isLoading"
             />
@@ -83,7 +83,7 @@
           <!-- Password -->
           <div class="space-y-2">
             <label for="password" class="block text-sm font-semibold">
-              Password
+              {{ t("login.password") }}
             </label>
             <input
               id="password"
@@ -91,12 +91,12 @@
               type="password"
               required
               :minlength="isRegistering ? 8 : undefined"
-              placeholder="Enter your password"
+              :placeholder="t('login.password_placeholder')"
               class="w-full px-4 py-2 rounded-lg border-2 bg-background border-border focus:border-primary focus:outline-none transition-colors"
               :disabled="isLoading"
             />
             <p v-if="isRegistering" class="text-xs text-muted-foreground">
-              Minimum 8 characters
+              {{ t("login.password_hint") }}
             </p>
           </div>
 
@@ -116,10 +116,10 @@
           >
             {{
               isLoading
-                ? "Processing..."
+                ? t("login.processing")
                 : isRegistering
-                  ? "🎮 Start Adventure"
-                  : "🔓 Login"
+                  ? `🎮 ${t("login.start_adventure")}`
+                  : `🔓 ${t("login.tab_login")}`
             }}
           </button>
         </form>
@@ -127,7 +127,7 @@
         <!-- Divider -->
         <div class="flex items-center gap-3">
           <div class="flex-1 h-px bg-border"></div>
-          <span class="text-xs text-muted-foreground font-semibold">OR</span>
+          <span class="text-xs text-muted-foreground font-semibold">{{ t("login.or") }}</span>
           <div class="flex-1 h-px bg-border"></div>
         </div>
 
@@ -155,27 +155,27 @@
               fill="#EA4335"
             />
           </svg>
-          Continue with Google
+          {{ t("login.continue_google") }}
         </button>
 
         <!-- Help Text -->
         <div class="text-center text-sm text-muted-foreground">
           <p v-if="!isRegistering">
-            Don't have an account?
+            {{ t("login.no_account") }}
             <button
               @click="isRegistering = true"
               class="text-primary font-semibold hover:underline"
             >
-              Register here
+              {{ t("login.register_here") }}
             </button>
           </p>
           <p v-else>
-            Already have an account?
+            {{ t("login.have_account") }}
             <button
               @click="isRegistering = false"
               class="text-primary font-semibold hover:underline"
             >
-              Login here
+              {{ t("login.login_here") }}
             </button>
           </p>
         </div>
@@ -188,7 +188,7 @@
           :disabled="isLoading"
           class="text-sm text-muted-foreground hover:text-foreground underline disabled:opacity-50"
         >
-          Quick Start with Demo Account
+          {{ t("login.quick_start") }}
         </button>
       </div>
     </div>
@@ -200,11 +200,13 @@ import { ref, onMounted } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import { useUserStore } from "@/stores/user";
 import { useUIStore } from "@/stores/ui";
+import { useI18n } from "@/i18n";
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 const uiStore = useUIStore();
+const { t } = useI18n();
 
 const isRegistering = ref(false);
 const isLoading = ref(false);
@@ -225,19 +227,19 @@ onMounted(async () => {
     isLoading.value = true;
     try {
       await userStore.handleOAuthCallback();
-      uiStore.showToast("Successfully logged in with Google! 🎉", "success");
+      uiStore.showToast(t("login.toast_google_success"), "success");
 
       // Redirect to intended page or dashboard
       const redirect = (route.query.redirect as string) || "/";
       router.push(redirect);
     } catch (error) {
       console.error("OAuth callback error:", error);
-      errorMessage.value = "Failed to complete Google login. Please try again.";
+      errorMessage.value = t("login.error_google_complete");
     } finally {
       isLoading.value = false;
     }
   } else if (authError === "oauth_failed") {
-    errorMessage.value = "Google login failed. Please try again or use password login.";
+    errorMessage.value = t("login.error_google_failed");
   }
 });
 
@@ -250,7 +252,7 @@ const handleSubmit = async () => {
     if (isRegistering.value) {
       // Registration
       if (!form.value.email) {
-        errorMessage.value = "Email is required for registration";
+        errorMessage.value = t("login.error_email_required");
         return;
       }
 
@@ -260,7 +262,7 @@ const handleSubmit = async () => {
         password: form.value.password,
       });
 
-      uiStore.showToast("Account created successfully! Welcome! 🎉", "success");
+      uiStore.showToast(t("login.toast_register_success"), "success");
     } else {
       // Login - call proper login endpoint
       await userStore.loginUser({
@@ -268,7 +270,7 @@ const handleSubmit = async () => {
         password: form.value.password,
       });
 
-      uiStore.showToast("Welcome back! 🎮", "success");
+      uiStore.showToast(t("login.toast_login_success"), "success");
     }
 
     // Redirect to intended page or dashboard
@@ -279,7 +281,7 @@ const handleSubmit = async () => {
     errorMessage.value =
       error instanceof Error
         ? error.message
-        : "Authentication failed. Please try again.";
+        : t("login.error_auth_failed");
   } finally {
     isLoading.value = false;
   }

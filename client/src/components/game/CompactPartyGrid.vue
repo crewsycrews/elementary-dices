@@ -48,7 +48,7 @@
       v-if="showStats"
       class="mt-4 text-center text-sm text-muted-foreground"
     >
-      <span class="font-semibold">Total Power:</span> {{ totalPower }}
+      <span class="font-semibold">{{ t("party.total_power") }}:</span> {{ totalPower }}
     </div>
   </div>
 </template>
@@ -58,6 +58,7 @@ import { computed } from "vue";
 import type { PlayerElemental } from "@elementary-dices/shared";
 import PartyCard from "./PartyCard.vue";
 import EmptyCard from "./EmptyCard.vue";
+import { useI18n } from "@/i18n";
 
 export interface CompactPartyGridProps {
   party?: (PlayerElemental | null)[];
@@ -76,6 +77,7 @@ const props = withDefaults(defineProps<CompactPartyGridProps>(), {
 const emit = defineEmits<{
   select: [elemental: PlayerElemental];
 }>();
+const { t } = useI18n();
 
 // Helper to calculate power from stats
 const calculatePower = (el: PlayerElemental | null) => {

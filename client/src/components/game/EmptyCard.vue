@@ -8,17 +8,20 @@
       <span class="text-4xl text-muted-foreground opacity-50">+</span>
     </div>
     <div class="text-center">
-      <p class="text-xs text-muted-foreground">Empty Slot</p>
+      <p class="text-xs text-muted-foreground">{{ t("common.empty_slot") }}</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "@/i18n";
+
 interface EmptyCardProps {
   slotNumber: number;
 }
 
 defineProps<EmptyCardProps>();
+const { t } = useI18n();
 </script>
 
 <style scoped>

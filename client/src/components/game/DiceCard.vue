@@ -44,7 +44,7 @@
           <span
             v-if="isFavorite"
             class="px-2 py-0.5 bg-amber-500/20 text-amber-600 rounded-full text-xs font-bold"
-            >★ Favorite</span
+            >★ {{ t("dice_card.favorite") }}</span
           >
         </div>
 
@@ -66,20 +66,20 @@
       class="w-full py-1.5 text-sm bg-primary text-primary-foreground rounded-md font-bold hover:bg-primary/90 transition-all"
       @click.stop="$emit('equip')"
     >
-      Equip
+      {{ t("dice_card.equip") }}
     </button>
     <button
       v-else
       class="w-full py-1.5 text-sm border-2 border-border rounded-md font-bold hover:bg-muted transition-all"
       @click.stop="$emit('unequip')"
     >
-      Unequip
+      {{ t("dice_card.unequip") }}
     </button>
     <button
       class="w-full py-1.5 text-sm border-2 border-border rounded-md font-bold hover:bg-muted transition-all"
       @click.stop="$emit('setFavorite')"
     >
-      {{ isFavorite ? "Favorite Dice" : "Set as Favorite" }}
+      {{ isFavorite ? t("dice_card.favorite_dice") : t("dice_card.set_favorite") }}
     </button>
   </div>
 </template>
@@ -88,6 +88,7 @@
 import { computed } from "vue";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry";
+import { useI18n } from "@/i18n";
 
 const ELEMENT_EMOJI: Record<string, string> = {
   fire: '\uD83D\uDD25',
@@ -121,6 +122,7 @@ const props = withDefaults(
   },
 );
 defineEmits<{ equip: []; unequip: []; setFavorite: [] }>();
+const { t } = useI18n();
 
 const diceType = computed<DiceType>(
   () => (props.dice.dice_type?.dice_notation ?? "d6") as DiceType,

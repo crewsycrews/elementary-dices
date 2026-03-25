@@ -64,7 +64,7 @@
 
       <!-- Special Effects -->
       <div v-if="effects && effects.length > 0" class="space-y-1">
-        <div class="text-xs font-semibold text-muted-foreground">Effects:</div>
+        <div class="text-xs font-semibold text-muted-foreground">{{ t("shop_card.effects") }}</div>
         <ul class="text-xs space-y-0.5">
           <li
             v-for="(effect, index) in effects"
@@ -101,13 +101,13 @@
               : 'bg-muted text-muted-foreground cursor-not-allowed'
           ]"
         >
-          {{ isPurchasing ? 'Buying...' : 'Buy' }}
+          {{ isPurchasing ? t("dice_shop.buying") : t("dice_shop.buy") }}
         </button>
       </div>
 
       <!-- Insufficient Funds Warning -->
       <div v-if="!canAfford" class="text-xs text-red-600 text-center">
-        You need {{ price - playerCurrency }} more currency
+        {{ t("dice_shop.need_more", { amount: price - playerCurrency }) }}
       </div>
     </div>
   </div>
@@ -116,6 +116,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { ItemSchema, DiceTypeSchema } from '@elementary-dices/shared/schemas';
+import { useI18n } from "@/i18n";
 
 interface Props {
   // For items
@@ -138,6 +139,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   isPurchasing: false,
 });
+const { t } = useI18n();
 
 const emit = defineEmits<{
   purchase: [];
@@ -199,16 +201,16 @@ const effects = computed(() => {
 
   if (props.item?.effect) {
     if (props.item.effect.capture_bonus) {
-      effectList.push(`+${props.item.effect.capture_bonus}% capture rate`);
+      effectList.push(t("shop_card.capture_bonus", { amount: props.item.effect.capture_bonus }));
     }
     if (props.item.effect.duration) {
-      effectList.push(`Lasts ${props.item.effect.duration} turns`);
+      effectList.push(t("shop_card.lasts_turns", { turns: props.item.effect.duration }));
     }
   }
 
   if (props.diceType?.faces && props.diceType.faces.length > 0) {
     const uniqueElements = [...new Set(props.diceType.faces)];
-    effectList.push(`Elements: ${uniqueElements.join(', ')}`);
+    effectList.push(t("shop_card.elements", { elements: uniqueElements.join(", ") }));
   }
 
   return effectList;

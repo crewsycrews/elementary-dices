@@ -14,7 +14,7 @@
 
         <!-- Username -->
         <div class="text-sm">
-          <span class="text-muted-foreground">Player:</span>
+          <span class="text-muted-foreground">{{ t("header.player") }}</span>
           <span class="font-medium ml-1">{{ userStore.username }}</span>
         </div>
 
@@ -23,7 +23,7 @@
           @click="handleLogout"
           class="text-sm px-3 py-1 border rounded-md hover:bg-secondary"
         >
-          Logout
+          {{ t("header.logout") }}
         </button>
       </div>
     </div>
@@ -33,9 +33,11 @@
 <script setup lang="ts">
 import { useUserStore } from '@/stores/user'
 import { useRouter } from 'vue-router'
+import { useI18n } from '@/i18n'
 
 const userStore = useUserStore()
 const router = useRouter()
+const { t } = useI18n()
 
 function handleLogout() {
   userStore.logout()

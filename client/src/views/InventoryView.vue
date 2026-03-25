@@ -7,13 +7,13 @@
       class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
-      <span class="font-semibold">Back</span>
+      <span class="font-semibold">{{ t("common.back") }}</span>
     </button>
 
     <div>
-      <h1 class="text-3xl font-bold mb-2">🎒 Inventory</h1>
+      <h1 class="text-3xl font-bold mb-2">🎒 {{ t("inventory.title") }}</h1>
       <p class="text-muted-foreground">
-        Manage your consumable items and buffs
+        {{ t("inventory.subtitle") }}
       </p>
     </div>
     </div>
@@ -21,7 +21,7 @@
     <!-- Items Section -->
     <div class="space-y-4">
       <div class="flex items-center justify-between">
-        <h2 class="text-2xl font-bold">Items ({{ playerItemsWithData.length }})</h2>
+        <h2 class="text-2xl font-bold">{{ t("inventory.items_count", { count: playerItemsWithData.length }) }}</h2>
         <div class="flex gap-2">
           <button
             v-for="filter in itemFilters"
@@ -53,7 +53,7 @@
               @click.stop="handleUseItem(playerItem)"
               class="w-full px-3 py-1 bg-primary text-primary-foreground rounded text-sm font-bold hover:bg-primary/90 transition-all"
             >
-              Use
+              {{ t("inventory.use") }}
             </button>
           </template>
         </InventorySlot>
@@ -62,10 +62,14 @@
       <div v-else class="p-12 border-2 border-dashed rounded-lg text-center">
         <div class="text-6xl mb-4">🎒</div>
         <h3 class="text-xl font-bold mb-2">
-          {{ selectedItemFilter === 'all' ? 'No Items' : `No ${itemFilters.find(f => f.id === selectedItemFilter)?.label}` }}
+          {{
+            selectedItemFilter === "all"
+              ? t("inventory.no_items")
+              : t("inventory.no_items_by_filter", { filter: itemFilters.find((f) => f.id === selectedItemFilter)?.label ?? "" })
+          }}
         </h3>
         <p class="text-muted-foreground mb-4">
-          Purchase items from merchants during events
+          {{ t("inventory.purchase_hint") }}
         </p>
       </div>
     </div>
@@ -76,7 +80,7 @@
         <div class="flex items-center gap-3">
           <span class="text-3xl">🎯</span>
           <div>
-            <p class="text-sm text-muted-foreground">Capture Items</p>
+            <p class="text-sm text-muted-foreground">{{ t("inventory.capture_items") }}</p>
             <p class="text-2xl font-bold">{{ captureItemsCount }}</p>
           </div>
         </div>
@@ -85,7 +89,7 @@
         <div class="flex items-center gap-3">
           <span class="text-3xl">⚡</span>
           <div>
-            <p class="text-sm text-muted-foreground">Consumables</p>
+            <p class="text-sm text-muted-foreground">{{ t("inventory.consumables") }}</p>
             <p class="text-2xl font-bold">{{ consumableItemsCount }}</p>
           </div>
         </div>
@@ -94,7 +98,7 @@
         <div class="flex items-center gap-3">
           <span class="text-3xl">💪</span>
           <div>
-            <p class="text-sm text-muted-foreground">Buffs</p>
+            <p class="text-sm text-muted-foreground">{{ t("inventory.buffs") }}</p>
             <p class="text-2xl font-bold">{{ buffItemsCount }}</p>
           </div>
         </div>
@@ -109,19 +113,21 @@ import { useUserStore } from '@/stores/user';
 import { useInventoryStore } from '@/stores/inventory';
 import { useUIStore } from '@/stores/ui';
 import InventorySlot from '@/components/game/InventorySlot.vue';
+import { useI18n } from "@/i18n";
 
 const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
 const uiStore = useUIStore();
+const { t } = useI18n();
 
 const selectedItemFilter = ref('all');
 
 // Item filters
 const itemFilters = [
-  { id: 'all', label: 'All' },
-  { id: 'capture', label: 'Capture' },
-  { id: 'consumable', label: 'Consumable' },
-  { id: 'buff', label: 'Buff' },
+  { id: 'all', label: t("inventory.filter_all") },
+  { id: 'capture', label: t("inventory.filter_capture") },
+  { id: 'consumable', label: t("inventory.filter_consumable") },
+  { id: 'buff', label: t("inventory.filter_buff") },
 ];
 
 // Items data
@@ -163,7 +169,7 @@ const buffItemsCount = computed(() => {
 const handleUseItem = (playerItem: { playerInventory: any; item: any }) => {
   // For now, just show a notification
   // TODO: Implement item usage logic
-  uiStore.showToast(`Using ${playerItem.item.name}...`, 'info');
+  uiStore.showToast(t("inventory.using_item", { name: playerItem.item.name }), 'info');
 
   // If it's a consumable, decrease quantity
   if (playerItem.item.is_consumable && userStore.userId) {

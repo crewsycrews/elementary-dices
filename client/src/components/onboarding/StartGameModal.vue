@@ -3,15 +3,14 @@
     <div class="modal-content">
       <!-- Welcome State -->
       <div v-if="!isRolling && !isRollComplete && !result" class="welcome-state">
-        <h1 class="title">Welcome to Elementary Dices!</h1>
+        <h1 class="title">{{ t("start_game.title") }}</h1>
         <p class="description">
-          Roll the dice to receive your first elemental companion and begin your
-          journey.
+          {{ t("start_game.description") }}
         </p>
 
         <!-- Base Elementals Preview -->
         <div class="elementals-preview">
-          <h3 class="subtitle">Available Starter Elementals</h3>
+          <h3 class="subtitle">{{ t("start_game.available") }}</h3>
           <div class="elementals-grid">
             <div
               v-for="elemental in baseElementals"
@@ -37,15 +36,15 @@
           class="start-button"
           :disabled="loading || baseElementals.length === 0"
         >
-          <span v-if="loading">Loading...</span>
-          <span v-else>🎲 Roll to Start!</span>
+          <span v-if="loading">{{ t("start_game.loading") }}</span>
+          <span v-else>🎲 {{ t("start_game.roll_to_start") }}</span>
         </button>
       </div>
 
       <!-- Rolling State -->
       <div v-else-if="isRolling || isRollComplete" class="rolling-state">
-        <h2 class="title" v-if="isRolling">Rolling the dice...</h2>
-        <h2 class="title" v-else>Your roll is ready</h2>
+        <h2 class="title" v-if="isRolling">{{ t("start_game.rolling") }}</h2>
+        <h2 class="title" v-else>{{ t("start_game.roll_ready") }}</h2>
         <DiceRollVisualization
           ref="diceVisualizationRef"
           dice-type="d10"
@@ -58,14 +57,14 @@
           @click="showRollOutcome"
           class="continue-button"
         >
-          Reveal Companion
+          {{ t("start_game.reveal") }}
         </button>
       </div>
 
       <!-- Result State -->
       <div v-else-if="result" class="result-state">
         <h2 class="title">
-          🎉 You got {{ result.first_elemental.elemental_name }}!
+          🎉 {{ t("start_game.you_got", { name: result.first_elemental.elemental_name }) }}
         </h2>
         <p class="message">{{ result.message }}</p>
 
@@ -83,7 +82,7 @@
                 <h3>{{ result.first_elemental.elemental_name }}</h3>
                 <div class="elemental-meta">
                   <span class="level"
-                    >Level {{ result.first_elemental.elemental_level }}</span
+                    >{{ t("start_game.level", { level: result.first_elemental.elemental_level }) }}</span
                   >
                   <span class="element">{{
                     formatElementTypes(result.first_elemental.element_types)
@@ -123,7 +122,7 @@
         </div>
 
         <button @click="completeOnboarding" class="continue-button">
-          Continue to Dashboard
+          {{ t("start_game.continue") }}
         </button>
       </div>
     </div>
@@ -136,6 +135,7 @@ import { useApi } from "@/composables/useApi";
 import { playerApi } from "@/composables/useApiHelpers";
 import { useElementalsStore } from "@/stores/elementals";
 import { useUserStore } from "@/stores/user";
+import { useI18n } from "@/i18n";
 import DiceRollVisualization, {
   DiceRollResult,
 } from "@/components/game/DiceRollVisualization.vue";
@@ -152,6 +152,7 @@ const emit = defineEmits<{
 const { api, apiCall } = useApi();
 const elementalsStore = useElementalsStore();
 const userStore = useUserStore();
+const { t } = useI18n();
 
 const loading = ref(false);
 const isRolling = ref(false);

@@ -1,9 +1,9 @@
 <template>
   <div class="battle-roll-log rounded-lg border border-border bg-card/50 p-3">
-    <h4 class="text-sm font-bold text-muted-foreground mb-2">Battle Log</h4>
+    <h4 class="text-sm font-bold text-muted-foreground mb-2">{{ t("battle_log.title") }}</h4>
 
     <div v-if="rolls.length === 0" class="text-xs text-muted-foreground italic">
-      No rolls yet...
+      {{ t("battle_log.empty") }}
     </div>
 
     <div v-else class="space-y-1.5 max-h-48 overflow-y-auto" ref="logContainer">
@@ -26,7 +26,7 @@
           class="font-bold w-12 shrink-0"
           :class="roll.side === 'player' ? 'text-blue-400' : 'text-red-400'"
         >
-          {{ roll.side === "player" ? "YOU" : "OPP" }}
+          {{ roll.side === "player" ? t("battle_log.you") : t("battle_log.opp") }}
         </span>
 
         <!-- Dice element -->
@@ -40,7 +40,7 @@
           +{{ roll.bonus_applied.toFixed(1) }} to
           {{
             roll.affected_element === "all_others"
-              ? "all non-⚡"
+              ? t("battle_log.all_non_lightning")
               : getElementEmoji(roll.affected_element)
           }}
         </span>
@@ -52,12 +52,14 @@
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
 import type { BattleRollRecord } from "@/stores/event";
+import { useI18n } from "@/i18n";
 
 defineProps<{
   rolls: BattleRollRecord[];
 }>();
 
 const logContainer = ref<HTMLElement | null>(null);
+const { t } = useI18n();
 
 const ELEMENT_EMOJIS: Record<string, string> = {
   fire: "🔥",

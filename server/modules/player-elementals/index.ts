@@ -4,15 +4,19 @@ import { AddPlayerElementalDTO, UpdatePlayerElementalDTO } from "./models";
 import { requireAuth } from "../auth/middleware";
 import { UnauthorizedError } from "../../shared/errors";
 import type { AccessTokenPayload } from "../auth/models";
+import { resolveLocale } from "../../shared/i18n";
 
 export const playerElementalsModule = new Elysia({ prefix: "/api/players" })
+  .derive(({ headers }) => ({
+    locale: resolveLocale(headers as Record<string, string | undefined>),
+  }))
   .use(requireAuth)
   .decorate("playerElementalsService", new PlayerElementalsService())
   // Start game - Roll d4 to get first elemental
   .post(
     "/:playerId/start-game",
     async (context) => {
-      const { params, playerElementalsService } = context;
+      const { params, locale, playerElementalsService } = context;
       const user = context.user;
 
       if (user.id !== params.playerId) {
@@ -20,7 +24,7 @@ export const playerElementalsModule = new Elysia({ prefix: "/api/players" })
       }
       const result = await playerElementalsService.startGame({
         player_id: params.playerId,
-      });
+      }, locale);
       return result;
     },
     {

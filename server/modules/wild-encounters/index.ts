@@ -12,28 +12,32 @@ import {
   GenericFarkleContinueDTO,
   GenericFarkleEndTurnDTO,
 } from "../events/models/wild-encounter";
+import { resolveLocale } from "../../shared/i18n";
 
 export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" })
+  .derive(({ headers }) => ({
+    locale: resolveLocale(headers as Record<string, string | undefined>),
+  }))
   .decorate("wildEncounterService", new WildEncounterService())
   .use(requireAuth)
   .post(
     "/resolve",
-    async ({ body, user, wildEncounterService }) => {
+    async ({ body, user, locale, wildEncounterService }) => {
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only resolve your own encounters");
       }
-      const result = await wildEncounterService.resolveWildEncounter(body);
+      const result = await wildEncounterService.resolveWildEncounter(body, locale);
       return { result };
     },
     { body: ResolveWildEncounterDTO },
   )
   .post(
     "/skip",
-    async ({ body, user, wildEncounterService }) => {
+    async ({ body, user, locale, wildEncounterService }) => {
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only skip your own encounters");
       }
-      const result = await wildEncounterService.skipWildEncounter(body.player_id);
+      const result = await wildEncounterService.skipWildEncounter(body.player_id, locale);
       return { result };
     },
     { body: SkipWildEncounterDTO },
@@ -114,13 +118,14 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
   )
   .post(
     "/farkle/end-turn",
-    async ({ body, user, wildEncounterService }) => {
+    async ({ body, user, locale, wildEncounterService }) => {
       if (user.id !== body.player_id) {
         throw new UnauthorizedError("You can only end your own encounter turn");
       }
       const result = await wildEncounterService.farkleEndTurn(
         body.player_id,
         body.farkle_session_id,
+        locale,
         body.item_id,
       );
       return { result };

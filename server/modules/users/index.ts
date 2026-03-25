@@ -9,6 +9,10 @@ import { requireAuth } from "../auth/middleware";
 import { AuthService } from "../auth/service";
 import { UnauthorizedError } from "../../shared/errors";
 import type { AccessTokenPayload } from "../auth/models";
+import {
+  getAccessTokenCookieOptions,
+  getRefreshTokenCookieOptions,
+} from "../auth/cookie-options";
 
 // Protected routes module with authentication
 const protectedUsersRoutes = new Elysia()
@@ -147,23 +151,8 @@ export const usersModule = new Elysia({ prefix: "/api/users" })
       const { user, accessToken, refreshToken } =
         await authService.loginWithPassword(body.username, body.password);
 
-      cookie.access_token.set({
-        value: accessToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 15 * 60, // 15 minutes
-        path: "/",
-      });
-
-      cookie.refresh_token.set({
-        value: refreshToken,
-        httpOnly: true,
-        secure: false,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60, // 7 days
-        path: "/",
-      });
+      cookie.access_token.set(getAccessTokenCookieOptions(accessToken));
+      cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
       return { user };
     },

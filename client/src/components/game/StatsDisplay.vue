@@ -30,7 +30,7 @@
 
     <!-- Stat Comparison (if comparing to another stat set) -->
     <div v-if="compareTo" class="mt-2 pt-2 border-t border-muted">
-      <div class="text-xs text-muted-foreground mb-1">Changes:</div>
+      <div class="text-xs text-muted-foreground mb-1">{{ t("stats.changes") }}</div>
       <div class="flex gap-2 text-xs">
         <div
           v-for="stat in statsArray"
@@ -56,6 +56,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { BaseStats } from '@elementary-dices/shared';
+import { useI18n } from '@/i18n';
 
 interface Props {
   stats: BaseStats;
@@ -66,6 +67,7 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   compact: false,
 });
+const { t } = useI18n();
 
 interface StatDisplay {
   name: StatName;

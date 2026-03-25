@@ -2,8 +2,8 @@
   <div class="container mx-auto p-6 space-y-6">
     <ViewOnboardingModal
       v-if="showOnboarding"
-      title="Elementals Management Basics"
-      subtitle="Shown once when you first open Party."
+      :title="t('party.onboarding_title')"
+      :subtitle="t('party.onboarding_subtitle')"
       :steps="onboardingSteps"
       @close="dismissOnboarding"
       @complete="dismissOnboarding"
@@ -16,13 +16,13 @@
       class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
-      <span class="font-semibold">Back</span>
+      <span class="font-semibold">{{ t("common.back") }}</span>
     </button>
 
     <div>
-      <h1 class="text-3xl font-bold mb-2">👥 Party</h1>
+      <h1 class="text-3xl font-bold mb-2">👥 {{ t("party.title") }}</h1>
       <p class="text-muted-foreground">
-        Manage your active party and backpack elementals
+        {{ t("party.subtitle") }}
       </p>
     </div>
     </div>
@@ -31,9 +31,9 @@
     <div class="space-y-4">
       <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold">
-          Active Party ({{ activePartyWithData.filter(Boolean).length }}/5)
+          {{ t("party.active", { count: activePartyWithData.filter(Boolean).length }) }}
         </h2>
-        <p class="text-sm text-muted-foreground">Drag & drop to reorder</p>
+        <p class="text-sm text-muted-foreground">{{ t("party.drag_reorder") }}</p>
       </div>
 
       <div class="grid gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -56,7 +56,7 @@
       <!-- Party Stats -->
       <div class="flex gap-4 justify-center">
         <div class="px-6 py-3 bg-card border-2 border-border rounded-lg">
-          <p class="text-sm text-muted-foreground">Total Power</p>
+          <p class="text-sm text-muted-foreground">{{ t("party.total_power") }}</p>
           <p class="text-2xl font-bold text-primary">{{ totalPartyPower }}</p>
         </div>
       </div>
@@ -72,10 +72,10 @@
           <div class="text-4xl">🔮</div>
           <div class="text-left">
             <h3 class="text-xl font-bold group-hover:text-primary">
-              Elemental Evolutions
+              {{ t("party.evolutions_title") }}
             </h3>
             <p class="text-sm text-muted-foreground">
-              Combine elementals to create powerful evolutions
+              {{ t("party.evolutions_desc") }}
             </p>
           </div>
           <div class="text-2xl">→</div>
@@ -87,10 +87,10 @@
     <div class="space-y-4">
       <div class="flex items-center justify-between">
         <h2 class="text-2xl font-bold">
-          Backpack ({{ backpackWithData.length }}/{{ maxBackpackSize }})
+          {{ t("party.backpack", { count: backpackWithData.length, max: maxBackpackSize }) }}
         </h2>
         <p class="text-sm text-muted-foreground">
-          Select an elemental to add to party
+          {{ t("party.select_to_add") }}
         </p>
       </div>
 
@@ -114,9 +114,9 @@
 
       <div v-else class="p-12 border-2 border-dashed rounded-lg text-center">
         <div class="text-6xl mb-4">📦</div>
-        <h3 class="text-xl font-bold mb-2">Empty Backpack</h3>
+        <h3 class="text-xl font-bold mb-2">{{ t("party.empty_backpack") }}</h3>
         <p class="text-muted-foreground">
-          Capture elementals through events to fill your backpack
+          {{ t("party.empty_backpack_hint") }}
         </p>
       </div>
     </div>
@@ -133,47 +133,84 @@ import { playerApi } from "@/composables/useApiHelpers";
 import PartySlot from "@/components/game/PartySlot.vue";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
+import { useI18n } from "@/i18n";
 
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const uiStore = useUIStore();
+const { t, locale } = useI18n();
 
 const maxBackpackSize = 20;
 const showOnboarding = ref(false);
 const onboardingStorageScope = "party-v1";
 
-const onboardingSteps = [
-  {
-    title: "Capturing gives you roster depth",
-    description:
-      "You primarily gain new elementals from Wild Encounters. Captured units appear in your collection and can be moved into active slots.",
-    bullets: [
-      "Use Current Event to start encounters.",
-      "Captured elementals increase your options for counters and evolutions.",
-      "Destroyed units in a battle cannot be deployed again in that same battle.",
-    ],
-  },
-  {
-    title: "Build the active party carefully",
-    description:
-      "You can deploy up to 5 active elementals. Positioning and composition determine what you can deploy in battle rounds.",
-    bullets: [
-      "Drag and drop to reorder active slots.",
-      "Move backups in from backpack when your strategy changes.",
-      "Mix elements to cover weakness chains in combat.",
-    ],
-  },
-  {
-    title: "Element weakness and battle intent",
-    description:
-      "Combat uses attack and health. Element weakness grants +10% damage when exploited.",
-    bullets: [
-      "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
-      "Lightning is neutral: no passive weakness or bonus.",
-      "Prioritize a party that can pressure likely enemy compositions.",
-    ],
-  },
-];
+const onboardingSteps = computed(() =>
+  locale.value === "ru"
+    ? [
+        {
+          title: "Поимка расширяет ростер",
+          description:
+            "Новых элементалей вы в основном получаете в Диких встречах. Пойманные юниты попадают в коллекцию и могут быть перемещены в активные слоты.",
+          bullets: [
+            "Используйте Текущее событие, чтобы запускать встречи.",
+            "Пойманные элементали увеличивают ваши варианты контров и эволюций.",
+            "Уничтоженных в битве юнитов нельзя снова выставить в этой же битве.",
+          ],
+        },
+        {
+          title: "Собирайте активную группу осознанно",
+          description:
+            "Вы можете выставить до 5 активных элементалей. Позиции и состав определяют, кого вы сможете выставлять в раундах битвы.",
+          bullets: [
+            "Перетаскивайте слоты для изменения порядка.",
+            "Подтягивайте резерв из рюкзака при смене плана.",
+            "Смешивайте элементы, чтобы закрывать цепочки слабостей.",
+          ],
+        },
+        {
+          title: "Слабости элементов и боевой план",
+          description:
+            "Бой использует атаку и здоровье. Эксплуатация слабости дает +10% урона.",
+          bullets: [
+            "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+            "Lightning нейтрален: без пассивной слабости и бонуса.",
+            "Собирайте группу, способную давить вероятные составы соперника.",
+          ],
+        },
+      ]
+    : [
+        {
+          title: "Capturing gives you roster depth",
+          description:
+            "You primarily gain new elementals from Wild Encounters. Captured units appear in your collection and can be moved into active slots.",
+          bullets: [
+            "Use Current Event to start encounters.",
+            "Captured elementals increase your options for counters and evolutions.",
+            "Destroyed units in a battle cannot be deployed again in that same battle.",
+          ],
+        },
+        {
+          title: "Build the active party carefully",
+          description:
+            "You can deploy up to 5 active elementals. Positioning and composition determine what you can deploy in battle rounds.",
+          bullets: [
+            "Drag and drop to reorder active slots.",
+            "Move backups in from backpack when your strategy changes.",
+            "Mix elements to cover weakness chains in combat.",
+          ],
+        },
+        {
+          title: "Element weakness and battle intent",
+          description:
+            "Combat uses attack and health. Element weakness grants +10% damage when exploited.",
+          bullets: [
+            "Water -> Fire, Fire -> Air, Air -> Earth, Earth -> Water.",
+            "Lightning is neutral: no passive weakness or bonus.",
+            "Prioritize a party that can pressure likely enemy compositions.",
+          ],
+        },
+      ],
+);
 
 const getOnboardingStorageKey = () => {
   if (!userStore.userId) return null;
@@ -277,11 +314,11 @@ const handleDrop = async (targetPosition: number) => {
       if (response.data) {
         // Refresh party data
         await elementalsStore.fetchPlayerElementals(userId);
-        uiStore.showToast("Party positions swapped!", "success");
+        uiStore.showToast(t("party.toast_positions_swapped"), "success");
       }
     } catch (error) {
       console.error("Failed to swap positions:", error);
-      uiStore.showToast("Failed to swap positions", "error");
+      uiStore.showToast(t("party.error_positions_swapped"), "error");
     }
   }
 
@@ -315,7 +352,7 @@ const handleAddToPartyAtPosition = async (
       );
     } catch (error) {
       console.error("Failed to remove elemental from slot:", error);
-      uiStore.showToast("Failed to swap elementals", "error");
+      uiStore.showToast(t("party.error_swap_elementals"), "error");
       return;
     }
   }
@@ -323,7 +360,7 @@ const handleAddToPartyAtPosition = async (
   // Check if party is full (excluding the target slot we just cleared)
   const filledSlots = activePartyWithData.value.filter(Boolean).length;
   if (!targetSlot && filledSlots >= 5) {
-    uiStore.showToast("Party is full! Remove an elemental first.", "error");
+    uiStore.showToast(t("party.error_party_full"), "error");
     return;
   }
 
@@ -341,15 +378,21 @@ const handleAddToPartyAtPosition = async (
 
     if (targetSlot) {
       uiStore.showToast(
-        `${member.elemental.name} swapped with ${targetSlot.elemental.name}!`,
+        t("party.toast_swapped_with", {
+          member: member.elemental.name,
+          target: targetSlot.elemental.name,
+        }),
         "success",
       );
     } else {
-      uiStore.showToast(`${member.elemental.name} added to party!`, "success");
+      uiStore.showToast(
+        t("party.toast_added", { member: member.elemental.name }),
+        "success",
+      );
     }
   } catch (error) {
     console.error("Failed to add to party:", error);
-    uiStore.showToast("Failed to add elemental to party", "error");
+    uiStore.showToast(t("party.error_add"), "error");
   }
 };
 
@@ -365,10 +408,13 @@ const handleRemoveFromParty = async (position: number) => {
       userStore.userId,
       member.playerElemental.id,
     );
-    uiStore.showToast(`${member.elemental.name} moved to backpack`, "success");
+    uiStore.showToast(
+      t("party.toast_moved_backpack", { member: member.elemental.name }),
+      "success",
+    );
   } catch (error) {
     console.error("Failed to remove from party:", error);
-    uiStore.showToast("Failed to remove from party", "error");
+    uiStore.showToast(t("party.error_remove"), "error");
   }
 };
 
@@ -377,7 +423,7 @@ const handlePartySlotClick = (position: number) => {
   const member = activePartyWithData.value[position - 1];
   if (member) {
     // Show confirmation to remove from party
-    if (confirm(`Remove ${member.elemental.name} from party?`)) {
+    if (confirm(t("party.confirm_remove", { member: member.elemental.name }))) {
       handleRemoveFromParty(position);
     }
   }
@@ -391,7 +437,7 @@ const handleAddToParty = async (member: {
   if (!userStore.userId) return;
 
   if (activePartyWithData.value.filter(Boolean).length >= 5) {
-    uiStore.showToast("Party is full! Remove an elemental first.", "error");
+    uiStore.showToast(t("party.error_party_full"), "error");
     return;
   }
 
@@ -400,10 +446,13 @@ const handleAddToParty = async (member: {
       userStore.userId,
       member.playerElemental.id,
     );
-    uiStore.showToast(`${member.elemental.name} added to party!`, "success");
+    uiStore.showToast(
+      t("party.toast_added", { member: member.elemental.name }),
+      "success",
+    );
   } catch (error) {
     console.error("Failed to add to party:", error);
-    uiStore.showToast("Failed to add elemental to party", "error");
+    uiStore.showToast(t("party.error_add"), "error");
   }
 };
 

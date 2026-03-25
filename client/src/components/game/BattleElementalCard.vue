@@ -50,7 +50,7 @@
     </div>
 
     <div class="flex items-center justify-between mt-1">
-      <span class="text-xs text-muted-foreground">HP</span>
+      <span class="text-xs text-muted-foreground">{{ t("battle_arena.hp") }}</span>
       <span class="text-xs font-semibold" :class="member.is_destroyed ? 'text-red-400' : ''">
         {{ member.current_health }}/{{ member.max_health }}
       </span>
@@ -79,6 +79,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import type { BattlePartyMember } from "@/stores/event";
+import { useI18n } from "@/i18n";
 
 const props = defineProps<{
   member: BattlePartyMember;
@@ -88,6 +89,7 @@ const props = defineProps<{
   targetName?: string;
   deploymentState?: "deployed" | "bench" | null;
 }>();
+const { t } = useI18n();
 
 const ELEMENT_CONFIG: Record<string, { emoji: string; borderColor: string }> = {
   fire: { emoji: "🔥", borderColor: "border-red-500/60" },
@@ -121,9 +123,9 @@ const healthPct = computed(() => {
 });
 
 const statusLabel = computed(() => {
-  if (props.member.is_destroyed) return "Destroyed";
-  if (props.deploymentState === "deployed") return "Deployed";
-  if (props.deploymentState === "bench") return "Bench";
+  if (props.member.is_destroyed) return t("battle_card.status_destroyed");
+  if (props.deploymentState === "deployed") return t("battle_card.status_deployed");
+  if (props.deploymentState === "bench") return t("battle_card.status_bench");
   return "";
 });
 

@@ -1,5 +1,6 @@
 import { db } from "../../db";
 import { BadRequestError, NotFoundError } from "../../shared/errors";
+import { t, type Locale } from "../../shared/i18n";
 import type {
   EventType,
   EventResponse,
@@ -113,7 +114,7 @@ export class EventService {
    * Returns event types currently available for a player.
    * PvP battles require 5 active party elementals.
    */
-  async getEventOptions(playerId: string): Promise<{
+  async getEventOptions(playerId: string, locale: Locale = "en"): Promise<{
     available: EventType[];
     unavailable: Array<{ event_type: EventType; reason: string }>;
   }> {
@@ -131,7 +132,7 @@ export class EventService {
     } else {
       unavailable.push({
         event_type: "pvp_battle",
-        reason: "PvP battle requires 5 active party elementals",
+        reason: t(locale, "event.option.pvp_requires_party"),
       });
     }
 
@@ -141,19 +142,25 @@ export class EventService {
   /**
    * Create a specific event type for a player.
    */
-  async createEvent(playerId: string, eventType: EventType): Promise<EventResponse> {
+  async createEvent(
+    playerId: string,
+    eventType: EventType,
+    locale: Locale = "en",
+  ): Promise<EventResponse> {
     // Check if player already has a current event
     const existingEvent = await this.repository.getCurrentEvent(playerId);
     if (existingEvent) {
       throw new BadRequestError(
-        "Player already has an active event. Resolve it before triggering a new one.",
+        t(locale, "event.error.active_event_exists"),
       );
     }
 
-    const options = await this.getEventOptions(playerId);
+    const options = await this.getEventOptions(playerId, locale);
     if (!options.available.includes(eventType)) {
       const entry = options.unavailable.find((item) => item.event_type === eventType);
-      throw new BadRequestError(entry?.reason ?? "Selected event type is unavailable");
+      throw new BadRequestError(
+        entry?.reason ?? t(locale, "event.error.unavailable_event_type"),
+      );
     }
 
     // Generate event-specific data and create event records
@@ -162,7 +169,7 @@ export class EventService {
 
     switch (eventType) {
       case "wild_encounter": {
-        const encounterData = await this.generateWildEncounter();
+        const encounterData = await this.generateWildEncounter(locale);
         eventResponse = encounterData.response;
 
         // Create event record
@@ -183,7 +190,7 @@ export class EventService {
         break;
       }
       case "pvp_battle": {
-        const battleData = await this.generatePvPBattle(playerId);
+        const battleData = await this.generatePvPBattle(playerId, locale);
         eventResponse = battleData.response;
 
         // Create event record with battle state
@@ -208,7 +215,7 @@ export class EventService {
         break;
       }
       case "merchant": {
-        const merchantData = await this.generateMerchantEvent(playerId);
+        const merchantData = await this.generateMerchantEvent(playerId, locale);
         eventResponse = merchantData.response;
 
         // Create event record (available for 30 minutes)
@@ -229,7 +236,7 @@ export class EventService {
         break;
       }
       default:
-        throw new BadRequestError("Unknown event type");
+        throw new BadRequestError(t(locale, "event.error.unknown_event_type"));
     }
 
     return eventResponse;
@@ -239,10 +246,10 @@ export class EventService {
    * Trigger a random event based on probabilities.
    * Kept for backward compatibility with existing callers.
    */
-  async triggerEvent(playerId: string): Promise<EventResponse> {
-    const options = await this.getEventOptions(playerId);
+  async triggerEvent(playerId: string, locale: Locale = "en"): Promise<EventResponse> {
+    const options = await this.getEventOptions(playerId, locale);
     const eventType = this.determineEventType(!options.available.includes("pvp_battle"));
-    return this.createEvent(playerId, eventType);
+    return this.createEvent(playerId, eventType, locale);
   }
 
   /**
@@ -281,7 +288,7 @@ export class EventService {
   /**
    * Generate a wild encounter event
    */
-  private async generateWildEncounter(): Promise<{
+  private async generateWildEncounter(locale: Locale): Promise<{
     response: EventResponse;
     elemental_id: string;
   }> {
@@ -317,7 +324,9 @@ export class EventService {
     return {
       response: {
         event_type: "wild_encounter",
-        description: `A wild ${randomElemental.name} appeared! Use the Farkle capture flow and optional items to attempt capture.`,
+        description: t(locale, "event.description.wild.capture_flow", {
+          name: randomElemental.name,
+        }),
         data,
       },
       elemental_id: randomElemental.id,
@@ -431,7 +440,7 @@ export class EventService {
   /**
    * Generate a PvP battle event with v3 battle state.
    */
-  private async generatePvPBattle(playerId: string): Promise<{
+  private async generatePvPBattle(playerId: string, locale: Locale): Promise<{
     response: EventResponse;
     opponent_name: string;
     opponent_power_level: number;
@@ -518,7 +527,10 @@ export class EventService {
     return {
       response: {
         event_type: "pvp_battle",
-        description: `You've been challenged by ${opponentName} to a battle! Win to earn ${potentialReward} currency.`,
+        description: t(locale, "event.description.pvp.challenge", {
+          opponentName,
+          reward: potentialReward,
+        }),
         data,
       },
       opponent_name: opponentName,
@@ -930,12 +942,13 @@ export class EventService {
     playerId: string,
     farkleSessionId: string,
     itemId?: string,
+    locale: Locale = "en",
   ): Promise<any> {
     const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
     if (eventType === "pvp_battle") {
       return this.farkleEndTurn(playerId);
     }
-    return this.wildEncounterFarkleEndTurn(playerId, itemId);
+    return this.wildEncounterFarkleEndTurn(playerId, itemId, locale);
   }
 
   /**
@@ -1616,6 +1629,7 @@ export class EventService {
    */
   private async generateMerchantEvent(
     playerId: string,
+    locale: Locale = "en",
   ): Promise<{ response: EventResponse }> {
     const itemCount = Math.floor(Math.random() * 2) + 2;
     const allItems = await db("items").select("id", "name", "price", "rarity");
@@ -1674,8 +1688,7 @@ export class EventService {
     return {
       response: {
         event_type: "merchant",
-        description:
-          "A traveling merchant has appeared! Browse their wares and make a purchase.",
+        description: t(locale, "event.description.merchant"),
         data,
       },
     };
@@ -1731,7 +1744,7 @@ export class EventService {
    * Get the current active event for a player.
    * For PvP battles, includes the full battle_state for mid-battle resume.
    */
-  async getCurrentEvent(playerId: string): Promise<EventResponse | null> {
+  async getCurrentEvent(playerId: string, locale: Locale = "en"): Promise<EventResponse | null> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
 
     if (!currentEvent) {
@@ -1793,7 +1806,9 @@ export class EventService {
 
         return {
           event_type: "wild_encounter",
-          description: `A wild ${elemental.name} appeared! Roll, deploy, and defeat it in battle to capture.`,
+          description: t(locale, "event.description.wild.battle_flow", {
+            name: elemental.name,
+          }),
           data,
         };
       }
@@ -1834,7 +1849,10 @@ export class EventService {
 
         return {
           event_type: "pvp_battle",
-          description: `You've been challenged by ${battle.opponent_name} to a battle! Win to earn ${potentialReward} currency.`,
+          description: t(locale, "event.description.pvp.challenge", {
+            opponentName: battle.opponent_name,
+            reward: potentialReward,
+          }),
           data,
         };
       }
@@ -1894,8 +1912,7 @@ export class EventService {
 
         return {
           event_type: "merchant",
-          description:
-            "A traveling merchant has appeared! Browse their wares and make a purchase.",
+          description: t(locale, "event.description.merchant"),
           data,
         };
       }
@@ -2228,6 +2245,7 @@ export class EventService {
   async wildEncounterFarkleEndTurn(
     playerId: string,
     _itemId?: string,
+    locale: Locale = "en",
   ): Promise<{
     farkle_state: WildEncounterFarkleState;
     wild_battle_state: WildBattleState;
@@ -2407,14 +2425,14 @@ export class EventService {
       ? {
           success,
           message: success
-            ? `Successfully captured ${elemental.name}! It has been added to your collection.`
-            : `Failed to capture ${elemental.name}. The elemental overpowered your party.`,
+            ? t(locale, "event.result.capture.success", { name: elemental.name })
+            : t(locale, "event.result.capture.failed", { name: elemental.name }),
           elemental_caught: elementalCaught,
           can_continue: true,
         }
       : {
           success: false,
-          message: "Battle continues. Roll again to deploy elementals.",
+          message: t(locale, "event.result.capture.continues"),
           can_continue: false,
         };
 
@@ -2434,6 +2452,7 @@ export class EventService {
    */
   async resolveWildEncounter(
     data: ResolveWildEncounterData,
+    locale: Locale = "en",
   ): Promise<WildEncounterResult> {
     const currentEvent = await this.repository.getCurrentEvent(data.player_id);
     if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
@@ -2543,7 +2562,7 @@ export class EventService {
         level: elemental.level,
       };
 
-      message = `Successfully captured ${elemental.name}! It has been added to your collection.`;
+      message = t(locale, "event.result.capture.success", { name: elemental.name });
 
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
@@ -2570,7 +2589,7 @@ export class EventService {
           .increment("unique_elementals_collected", 1);
       }
     } else {
-      message = `Failed to capture ${elemental.name}. The elemental escaped!`;
+      message = t(locale, "event.result.capture.failed_escape", { name: elemental.name });
 
       await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
         status: "completed",
@@ -2601,7 +2620,10 @@ export class EventService {
   /**
    * Skip wild encounter event
    */
-  async skipWildEncounter(playerId: string): Promise<SkipWildEncounterResult> {
+  async skipWildEncounter(
+    playerId: string,
+    locale: Locale = "en",
+  ): Promise<SkipWildEncounterResult> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
       throw new BadRequestError("No active wild encounter event");
@@ -2638,7 +2660,9 @@ export class EventService {
     }
 
     return {
-      message: `You decided to skip the encounter with ${elemental?.name || "the elemental"}. The elemental wandered away.`,
+      message: t(locale, "event.result.skip_wild", {
+        name: elemental?.name || "the elemental",
+      }),
       can_continue: true,
     };
   }
@@ -2646,7 +2670,7 @@ export class EventService {
   /**
    * Leave merchant event
    */
-  async leaveMerchant(playerId: string): Promise<LeaveMerchantResult> {
+  async leaveMerchant(playerId: string, locale: Locale = "en"): Promise<LeaveMerchantResult> {
     const currentEvent = await this.repository.getCurrentEvent(playerId);
     if (!currentEvent || currentEvent.event_type !== "merchant") {
       throw new BadRequestError("No active merchant event");
@@ -2669,7 +2693,7 @@ export class EventService {
     await this.repository.clearCurrentEvent(playerId);
 
     return {
-      message: "You left the merchant and continue your journey.",
+      message: t(locale, "event.result.leave_merchant"),
       can_continue: true,
     };
   }

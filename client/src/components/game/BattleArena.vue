@@ -5,11 +5,11 @@
       <!-- Player Party (Left) -->
       <div class="w-full md:max-w-[18rem] md:justify-self-end space-y-1.5">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-bold text-blue-400">Your Party</h3>
+          <h3 class="text-base font-bold text-blue-400">{{ t("battle_arena.your_party") }}</h3>
           <div class="text-right">
-            <p class="text-sm font-bold text-blue-400">{{ playerHealth }} HP</p>
+            <p class="text-sm font-bold text-blue-400">{{ playerHealth }} {{ t("battle_arena.hp") }}</p>
             <p class="text-[11px] text-muted-foreground">
-              {{ playerAliveCount }}/{{ playerParty.length }} alive
+              {{ playerAliveCount }}/{{ playerParty.length }} {{ t("battle_arena.alive") }}
             </p>
           </div>
         </div>
@@ -48,9 +48,9 @@
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-base font-bold text-red-400">{{ opponentName }}</h3>
           <div class="text-right">
-            <p class="text-sm font-bold text-red-400">{{ opponentHealth }} HP</p>
+            <p class="text-sm font-bold text-red-400">{{ opponentHealth }} {{ t("battle_arena.hp") }}</p>
             <p class="text-[11px] text-muted-foreground">
-              {{ opponentAliveCount }}/{{ opponentParty.length }} alive
+              {{ opponentAliveCount }}/{{ opponentParty.length }} {{ t("battle_arena.alive") }}
             </p>
           </div>
         </div>
@@ -74,6 +74,7 @@
 import { computed, useSlots } from 'vue'
 import BattleElementalCard from './BattleElementalCard.vue'
 import type { BattlePartyMember } from '@/stores/event'
+import { useI18n } from '@/i18n'
 
 const props = defineProps<{
   playerParty: BattlePartyMember[]
@@ -92,6 +93,7 @@ const props = defineProps<{
     defenderElement: string
   }>
 }>()
+const { t } = useI18n()
 
 const slots = useSlots()
 

@@ -9,26 +9,19 @@
       @complete="handleOnboardingComplete"
     />
 
-    <!-- Optional: Header with username and currency -->
-    <div class="absolute top-4 right-4 flex items-center gap-4 text-sm">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">💰</span>
-        <span class="font-bold">{{ userStore.currency }}</span>
-      </div>
-      <div class="text-muted-foreground">{{ userStore.username }}</div>
-    </div>
+    <UserBalanceHeader />
 
     <!-- Main Menu Grid - Rhombus Layout -->
     <div class="w-full max-w-4xl mx-auto main-menu-grid">
       <!-- Current Event Section (top) -->
       <div class="area-event flex justify-center items-center">
         <MainMenuButton
-          title="Current Event"
+          :title="t('menu.current_event')"
           :icon="eventStore.isEventActive ? '⚡' : '✨'"
           :subtitle="
             eventStore.isEventActive
               ? getEventTypeLabel(eventStore.currentEvent?.event_type || '')
-              : 'Choose your next event'
+              : t('menu.choose_next_event')
           "
           :is-active="eventStore.isEventActive"
           :pulse="eventStore.isEventActive"
@@ -42,9 +35,9 @@
       <!-- Party Section (left) -->
       <div class="area-party flex justify-center items-center">
         <MainMenuButton
-          title="Party"
+          :title="t('menu.party')"
           icon="👥"
-          :subtitle="`${elementalsStore.activeParty.length}/5 active`"
+          :subtitle="t('menu.active_party', { count: elementalsStore.activeParty.length })"
           :badge="elementalsStore.activeParty.length"
           icon-color="text-blue-500"
           @click="navigateTo('party')"
@@ -63,9 +56,9 @@
       <!-- Inventory Section (right) -->
       <div class="area-inventory flex justify-center items-center">
         <MainMenuButton
-          title="Inventory"
+          :title="t('menu.inventory')"
           icon="🎒"
-          subtitle="Temporarily disabled"
+          :subtitle="t('menu.temporarily_disabled')"
           icon-color="text-green-500"
           :disabled="true"
         />
@@ -74,7 +67,7 @@
       <!-- Dices Section (bottom) -->
       <div class="area-dices flex justify-center items-center">
         <MainMenuButton
-          title="Dices"
+          :title="t('menu.dices')"
           icon="🎲"
           :badge="inventoryStore.playerDice.length"
           icon-color="text-purple-500"
@@ -95,12 +88,15 @@ import { useEventStore } from "@/stores/event";
 import MainMenuButton from "@/components/game/MainMenuButton.vue";
 import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
 import StartGameModal from "@/components/onboarding/StartGameModal.vue";
+import UserBalanceHeader from "@/components/layout/UserBalanceHeader.vue";
+import { useI18n } from "@/i18n";
 
 const router = useRouter();
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
 const eventStore = useEventStore();
+const { t } = useI18n();
 
 // Show start game modal for new players
 const showStartGameModal = ref(false);
@@ -127,9 +123,9 @@ const handleOnboardingComplete = () => {
 // Get event type label
 const getEventTypeLabel = (type: string) => {
   const labels: Record<string, string> = {
-    wild_encounter: "🌲 Wild Encounter",
-    pvp_battle: "⚔️ PvP Battle",
-    merchant: "🏪 Merchant",
+    wild_encounter: t("menu.event_type.wild"),
+    pvp_battle: t("menu.event_type.pvp"),
+    merchant: t("menu.event_type.merchant"),
   };
   return labels[type] || type;
 };

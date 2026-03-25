@@ -5,7 +5,7 @@
     <!-- Turn counter -->
     <div class="flex flex-col items-center">
       <span class="text-xs text-muted-foreground uppercase tracking-wide"
-        >Round</span
+        >{{ t("common.round") }}</span
       >
       <span class="text-2xl font-bold">{{ currentTurn }}</span>
     </div>
@@ -37,23 +37,26 @@
     <!-- Set-aside element indicator -->
     <div class="flex flex-col items-center gap-0.5">
       <span class="text-xs text-muted-foreground uppercase tracking-wide"
-        >Chosen</span
+        >{{ t("battle.set_aside") }}</span
       >
       <div v-if="setAsideElement" class="flex items-center gap-1">
         <span class="text-xl">{{ getEmoji(setAsideElement) }}</span>
         <span class="text-xs font-bold text-yellow-400">+10%</span>
       </div>
-      <span v-else class="text-xs text-muted-foreground italic">None</span>
+      <span v-else class="text-xs text-muted-foreground italic">{{ t("common.none") }}</span>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import { useI18n } from "@/i18n";
+
 const props = defineProps<{
   currentTurn: number;
   bonusesTotal: Record<string, number>;
   setAsideElement: string | null;
 }>();
+const { t } = useI18n();
 
 const allElements = ["fire", "water", "earth", "air", "lightning"];
 

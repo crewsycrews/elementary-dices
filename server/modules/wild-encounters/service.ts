@@ -1,6 +1,7 @@
 import { EventService } from "../events/service";
 import { SharedFarkleService } from "../events/shared-farkle-service";
 import type { ResolveWildEncounterData } from "../events/models/wild-encounter";
+import type { Locale } from "../../shared/i18n";
 
 export class WildEncounterService {
   constructor(
@@ -8,12 +9,12 @@ export class WildEncounterService {
     private sharedFarkleService = new SharedFarkleService(eventService),
   ) {}
 
-  resolveWildEncounter(data: ResolveWildEncounterData) {
-    return this.eventService.resolveWildEncounter(data);
+  resolveWildEncounter(data: ResolveWildEncounterData, locale: Locale = "en") {
+    return this.eventService.resolveWildEncounter(data, locale);
   }
 
-  skipWildEncounter(playerId: string) {
-    return this.eventService.skipWildEncounter(playerId);
+  skipWildEncounter(playerId: string, locale: Locale = "en") {
+    return this.eventService.skipWildEncounter(playerId, locale);
   }
 
   farkleInit(playerId: string, eventId: string, setAsideElement: string) {
@@ -55,7 +56,17 @@ export class WildEncounterService {
     return this.sharedFarkleService.continue(playerId, farkleSessionId);
   }
 
-  farkleEndTurn(playerId: string, farkleSessionId: string, itemId?: string) {
-    return this.sharedFarkleService.endTurn(playerId, farkleSessionId, itemId);
+  farkleEndTurn(
+    playerId: string,
+    farkleSessionId: string,
+    locale: Locale = "en",
+    itemId?: string,
+  ) {
+    return this.sharedFarkleService.endTurnWithLocale(
+      playerId,
+      farkleSessionId,
+      locale,
+      itemId,
+    );
   }
 }

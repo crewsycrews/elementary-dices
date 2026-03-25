@@ -2,6 +2,7 @@ import { Elysia } from "elysia";
 import { cors } from "@elysiajs/cors";
 import { db } from "./db";
 import { AppError, isDatabaseError, parsePostgresError } from "./shared/errors";
+import { resolveLocale } from "./shared/i18n";
 
 // Import all modules
 import { authModule } from "./modules/auth";
@@ -18,8 +19,12 @@ import { evolutionModule } from "./modules/evolution";
 import { playerElementalsModule } from "./modules/player-elementals";
 
 export const app = new Elysia()
+  .derive(({ headers }) => ({
+    locale: resolveLocale(headers as Record<string, string | undefined>),
+  }))
   .use(
     cors({
+      origin: process.env.CLIENT_URL || true,
       credentials: true, // Allow cookies to be sent
     }),
   )

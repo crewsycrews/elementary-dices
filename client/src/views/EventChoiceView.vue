@@ -2,20 +2,14 @@
   <div
     class="event-choice-view min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8"
   >
-    <div class="absolute top-4 right-4 flex items-center gap-4 text-sm">
-      <div class="flex items-center gap-2">
-        <span class="text-2xl">💰</span>
-        <span class="font-bold">{{ userStore.currency }}</span>
-      </div>
-      <div class="text-muted-foreground">{{ userStore.username }}</div>
-    </div>
+    <UserBalanceHeader />
 
     <div class="w-full max-w-4xl mx-auto main-menu-grid">
       <div class="area-event flex justify-center items-center">
         <MainMenuButton
-          title="PvP Battle"
+          :title="t('event_choice.pvp_title')"
           icon="⚔️"
-          subtitle="Challenge another trainer"
+          :subtitle="t('event_choice.pvp_subtitle')"
           icon-color="text-orange-500"
           :is-active="selectedType === 'pvp_battle'"
           :pulse="selectedType === 'pvp_battle'"
@@ -26,9 +20,9 @@
 
       <div class="area-party flex justify-center items-center">
         <MainMenuButton
-          title="Wild Encounter"
+          :title="t('event_choice.wild_title')"
           icon="🌲"
-          subtitle="Catch a new elemental"
+          :subtitle="t('event_choice.wild_subtitle')"
           icon-color="text-green-500"
           :is-active="selectedType === 'wild_encounter'"
           :pulse="selectedType === 'wild_encounter'"
@@ -47,9 +41,9 @@
 
       <div class="area-inventory flex justify-center items-center">
         <MainMenuButton
-          title="Merchant"
+          :title="t('event_choice.merchant_title')"
           icon="🏪"
-          subtitle="Buy new gear and dice"
+          :subtitle="t('event_choice.merchant_subtitle')"
           icon-color="text-amber-500"
           :is-active="selectedType === 'merchant'"
           :pulse="selectedType === 'merchant'"
@@ -60,7 +54,7 @@
 
       <div class="area-dices flex justify-center items-center">
         <MainMenuButton
-          title="Back"
+          :title="t('common.back')"
           icon="↩️"
           icon-color="text-primary"
           :disabled="isSubmitting"
@@ -80,6 +74,8 @@ import { useInventoryStore } from "@/stores/inventory";
 import { useUserStore } from "@/stores/user";
 import MainMenuButton from "@/components/game/MainMenuButton.vue";
 import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
+import UserBalanceHeader from "@/components/layout/UserBalanceHeader.vue";
+import { useI18n } from "@/i18n";
 
 type EventType = "wild_encounter" | "pvp_battle" | "merchant";
 
@@ -88,6 +84,7 @@ const userStore = useUserStore();
 const eventStore = useEventStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
+const { t } = useI18n();
 
 const selectedType = ref<EventType | null>(null);
 const isSubmitting = ref(false);
