@@ -22,6 +22,7 @@ import {
   FarkleSessionRepository,
   type WildEncounterFarkleState,
   type FarkleStateRow,
+  type BattleEvent,
 } from "./repositories";
 import { DiceRollService } from "../dice-rolls/service";
 import {
@@ -65,7 +66,6 @@ const RARITY_ORDER: DiceRarity[] = ["common", "rare", "epic", "legendary"];
 const PVP_REWARD_MULTIPLIER = 0.25;
 const PVP_REWARD_MIN = 25;
 const PVP_REWARD_MAX = 500;
-const MIN_BATTLE_HP = 120;
 
 function calculateSetAsideBonuses(
   dice: FarkleDie[],
@@ -97,9 +97,11 @@ function toElementSet(values: ElementType[]): ElementType[] {
   return [...new Set(values)];
 }
 
+function hasLivingElementals(party: BattlePartyMember[]): boolean {
+  return party.some((member) => !member.is_destroyed && member.current_health > 0);
+}
+
 export interface WildBattleState {
-  player_health: number;
-  enemy_health: number;
   player_party: BattlePartyMember[];
   enemy_party: BattlePartyMember[];
   combat_log: Array<Record<string, unknown>>;
@@ -439,8 +441,6 @@ export class EventService {
     ];
 
     return {
-      player_health: MIN_BATTLE_HP,
-      enemy_health: MIN_BATTLE_HP,
       player_party: playerParty,
       enemy_party: enemyParty,
       combat_log: [],
@@ -518,8 +518,6 @@ export class EventService {
       opponent_turn_result: null,
       player_bonuses_total: {},
       opponent_bonuses_total: {},
-      player_health: MIN_BATTLE_HP,
-      opponent_health: MIN_BATTLE_HP,
       combat_log: [],
     };
 
@@ -627,27 +625,23 @@ export class EventService {
       throw new BadRequestError("Invalid battle event");
     }
 
+    const battle = await this.battleRepo.findById(currentEvent.battle_id);
+    if (!battle) {
+      throw new NotFoundError("Battle event");
+    }
+
     const session = await this.farkleSessionRepo.findSessionByEvent(
       "pvp_battle",
       currentEvent.battle_id,
     );
     if (session) {
-      const state = await this.farkleSessionRepo.getState(session.id);
-      const battleState = state?.meta?.battle_state as FarkleBattleState | undefined;
-      if (!battleState) {
-        throw new BadRequestError("Battle state not initialized");
-      }
+      const battleState = await this.ensureBattleStateForSession(session.id, battle);
       if (battleState.player_turn) {
         battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
         battleState.player_turn.accumulated_combination_elements ??= [];
         battleState.player_turn.accumulated_set_aside_elements ??= [];
       }
       return battleState;
-    }
-
-    const battle = await this.battleRepo.findById(currentEvent.battle_id);
-    if (!battle) {
-      throw new NotFoundError("Battle event");
     }
     const seed =
       (battle.opponent_party_data?.seed_battle_state as FarkleBattleState | undefined) ?? null;
@@ -862,17 +856,60 @@ export class EventService {
     if (!session) {
       throw new BadRequestError("Farkle session is not initialized");
     }
-    const state = await this.farkleSessionRepo.getState(session.id);
-    const battleState = state?.meta?.battle_state as FarkleBattleState | undefined;
-    if (!battleState) {
-      throw new BadRequestError("Battle state not initialized");
-    }
+    const battleState = await this.ensureBattleStateForSession(session.id, battle);
     if (battleState.player_turn) {
       battleState.player_turn.accumulated_dice_rush_bonuses ??= {};
       battleState.player_turn.accumulated_combination_elements ??= [];
       battleState.player_turn.accumulated_set_aside_elements ??= [];
     }
     return { battle: battle!, battleState, sessionId: session.id };
+  }
+
+  private buildInitialBattleStateFromSeed(seed: FarkleBattleState): FarkleBattleState {
+    return {
+      ...seed,
+      phase: "player_turn",
+      set_aside_element: null,
+      player_turn: null,
+    };
+  }
+
+  private async ensureBattleStateForSession(
+    sessionId: string,
+    battle: BattleEvent,
+  ): Promise<FarkleBattleState> {
+    const state = await this.farkleSessionRepo.getState(sessionId);
+    const battleState = state?.meta?.battle_state as FarkleBattleState | undefined;
+    if (battleState) {
+      return battleState;
+    }
+
+    const seed =
+      (battle.opponent_party_data?.seed_battle_state as FarkleBattleState | undefined) ?? null;
+    if (!seed) {
+      throw new BadRequestError("Battle state not initialized");
+    }
+
+    const recoveredState = this.buildInitialBattleStateFromSeed(seed);
+    if (state) {
+      await this.farkleSessionRepo.updateState(sessionId, {
+        meta: { ...(state.meta ?? {}), battle_state: recoveredState },
+      });
+    } else {
+      await this.farkleSessionRepo.createState(sessionId, {
+        phase: "player_turn",
+        has_used_reroll: false,
+        set_aside_element_bonus: null,
+        is_dice_rush: false,
+        busted: false,
+        dice_state: [],
+        active_combinations: [],
+        detected_combinations: [],
+        meta: { battle_state: recoveredState },
+      });
+    }
+
+    return recoveredState;
   }
 
   private async getEquippedV4Dice(playerId: string): Promise<FarkleV4Die[]> {
@@ -912,11 +949,72 @@ export class EventService {
   }
 
   private getV4DetectedCombinationsForUi(dice: FarkleV4Die[]): Combination[] {
-    const mapped = dice.map((die) => ({
-      ...die,
-      is_set_aside: Boolean(die.is_assigned),
-    }));
-    return detectCombinations(mapped as any);
+    const byElement = new Map<ElementType, number[]>();
+    for (const [index, die] of dice.entries()) {
+      const current = byElement.get(die.current_result) ?? [];
+      current.push(index);
+      byElement.set(die.current_result, current);
+    }
+
+    const combos: Combination[] = [];
+
+    for (const [element, indices] of byElement.entries()) {
+      if (indices.length < 2) continue;
+
+      const comboType =
+        indices.length >= 5
+          ? "quintet"
+          : indices.length === 4
+            ? "quartet"
+            : indices.length === 3
+              ? "triplet"
+              : "doublet";
+
+      const pct =
+        comboType === "doublet"
+          ? 0.2
+          : comboType === "triplet"
+            ? 0.3
+            : comboType === "quartet"
+              ? 0.4
+              : 0.5;
+
+      combos.push({
+        type: comboType as Combination["type"],
+        elements: [element],
+        dice_indices: [...indices],
+        bonuses: { [element]: pct },
+      });
+    }
+
+    if (dice.length === 5 && byElement.size === 5) {
+      combos.push({
+        type: "one_for_all",
+        elements: [...byElement.keys()],
+        dice_indices: [0, 1, 2, 3, 4],
+        bonuses: {},
+      });
+    }
+
+    if (byElement.size === 2) {
+      const groups = [...byElement.entries()].map(([el, indices]) => ({ el, n: indices.length }));
+      const hasTriplet = groups.some((g) => g.n === 3);
+      const hasPair = groups.some((g) => g.n === 2);
+      if (hasTriplet && hasPair) {
+        const tripletEl = groups.find((g) => g.n === 3)?.el;
+        const pairEl = groups.find((g) => g.n === 2)?.el;
+        if (tripletEl && pairEl) {
+          combos.push({
+            type: "full_house",
+            elements: [tripletEl, pairEl],
+            dice_indices: [...(byElement.get(tripletEl) ?? []), ...(byElement.get(pairEl) ?? [])],
+            bonuses: { [tripletEl]: 0.35, [pairEl]: 0.25 },
+          });
+        }
+      }
+    }
+
+    return combos;
   }
 
   async farkleV4InitBattle(
@@ -936,26 +1034,22 @@ export class EventService {
       throw new BadRequestError("Battle id does not match active event");
     }
 
+    const battle = await this.battleRepo.findById(eventId);
+    if (!battle || battle.player_id !== playerId) {
+      throw new NotFoundError("Battle event");
+    }
+
     const existingSession = await this.farkleSessionRepo.findSessionByEvent(
       "pvp_battle",
       eventId,
     );
     if (existingSession) {
-      const existingState = await this.farkleSessionRepo.getState(existingSession.id);
-      const existingBattleState = existingState?.meta?.battle_state as FarkleBattleState | undefined;
-      if (!existingBattleState) {
-        throw new BadRequestError("Battle state not initialized");
-      }
+      const existingBattleState = await this.ensureBattleStateForSession(existingSession.id, battle);
       return {
         farkle_session_id: existingSession.id,
         event_type: "pvp_battle",
         battle_state: existingBattleState,
       };
-    }
-
-    const battle = await this.battleRepo.findById(eventId);
-    if (!battle || battle.player_id !== playerId) {
-      throw new NotFoundError("Battle event");
     }
     const battleSeed =
       (battle.opponent_party_data?.seed_battle_state as FarkleBattleState | undefined) ?? null;
@@ -963,12 +1057,7 @@ export class EventService {
       throw new BadRequestError("Battle seed data is missing");
     }
 
-    const battleState: FarkleBattleState = {
-      ...battleSeed,
-      phase: "player_turn",
-      set_aside_element: null,
-      player_turn: null,
-    };
+    const battleState = this.buildInitialBattleStateFromSeed(battleSeed);
 
     const createdSession = await this.farkleSessionRepo.createSession({
       player_id: playerId,
@@ -1202,7 +1291,8 @@ export class EventService {
       dice_notation: "d6",
       faces: ["fire", "water", "earth", "air", "lightning"],
       current_result: "fire",
-      is_set_aside: true,
+      // Opponent dice must be rolled first; set-aside/assignment happens after roll.
+      is_set_aside: false,
       is_assigned: false,
       assigned_to_party_index: null,
     })) as FarkleV4Die[];
@@ -1232,8 +1322,6 @@ export class EventService {
         round: battleState.current_turn,
         player_party: battleState.player_party,
         opponent_party: battleState.opponent_party,
-        player_health: battleState.player_health,
-        opponent_health: battleState.opponent_health,
       },
       {
         player_deployed_indices: playerApplied.deployed_indices,
@@ -1243,8 +1331,6 @@ export class EventService {
 
     battleState.player_party = combatResult.player_party;
     battleState.opponent_party = combatResult.opponent_party;
-    battleState.player_health = combatResult.player_health;
-    battleState.opponent_health = combatResult.opponent_health;
     battleState.combat_log = [...(battleState.combat_log ?? []), ...combatResult.log];
     battleState.last_player_deployment = playerApplied.deployed_indices;
     battleState.last_opponent_deployment = opponentApplied.deployed_indices;
@@ -1262,8 +1348,9 @@ export class EventService {
     battleState.opponent_turns_done += 1;
     battleState.player_turn = null;
 
-    const isResolved =
-      battleState.player_health <= 0 || battleState.opponent_health <= 0;
+    const playerAlive = hasLivingElementals(battleState.player_party);
+    const opponentAlive = hasLivingElementals(battleState.opponent_party);
+    const isResolved = !playerAlive || !opponentAlive;
 
     let result: NonNullable<BattleRollResult["result"]> | undefined;
     if (isResolved) {
@@ -1271,8 +1358,8 @@ export class EventService {
       const playerTotal = calculateTotalPower(battleState.player_party);
       const opponentTotal = calculateTotalPower(battleState.opponent_party);
       let winner: "player" | "opponent" | "draw";
-      if (battleState.player_health > battleState.opponent_health) winner = "player";
-      else if (battleState.opponent_health > battleState.player_health) winner = "opponent";
+      if (playerAlive && !opponentAlive) winner = "player";
+      else if (!playerAlive && opponentAlive) winner = "opponent";
       else winner = "draw";
       battleState.winner = winner;
       battleState.player_total_attack = playerTotal;
@@ -1754,7 +1841,7 @@ export class EventService {
   /**
    * Player ends their Farkle turn.
    * Commits bonuses, resolves hidden deployments, runs combat round.
-   * Battle ends only when either player health reaches zero.
+   * Battle ends only when one party has no living elementals.
    */
   async farkleEndTurn(playerId: string): Promise<{
     battle_state: FarkleBattleState;
@@ -1833,16 +1920,12 @@ export class EventService {
         round: battleState.current_turn,
         player_party: battleState.player_party,
         opponent_party: battleState.opponent_party,
-        player_health: battleState.player_health,
-        opponent_health: battleState.opponent_health,
       },
       {
         player: {
-          health: battleState.player_health,
           deployed_indices: playerDeploymentIndices,
         },
         opponent: {
-          health: battleState.opponent_health,
           deployed_indices: opponentDeploymentIndices,
         },
       },
@@ -1851,8 +1934,6 @@ export class EventService {
 
     battleState.player_party = combatResult.player_party;
     battleState.opponent_party = combatResult.opponent_party;
-    battleState.player_health = combatResult.player_health;
-    battleState.opponent_health = combatResult.opponent_health;
     battleState.combat_log = [...(battleState.combat_log ?? []), ...combatResult.log];
     battleState.last_player_deployment = playerDeploymentIndices;
     battleState.last_opponent_deployment = opponentDeploymentIndices;
@@ -1861,8 +1942,9 @@ export class EventService {
     battleState.opponent_turns_done += 1;
     battleState.player_turn = null;
 
-    const isResolved =
-      battleState.player_health <= 0 || battleState.opponent_health <= 0;
+    const playerAlive = hasLivingElementals(battleState.player_party);
+    const opponentAlive = hasLivingElementals(battleState.opponent_party);
+    const isResolved = !playerAlive || !opponentAlive;
 
     let result: NonNullable<BattleRollResult["result"]> | undefined;
 
@@ -1873,8 +1955,8 @@ export class EventService {
       const opponentTotal = calculateTotalPower(battleState.opponent_party);
 
       let winner: "player" | "opponent" | "draw";
-      if (battleState.player_health > battleState.opponent_health) winner = "player";
-      else if (battleState.opponent_health > battleState.player_health) winner = "opponent";
+      if (playerAlive && !opponentAlive) winner = "player";
+      else if (!playerAlive && opponentAlive) winner = "opponent";
       else winner = "draw";
 
       battleState.winner = winner;
@@ -2749,16 +2831,12 @@ export class EventService {
         round: wildBattleState.round,
         player_party: buffedPlayerParty,
         opponent_party: wildBattleState.enemy_party,
-        player_health: wildBattleState.player_health,
-        opponent_health: wildBattleState.enemy_health,
       },
       {
         player: {
-          health: wildBattleState.player_health,
           deployed_indices: playerDeployment,
         },
         opponent: {
-          health: wildBattleState.enemy_health,
           deployed_indices: enemyDeployment,
         },
       },
@@ -2767,8 +2845,6 @@ export class EventService {
 
     wildBattleState.player_party = combatResult.player_party;
     wildBattleState.enemy_party = combatResult.opponent_party;
-    wildBattleState.player_health = combatResult.player_health;
-    wildBattleState.enemy_health = combatResult.opponent_health;
     wildBattleState.combat_log = [
       ...wildBattleState.combat_log,
       ...combatResult.log,
@@ -2783,8 +2859,8 @@ export class EventService {
         }
       | undefined;
 
-    const success = wildBattleState.enemy_health <= 0;
-    const failed = wildBattleState.player_health <= 0;
+    const success = !hasLivingElementals(wildBattleState.enemy_party);
+    const failed = !hasLivingElementals(wildBattleState.player_party);
 
     if (success) {
       const elementalCount = (await db("player_elementals")
@@ -3089,7 +3165,7 @@ export class EventService {
 
     await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
       status: "fled",
-      outcome: "fled",
+      outcome: "draw",
       resolved_at: new Date(),
     });
 

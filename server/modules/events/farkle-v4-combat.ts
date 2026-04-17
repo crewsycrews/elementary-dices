@@ -13,7 +13,7 @@ interface V4CombatLogEntry {
   attacker_index: number;
   attacker_name: string;
   attacker_element: ElementType;
-  target: "unit" | "player";
+  target: "unit";
   defender_index?: number;
   defender_name?: string;
   defender_element?: ElementType;
@@ -23,8 +23,6 @@ interface V4CombatLogEntry {
   second_attack?: boolean;
   second_attack_lost?: boolean;
   defender_remaining_health?: number;
-  player_health_after: number;
-  opponent_health_after: number;
 }
 
 function getModifiers(member: BattlePartyMember): V4MemberModifiers {
@@ -52,22 +50,18 @@ function chooseTargetIndex(
 
 function computeDamage(
   attacker: BattlePartyMember,
-  defender: BattlePartyMember | null,
+  defender: BattlePartyMember,
 ): { damage: number; weakness: boolean; dodged: boolean } {
   const attackerModifiers = getModifiers(attacker);
-  const weakness = Boolean(defender && hasElementAdvantage(attacker.element, defender.element));
+  const weakness = hasElementAdvantage(attacker.element, defender.element);
   const raw = attacker.current_attack * (1 + attackerModifiers.damage_pct) * (weakness ? 1.1 : 1);
 
-  if (defender) {
-    const defenderModifiers = getModifiers(defender);
-    if (Math.random() < defenderModifiers.dodge_pct) {
-      return { damage: 0, weakness, dodged: true };
-    }
-    const reduced = raw * (1 - Math.min(0.5, defenderModifiers.armor_pct));
-    return { damage: Math.max(1, Math.round(reduced)), weakness, dodged: false };
+  const defenderModifiers = getModifiers(defender);
+  if (Math.random() < defenderModifiers.dodge_pct) {
+    return { damage: 0, weakness, dodged: true };
   }
-
-  return { damage: Math.max(1, Math.round(raw)), weakness, dodged: false };
+  const reduced = raw * (1 - Math.min(0.5, defenderModifiers.armor_pct));
+  return { damage: Math.max(1, Math.round(reduced)), weakness, dodged: false };
 }
 
 export function simulateV4CombatRound(
@@ -75,8 +69,6 @@ export function simulateV4CombatRound(
     round: number;
     player_party: BattlePartyMember[];
     opponent_party: BattlePartyMember[];
-    player_health: number;
-    opponent_health: number;
   },
   deployment: {
     player_deployed_indices: number[];
@@ -85,15 +77,11 @@ export function simulateV4CombatRound(
 ): {
   player_party: BattlePartyMember[];
   opponent_party: BattlePartyMember[];
-  player_health: number;
-  opponent_health: number;
   log: V4CombatLogEntry[];
   first_attacker: "player" | "opponent";
 } {
   const playerParty = state.player_party.map((member) => ({ ...member }));
   const opponentParty = state.opponent_party.map((member) => ({ ...member }));
-  let playerHealth = state.player_health;
-  let opponentHealth = state.opponent_health;
   const log: V4CombatLogEntry[] = [];
 
   const playerOrder = [...deployment.player_deployed_indices];
@@ -170,32 +158,17 @@ export function simulateV4CombatRound(
     const attacker = actingParty[attackerIndex];
 
     const executeAttack = (isSecondAttack: boolean): void => {
-      const aliveDefenders = defendingOrder.filter((idx) => {
+      const deployedDefenders = defendingOrder.filter((idx) => {
         const target = defendingParty[idx];
         return target && !target.is_destroyed && target.current_health > 0;
       });
+      const fallbackDefenders = defendingParty
+        .map((member, idx) => ({ member, idx }))
+        .filter(({ member }) => !member.is_destroyed && member.current_health > 0)
+        .map(({ idx }) => idx);
+      const aliveDefenders = deployedDefenders.length > 0 ? deployedDefenders : fallbackDefenders;
 
       if (aliveDefenders.length === 0) {
-        const { damage } = computeDamage(attacker, null);
-        if (sideToAct === "player") {
-          opponentHealth = Math.max(0, opponentHealth - damage);
-        } else {
-          playerHealth = Math.max(0, playerHealth - damage);
-        }
-        log.push({
-          round: state.round,
-          step,
-          side: sideToAct,
-          attacker_index: attackerIndex,
-          attacker_name: attacker.name,
-          attacker_element: attacker.element,
-          target: "player",
-          damage,
-          weakness_bonus_applied: false,
-          second_attack: isSecondAttack,
-          player_health_after: playerHealth,
-          opponent_health_after: opponentHealth,
-        });
         return;
       }
 
@@ -226,8 +199,6 @@ export function simulateV4CombatRound(
         dodged: attackResult.dodged,
         second_attack: isSecondAttack,
         defender_remaining_health: defender.current_health,
-        player_health_after: playerHealth,
-        opponent_health_after: opponentHealth,
       });
 
       if (isSecondAttack && defender.is_destroyed) {
@@ -248,8 +219,6 @@ export function simulateV4CombatRound(
           second_attack: true,
           second_attack_lost: true,
           defender_remaining_health: defender.current_health,
-          player_health_after: playerHealth,
-          opponent_health_after: opponentHealth,
         });
       }
     };
@@ -262,10 +231,6 @@ export function simulateV4CombatRound(
       executeAttack(true);
     }
 
-    if (playerHealth <= 0 || opponentHealth <= 0) {
-      break;
-    }
-
     step += 1;
     sideToAct = sideToAct === "player" ? "opponent" : "player";
   }
@@ -273,8 +238,6 @@ export function simulateV4CombatRound(
   return {
     player_party: playerParty,
     opponent_party: opponentParty,
-    player_health: playerHealth,
-    opponent_health: opponentHealth,
     log,
     first_attacker: firstAttacker,
   };

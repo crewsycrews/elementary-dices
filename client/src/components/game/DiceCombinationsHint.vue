@@ -16,40 +16,50 @@
     <div
       v-if="isVisible"
       ref="tooltipRef"
-      class="pointer-events-none fixed z-[70] w-[min(92vw,30rem)] rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur-sm"
+      class="pointer-events-none fixed z-[70] w-[min(92vw,34rem)] rounded-lg border border-border bg-card/95 p-3 shadow-xl backdrop-blur-sm"
       :style="tooltipStyle"
       role="tooltip"
     >
-      <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        <p class="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          {{ t("dice_combo.single_title") }}
+        </p>
+
+        <p class="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+          {{ t("dice_combo.single_overwrite_note") }}
+        </p>
+
+        <ul class="mt-1 space-y-1 text-xs">
+          <li
+            v-for="row in SINGLE_DIE_ROWS"
+            :key="row.element"
+            class="flex items-start justify-between gap-3 border-t border-border/40 py-1.5"
+          >
+            <span class="font-semibold text-foreground/95">{{ row.element }}</span>
+            <span class="text-emerald-300">{{ row.bonus }}</span>
+          </li>
+        </ul>
+      <p class="mt-3 text-xs font-bold uppercase tracking-wide text-muted-foreground">
         {{ t("dice_combo.title") }}
       </p>
 
-      <table class="mt-2 w-full text-left text-xs">
-        <thead class="text-muted-foreground">
-          <tr>
-            <th class="pb-1 pr-2 font-semibold">{{ t("dice_combo.col_combination") }}</th>
-            <th class="pb-1 pr-2 font-semibold">{{ t("dice_combo.col_pattern") }}</th>
-            <th class="pb-1 font-semibold">{{ t("dice_combo.col_bonus") }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in COMBINATION_ROWS"
-            :key="row.name"
-            class="border-t border-border/40 align-top"
-          >
-            <td class="py-1.5 pr-2 font-semibold text-foreground/95">
-              {{ row.name }}
-            </td>
-            <td class="py-1.5 pr-2 text-muted-foreground">
-              {{ row.pattern }}
-            </td>
-            <td class="py-1.5 text-emerald-300">
-              {{ row.bonus }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <p class="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+        {{ t("dice_combo.tiers_label") }}
+      </p>
+
+      <ul class="mt-1 space-y-1 text-xs">
+        <li
+          v-for="row in COMBINATION_ROWS"
+          :key="row.element"
+          class="border-t border-border/40 py-1.5"
+        >
+          <p class="font-semibold text-foreground/95">
+            {{ row.element }}
+          </p>
+          <p class="mt-0.5 leading-relaxed text-muted-foreground">
+            {{ row.summary }}
+          </p>
+        </li>
+      </ul>
     </div>
   </div>
 </template>
@@ -60,19 +70,46 @@ import { HelpCircle } from "lucide-vue-next";
 import { useI18n } from "@/i18n";
 
 type CombinationRow = {
-  name: string;
-  pattern: string;
+  element: string;
+  summary: string;
+};
+
+type SingleDieRow = {
+  element: string;
   bonus: string;
 };
 
 const { t } = useI18n();
 
 const COMBINATION_ROWS: CombinationRow[] = [
-  { name: "Triplet", pattern: t("dice_combo.triplet_pattern"), bonus: t("dice_combo.triplet_bonus") },
-  { name: "Quartet", pattern: t("dice_combo.quartet_pattern"), bonus: t("dice_combo.quartet_bonus") },
-  { name: "All-For-One", pattern: t("dice_combo.all_for_one_pattern"), bonus: t("dice_combo.all_for_one_bonus") },
-  { name: "Full House", pattern: t("dice_combo.full_house_pattern"), bonus: t("dice_combo.full_house_bonus") },
-  { name: "One-For-All", pattern: t("dice_combo.one_for_all_pattern"), bonus: t("dice_combo.one_for_all_bonus") },
+  {
+    element: t("element.water"),
+    summary: t("dice_combo.water.summary"),
+  },
+  {
+    element: t("element.earth"),
+    summary: t("dice_combo.earth.summary"),
+  },
+  {
+    element: t("element.fire"),
+    summary: t("dice_combo.fire.summary"),
+  },
+  {
+    element: t("element.air"),
+    summary: t("dice_combo.air.summary"),
+  },
+  {
+    element: t("element.lightning"),
+    summary: t("dice_combo.lightning.summary"),
+  },
+];
+
+const SINGLE_DIE_ROWS: SingleDieRow[] = [
+  { element: t("element.water"), bonus: t("dice_combo.single.water") },
+  { element: t("element.earth"), bonus: t("dice_combo.single.earth") },
+  { element: t("element.fire"), bonus: t("dice_combo.single.fire") },
+  { element: t("element.air"), bonus: t("dice_combo.single.air") },
+  { element: t("element.lightning"), bonus: t("dice_combo.single.lightning") },
 ];
 
 const isVisible = ref(false);

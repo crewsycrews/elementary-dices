@@ -160,7 +160,7 @@ export interface CreateWildEncounterEventData {
 
 export interface UpdateWildEncounterResolutionData {
   status: 'completed' | 'fled';
-  outcome: 'victory' | 'defeat' | 'fled';
+  outcome: 'victory' | 'defeat' | 'draw';
   dice_roll_id?: string;
   item_used_id?: string;
   captured_player_elemental_id?: string;

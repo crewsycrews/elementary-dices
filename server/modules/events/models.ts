@@ -273,8 +273,6 @@ export const FarkleBattleStateDTO = t.Object({
   opponent_turn_result: t.Nullable(t.Any()),
   player_bonuses_total: t.Record(t.String(), t.Number()),
   opponent_bonuses_total: t.Record(t.String(), t.Number()),
-  player_health: t.Number(),
-  opponent_health: t.Number(),
   combat_log: t.Array(t.Any()),
   last_player_deployment: t.Optional(t.Array(t.Number())),
   last_opponent_deployment: t.Optional(t.Array(t.Number())),

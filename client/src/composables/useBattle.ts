@@ -33,7 +33,6 @@ const COMBINATION_LABELS: Record<string, string> = {
   one_for_all: "One-For-All",
   full_house: "Full House",
 };
-const MIN_BATTLE_HP = 120;
 
 export function useBattle() {
   // State
@@ -59,12 +58,6 @@ export function useBattle() {
   );
   const opponentBonusesTotal = computed(
     () => battleState.value?.opponent_bonuses_total ?? {},
-  );
-  const playerHealth = computed(
-    () => battleState.value?.player_health ?? MIN_BATTLE_HP,
-  );
-  const opponentHealth = computed(
-    () => battleState.value?.opponent_health ?? MIN_BATTLE_HP,
   );
   const opponentTurnResult = computed(
     () => battleState.value?.opponent_turn_result ?? null,
@@ -207,8 +200,6 @@ export function useBattle() {
     opponentTurnsDone,
     playerBonusesTotal,
     opponentBonusesTotal,
-    playerHealth,
-    opponentHealth,
     opponentTurnResult,
     farkleTurnState,
     farkleDice,

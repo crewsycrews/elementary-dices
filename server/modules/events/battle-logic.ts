@@ -35,15 +35,13 @@ export interface CombatLogEntry {
   attacker_index: number;
   attacker_name: string;
   attacker_element: ElementType;
-  target: "unit" | "player";
+  target: "unit";
   defender_index?: number;
   defender_name?: string;
   defender_element?: ElementType;
   damage: number;
   weakness_bonus_applied: boolean;
   defender_remaining_health?: number;
-  player_health_after: number;
-  opponent_health_after: number;
 }
 
 export interface BattleState {
@@ -51,8 +49,6 @@ export interface BattleState {
   player_party: BattlePartyMember[];
   opponent_party: BattlePartyMember[];
   current_turn: number; // battle round
-  player_health: number;
-  opponent_health: number;
   combat_log: CombatLogEntry[];
   winner?: "player" | "opponent" | "draw";
   player_total_attack?: number;
@@ -120,15 +116,12 @@ function chooseTargetIndex(
 }
 
 export interface CombatSideState {
-  health: number;
   deployed_indices: number[];
 }
 
 export interface CombatRoundResult {
   player_party: BattlePartyMember[];
   opponent_party: BattlePartyMember[];
-  player_health: number;
-  opponent_health: number;
   log: CombatLogEntry[];
 }
 
@@ -168,8 +161,6 @@ export function simulateCombatRound(
     round: number;
     player_party: BattlePartyMember[];
     opponent_party: BattlePartyMember[];
-    player_health: number;
-    opponent_health: number;
   },
   deployment: {
     player: CombatSideState;
@@ -179,8 +170,6 @@ export function simulateCombatRound(
 ): CombatRoundResult {
   const playerParty = state.player_party.map((m) => ({ ...m }));
   const opponentParty = state.opponent_party.map((m) => ({ ...m }));
-  let playerHealth = state.player_health;
-  let opponentHealth = state.opponent_health;
   const log: CombatLogEntry[] = [];
 
   const firstSide: "player" | "opponent" =
@@ -220,78 +209,61 @@ export function simulateCombatRound(
     }
 
     const attacker = actingParty[attackerIndex];
-    const defenderCandidates = defendingCursor.unitOrder.filter((idx) => {
+    const deployedDefenderCandidates = defendingCursor.unitOrder.filter((idx) => {
       const d = defendingParty[idx];
       return d && !d.is_destroyed && d.current_health > 0;
     });
+    const fallbackDefenderCandidates = defendingParty
+      .map((member, idx) => ({ member, idx }))
+      .filter(({ member }) => !member.is_destroyed && member.current_health > 0)
+      .map(({ idx }) => idx);
+    const defenderCandidates =
+      deployedDefenderCandidates.length > 0
+        ? deployedDefenderCandidates
+        : fallbackDefenderCandidates;
 
     if (defenderCandidates.length === 0) {
-      const damage = Math.max(1, Math.round(attacker.current_attack));
-      if (sideToAct === "player") {
-        opponentHealth = Math.max(0, opponentHealth - damage);
-      } else {
-        playerHealth = Math.max(0, playerHealth - damage);
-      }
-      log.push({
-        round: state.round,
-        step,
-        side: sideToAct,
-        attacker_index: attackerIndex,
-        attacker_name: attacker.name,
-        attacker_element: attacker.element,
-        target: "player",
-        damage,
-        weakness_bonus_applied: false,
-        player_health_after: playerHealth,
-        opponent_health_after: opponentHealth,
-      });
-    } else {
-      const defenderIndex = chooseTargetIndex(
-        attacker.element,
-        defenderCandidates,
-        defendingParty,
-      );
-      const defender = defendingParty[defenderIndex];
-      const weakness = hasElementAdvantage(attacker.element, defender.element);
-      const damage = Math.max(
-        1,
-        Math.round(attacker.current_attack * (weakness ? 1.1 : 1)),
-      );
-      defender.current_health = Math.max(0, defender.current_health - damage);
-      if (defender.current_health <= 0) {
-        defender.is_destroyed = true;
-      }
-
-      log.push({
-        round: state.round,
-        step,
-        side: sideToAct,
-        attacker_index: attackerIndex,
-        attacker_name: attacker.name,
-        attacker_element: attacker.element,
-        target: "unit",
-        defender_index: defenderIndex,
-        defender_name: defender.name,
-        defender_element: defender.element,
-        damage,
-        weakness_bonus_applied: weakness,
-        defender_remaining_health: defender.current_health,
-        player_health_after: playerHealth,
-        opponent_health_after: opponentHealth,
-      });
-    }
-
-    if (playerHealth <= 0 || opponentHealth <= 0) {
       break;
     }
+
+    const defenderIndex = chooseTargetIndex(
+      attacker.element,
+      defenderCandidates,
+      defendingParty,
+    );
+    const defender = defendingParty[defenderIndex];
+    const weakness = hasElementAdvantage(attacker.element, defender.element);
+    const damage = Math.max(
+      1,
+      Math.round(attacker.current_attack * (weakness ? 1.1 : 1)),
+    );
+    defender.current_health = Math.max(0, defender.current_health - damage);
+    if (defender.current_health <= 0) {
+      defender.is_destroyed = true;
+    }
+
+    log.push({
+      round: state.round,
+      step,
+      side: sideToAct,
+      attacker_index: attackerIndex,
+      attacker_name: attacker.name,
+      attacker_element: attacker.element,
+      target: "unit",
+      defender_index: defenderIndex,
+      defender_name: defender.name,
+      defender_element: defender.element,
+      damage,
+      weakness_bonus_applied: weakness,
+      defender_remaining_health: defender.current_health,
+    });
+
     sideToAct = sideToAct === "player" ? "opponent" : "player";
   }
 
   return {
     player_party: playerParty,
     opponent_party: opponentParty,
-    player_health: playerHealth,
-    opponent_health: opponentHealth,
     log,
   };
 }
@@ -307,15 +279,22 @@ export function calculateTotalPower(party: BattlePartyMember[]): number {
 }
 
 /**
- * Determine winner from player/opponent health.
+ * Determine winner from living elemental count.
  */
 export function determineBattleWinner(
   state: BattleState,
 ): { winner: "player" | "opponent" | "draw"; playerTotal: number; opponentTotal: number } {
+  const playerAlive = state.player_party.some(
+    (member) => !member.is_destroyed && member.current_health > 0,
+  );
+  const opponentAlive = state.opponent_party.some(
+    (member) => !member.is_destroyed && member.current_health > 0,
+  );
+
   let winner: "player" | "opponent" | "draw";
-  if (state.player_health > state.opponent_health) {
+  if (playerAlive && !opponentAlive) {
     winner = "player";
-  } else if (state.opponent_health > state.player_health) {
+  } else if (!playerAlive && opponentAlive) {
     winner = "opponent";
   } else {
     winner = "draw";
@@ -323,8 +302,8 @@ export function determineBattleWinner(
 
   return {
     winner,
-    playerTotal: state.player_health,
-    opponentTotal: state.opponent_health,
+    playerTotal: calculateTotalPower(state.player_party),
+    opponentTotal: calculateTotalPower(state.opponent_party),
   };
 }
 

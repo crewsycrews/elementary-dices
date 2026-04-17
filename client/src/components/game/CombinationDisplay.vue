@@ -65,8 +65,10 @@ const ELEMENT_EMOJIS: Record<string, string> = {
 };
 
 const COMBO_LABELS: Record<string, string> = {
+  doublet: "Doublet",
   triplet: "Triplet",
   quartet: "Quartet",
+  quintet: "Quintet",
   all_for_one: "All-For-One",
   one_for_all: "One-For-All",
   full_house: "Full House",

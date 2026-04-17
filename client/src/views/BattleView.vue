@@ -71,8 +71,6 @@
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
-          :player-health="battle.playerHealth.value"
-          :opponent-health="battle.opponentHealth.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
           :show-targets="true"
           :target-lines="battle.targetLines.value"
@@ -96,19 +94,18 @@
           :current-turn="battle.currentTurn.value"
           :bonuses-total="battle.playerBonusesTotal.value"
         />
-        <p class="text-center text-xs text-muted-foreground">
-          {{ t("battle.continues_to_zero") }}
-        </p>
 
         <!-- Battle Arena -->
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
-          :player-health="battle.playerHealth.value"
-          :opponent-health="battle.opponentHealth.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
           :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
           :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
+          :is-player-party-droppable="!!battle.farkleTurnState.value && !isBusy"
+          :highlighted-player-indices="highlightedDroppablePartyIndices"
+          :player-infusion-elements="playerInfusionElements"
+          @player-party-drop="handleDropToParty"
         >
           <template #centerActions>
             <div class="w-full max-w-md rounded-xl border border-border/60 bg-card/40 p-3 space-y-3">
@@ -121,6 +118,8 @@
                   :dice="battle.farkleDice.value"
                   :force-animate-indices="forcedAnimationIndices"
                   :force-animate-nonce="forceAnimationNonce"
+                  @die-drag-start="handleDieDragStart"
+                  @die-drag-end="handleDieDragEnd"
                   @rolling-start="isDiceAnimating = true"
                   @rolling-complete="isDiceAnimating = false"
                 />
@@ -131,22 +130,6 @@
                   :selectable="false"
                   :show-empty="true"
                 />
-
-                <div
-                  v-if="battle.activeCombinations.value.length > 0"
-                  class="space-y-1"
-                >
-                  <p
-                    class="text-xs font-bold text-muted-foreground uppercase tracking-wide text-center"
-                  >
-                    Assigned Combination Effects
-                  </p>
-                  <CombinationDisplay
-                    v-if="!isBusy"
-                    :combinations="battle.activeCombinations.value"
-                    :selectable="false"
-                  />
-                </div>
               </div>
 
               <div class="flex justify-center" v-if="canRollRemaining">
@@ -175,50 +158,6 @@
                   :disabled="isBusy || !canEndTurn"
                   class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
                 >{{ t("battle.deploy_resolve") }}</button>
-              </div>
-
-              <div
-                v-if="battle.farkleTurnState.value && !isBusy"
-                class="space-y-2 rounded-lg border border-border/60 bg-card/30 p-3"
-              >
-                <p class="text-xs font-semibold text-muted-foreground uppercase tracking-wide text-center">
-                  Assigned Deployment (Drag Die -> Elemental)
-                </p>
-                <div class="flex flex-wrap justify-center gap-2">
-                  <div
-                    v-for="entry in unassignedDice"
-                    :key="entry.index"
-                    draggable="true"
-                    @dragstart="handleDieDragStart(entry.index)"
-                    class="cursor-grab active:cursor-grabbing rounded-md border border-green-500/60 bg-green-500/10 px-2 py-1 text-sm"
-                  >
-                    {{ getElementEmoji(entry.die.current_result) }} d{{ entry.index + 1 }}
-                  </div>
-                  <p v-if="unassignedDice.length === 0" class="text-xs text-muted-foreground">
-                    No unassigned dice.
-                  </p>
-                </div>
-                <div class="grid grid-cols-1 gap-1.5">
-                  <div
-                    v-for="(member, partyIndex) in battle.playerParty.value"
-                    :key="member.elemental_id + '-assign-' + partyIndex"
-                    @dragover.prevent
-                    @drop="handleDropToParty(partyIndex)"
-                    class="flex items-center justify-between rounded-md border px-2 py-1 text-xs"
-                    :class="member.is_destroyed ? 'opacity-50 border-border bg-muted/30' : 'border-border bg-card/40'"
-                  >
-                    <span>
-                      {{ member.name }} {{ getElementEmoji(member.element) }}
-                    </span>
-                    <span v-if="assignedDieByPartyIndex[partyIndex]" class="rounded border border-blue-500/60 bg-blue-500/10 px-1.5 py-0.5">
-                      {{ getElementEmoji(assignedDieByPartyIndex[partyIndex]!.die.current_result) }} Assigned
-                    </span>
-                    <span v-else class="text-muted-foreground">Drop die here</span>
-                  </div>
-                </div>
-                <p v-if="!canEndTurn" class="text-center text-xs text-yellow-400">
-                  Deploy all possible alive elementals before commit.
-                </p>
               </div>
 
               <div
@@ -283,10 +222,10 @@
           <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
             <p class="text-xs uppercase tracking-wide text-muted-foreground">{{ t("battle.round_impact") }}</p>
             <p class="text-sm text-red-300">
-              {{ t("battle.you_took_damage", { damage: lastRoundSummary.playerHealthDamage }) }}
+              {{ t("battle.you_took_damage", { damage: lastRoundSummary.playerDamageTaken }) }}
             </p>
             <p class="text-sm text-blue-300">
-              {{ t("battle.opponent_took_damage", { damage: lastRoundSummary.opponentHealthDamage }) }}
+              {{ t("battle.opponent_took_damage", { damage: lastRoundSummary.opponentDamageTaken }) }}
             </p>
             <p class="text-sm">
               {{
@@ -344,7 +283,6 @@
               <span v-if="entry.target === 'unit'">
                 {{ entry.defender_name }} ({{ getElementEmoji(entry.defender_element ?? "") }})
               </span>
-              <span v-else>{{ t("battle.player_hp") }}</span>
               {{ t("battle.for_damage", { damage: entry.damage }) }}
             </div>
           </div>
@@ -378,27 +316,19 @@
             <p class="text-lg text-muted-foreground">
               {{ resolvedMessage }}
             </p>
-            <p class="text-sm text-muted-foreground mt-1">
-              {{
-                t("battle.final_hp", {
-                  player: battle.playerHealth.value,
-                  opponent: battle.opponentHealth.value,
-                })
-              }}
-            </p>
 
             <!-- Core Summary -->
             <div class="grid grid-cols-2 gap-4 mt-6">
               <div class="p-4 bg-blue-500/10 rounded-lg space-y-1">
                 <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_opponent") }}</p>
-                <p class="text-3xl font-bold text-blue-400">{{ totalOpponentHealthDamage }}</p>
+                <p class="text-3xl font-bold text-blue-400">{{ totalOpponentDamage }}</p>
                 <p class="text-xs text-muted-foreground">
                   {{ t("battle.opponent_units_destroyed", { count: totalOpponentUnitsDestroyed }) }}
                 </p>
               </div>
               <div class="p-4 bg-red-500/10 rounded-lg space-y-1">
                 <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_you") }}</p>
-                <p class="text-3xl font-bold text-red-400">{{ totalPlayerHealthDamage }}</p>
+                <p class="text-3xl font-bold text-red-400">{{ totalPlayerDamage }}</p>
                 <p class="text-xs text-muted-foreground">
                   {{ t("battle.your_units_destroyed", { count: totalPlayerUnitsDestroyed }) }}
                 </p>
@@ -539,6 +469,7 @@ const showOnboarding = ref(false);
 const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 const draggingDieIndex = ref<number | null>(null);
+const isDeploying = ref(false);
 
 const onboardingSubtitle = computed(() =>
   locale.value === "ru"
@@ -572,10 +503,10 @@ const onboardingSteps = computed(() =>
         {
           title: "Переполнение урона и условие победы",
           description:
-            "Атаки соперника сначала бьют выставленных защитников. Остаток урона переходит в HP игрока. Уничтоженные элементали остаются уничтоженными до конца битвы.",
+            "Атаки соперника сначала бьют выставленных защитников. Если выставленных целей нет, урон идет по любому живому элементалю. Уничтоженные элементали остаются уничтоженными до конца битвы.",
           bullets: [
-            "Если никого не выставить, весь выставленный урон соперника идет напрямую в HP игрока.",
-            "Битва продолжается, пока один из игроков не достигнет 0 HP.",
+            "Даже без выставления соперник все равно бьет живых элементалей.",
+            "Битва продолжается, пока у одной из сторон не закончатся живые элементали.",
             "Награды и штрафы применяются только после полного завершения битвы.",
           ],
         },
@@ -604,10 +535,10 @@ const onboardingSteps = computed(() =>
         {
           title: "Damage overflow and win condition",
           description:
-            "Enemy attacks hit deployed defenders first. Remaining attacks overflow to player HP. Destroyed elementals stay destroyed for this battle.",
+            "Enemy attacks hit deployed defenders first. If no deployed defenders are alive, attacks hit any living elemental. Destroyed elementals stay destroyed for this battle.",
           bullets: [
-            "If you deploy nothing, all enemy deployed attacks hit player HP directly.",
-            "Battle continues until one player reaches 0 HP.",
+            "If you deploy nothing, enemy attacks still target your living elementals.",
+            "Battle continues until one side has no living elementals.",
             "Rewards and penalties resolve only when the full battle ends.",
           ],
         },
@@ -632,7 +563,7 @@ type CombatLogEntry = {
   attacker_index: number;
   attacker_name: string;
   attacker_element: string;
-  target: "unit" | "player";
+  target: "unit";
   defender_index?: number;
   defender_name?: string;
   defender_element?: string;
@@ -677,7 +608,7 @@ const combatLogEntries = computed<CombatLogEntry[]>(() => {
         (entry.side === "player" || entry.side === "opponent") &&
         typeof entry.attacker_name === "string" &&
         typeof entry.attacker_element === "string" &&
-        (entry.target === "unit" || entry.target === "player") &&
+        entry.target === "unit" &&
         typeof entry.damage === "number",
     )
     .sort((a, b) => a.round - b.round || a.step - b.step);
@@ -707,11 +638,11 @@ const lastRoundSummary = computed(() => {
     return null;
   }
   const firstAttacker = lastRoundLogs.value[0].side;
-  const playerHealthDamage = lastRoundLogs.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+  const playerDamageTaken = lastRoundLogs.value
+    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0);
-  const opponentHealthDamage = lastRoundLogs.value
-    .filter((entry) => entry.side === "player" && entry.target === "player")
+  const opponentDamageTaken = lastRoundLogs.value
+    .filter((entry) => entry.side === "player" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0);
   const playerUnitsDestroyed = lastRoundLogs.value.filter(
     (entry) =>
@@ -729,8 +660,8 @@ const lastRoundSummary = computed(() => {
   return {
     round: lastResolvedRoundNumber.value,
     firstAttacker,
-    playerHealthDamage,
-    opponentHealthDamage,
+    playerDamageTaken,
+    opponentDamageTaken,
     playerUnitsDestroyed,
     opponentUnitsDestroyed,
   };
@@ -754,15 +685,15 @@ const deployedOpponentNames = computed(() => {
     .join(", ");
 });
 
-const totalPlayerHealthDamage = computed(() =>
+const totalPlayerDamage = computed(() =>
   combatLogEntries.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0),
 );
 
-const totalOpponentHealthDamage = computed(() =>
+const totalOpponentDamage = computed(() =>
   combatLogEntries.value
-    .filter((entry) => entry.side === "player" && entry.target === "player")
+    .filter((entry) => entry.side === "player" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0),
 );
 
@@ -829,14 +760,40 @@ const unassignedDice = computed(() =>
     ),
 );
 
-const assignedDieByPartyIndex = computed(() => {
-  const result: Record<number, { die: (typeof battle.farkleDice.value)[number]; index: number }> = {};
-  battle.farkleDice.value.forEach((die, index) => {
+const assignedPartyIndexSet = computed(() => {
+  const assigned = new Set<number>();
+  battle.farkleDice.value.forEach((die) => {
     if (die.is_assigned && typeof die.assigned_to_party_index === "number") {
-      result[die.assigned_to_party_index] = { die, index };
+      assigned.add(die.assigned_to_party_index);
     }
   });
-  return result;
+  return assigned;
+});
+
+const playerInfusionElements = computed<Record<number, string>>(() => {
+  if (isDeploying.value) return {};
+  const infused: Record<number, string> = {};
+  battle.farkleDice.value.forEach((die) => {
+    if (
+      die.is_assigned &&
+      typeof die.assigned_to_party_index === "number" &&
+      typeof die.current_result === "string"
+    ) {
+      infused[die.assigned_to_party_index] = die.current_result;
+    }
+  });
+  return infused;
+});
+
+const highlightedDroppablePartyIndices = computed(() => {
+  if (draggingDieIndex.value === null) return [] as number[];
+  return battle.playerParty.value
+    .map((member, index) => ({ member, index }))
+    .filter(
+      ({ member, index }) =>
+        !member.is_destroyed && !assignedPartyIndexSet.value.has(index),
+    )
+    .map(({ index }) => index);
 });
 
 // Can end turn when there's something set aside or busted
@@ -899,6 +856,10 @@ const handleDieDragStart = (dieIndex: number) => {
   draggingDieIndex.value = dieIndex;
 };
 
+const handleDieDragEnd = () => {
+  draggingDieIndex.value = null;
+};
+
 const handleDropToParty = async (partyIndex: number) => {
   if (!userStore.userId) return;
   const dieIndex = draggingDieIndex.value;
@@ -923,6 +884,7 @@ const handleDropToParty = async (partyIndex: number) => {
 const handleFarkleEndTurn = async () => {
   if (!userStore.userId) return;
   isActing.value = true;
+  isDeploying.value = true;
   try {
     const response = await eventStore.farkleEndTurn(userStore.userId);
     if (response?.result) {
@@ -931,6 +893,7 @@ const handleFarkleEndTurn = async () => {
   } catch (error) {
     console.error("Failed to end turn:", error);
   } finally {
+    isDeploying.value = false;
     isActing.value = false;
   }
 };

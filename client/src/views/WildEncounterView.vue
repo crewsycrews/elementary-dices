@@ -122,8 +122,6 @@
           <BattleArena
             :player-party="wildBattleState.player_party"
             :opponent-party="wildBattleState.enemy_party"
-            :player-health="wildBattleState.player_health"
-            :opponent-health="wildBattleState.enemy_health"
             :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
           />
 
@@ -161,16 +159,16 @@
             <p>
               {{ t("wild.you_took") }}
               <span class="font-semibold text-red-300">{{
-                lastRoundSummary.playerHealthDamage
+                lastRoundSummary.playerDamageTaken
               }}</span>
-              {{ t("wild.direct_hp_damage") }}
+              {{ t("wild.damage") }}
             </p>
             <p>
               {{ t("wild.wild_took") }}
               <span class="font-semibold text-blue-300">{{
-                lastRoundSummary.opponentHealthDamage
+                lastRoundSummary.opponentDamageTaken
               }}</span>
-              {{ t("wild.direct_hp_damage") }}
+              {{ t("wild.damage") }}
             </p>
           </div>
         </div>
@@ -193,14 +191,6 @@
               }}
             </h2>
             <p class="text-lg mb-2">{{ captureResult.message }}</p>
-            <p v-if="finalHealthSummary" class="text-sm text-muted-foreground">
-              {{
-                t("wild.final_hp", {
-                  player: finalHealthSummary.player,
-                  enemy: finalHealthSummary.enemy,
-                })
-              }}
-            </p>
 
             <div
               v-if="captureResult.success && captureResult.elemental_caught"
@@ -425,13 +415,11 @@ type WildBattleCombatLogEntry = {
   round: number;
   step: number;
   side: "player" | "opponent";
-  target: "unit" | "player";
+  target: "unit";
   damage: number;
 };
 
 type WildBattleState = {
-  player_health: number;
-  enemy_health: number;
   player_party: BattlePartyMember[];
   enemy_party: BattlePartyMember[];
   combat_log: WildBattleCombatLogEntry[];
@@ -462,7 +450,7 @@ const combatLogEntries = computed<WildBattleCombatLogEntry[]>(() => {
         typeof entry.round === "number" &&
         typeof entry.step === "number" &&
         (entry.side === "player" || entry.side === "opponent") &&
-        (entry.target === "unit" || entry.target === "player") &&
+        entry.target === "unit" &&
         typeof entry.damage === "number",
     )
     .sort((a, b) => a.round - b.round || a.step - b.step);
@@ -489,26 +477,18 @@ const lastRoundSummary = computed(() => {
     return null;
   }
   const firstAttacker = lastRoundLogs.value[0].side;
-  const playerHealthDamage = lastRoundLogs.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "player")
+  const playerDamageTaken = lastRoundLogs.value
+    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0);
-  const opponentHealthDamage = lastRoundLogs.value
-    .filter((entry) => entry.side === "player" && entry.target === "player")
+  const opponentDamageTaken = lastRoundLogs.value
+    .filter((entry) => entry.side === "player" && entry.target === "unit")
     .reduce((sum, entry) => sum + entry.damage, 0);
 
   return {
     round: lastResolvedRoundNumber.value,
     firstAttacker,
-    playerHealthDamage,
-    opponentHealthDamage,
-  };
-});
-
-const finalHealthSummary = computed(() => {
-  if (!captureResult.value || !wildBattleState.value) return null;
-  return {
-    player: wildBattleState.value.player_health,
-    enemy: wildBattleState.value.enemy_health,
+    playerDamageTaken,
+    opponentDamageTaken,
   };
 });
 

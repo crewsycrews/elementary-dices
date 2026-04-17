@@ -9,6 +9,9 @@
         v-for="entry in row"
         :key="entry.index"
         @click="!entry.die.is_set_aside && $emit('toggle-select', entry.index)"
+        :draggable="isDieDraggable(entry.die)"
+        @dragstart="handleDieDragStart($event, entry.index, entry.die)"
+        @dragend="handleDieDragEnd"
         class="relative flex flex-col items-center gap-1 cursor-pointer select-none"
         :class="getDieClasses(entry.die)"
       >
@@ -156,7 +159,25 @@ const emit = defineEmits<{
   "toggle-select": [index: number];
   "rolling-start": [];
   "rolling-complete": [];
+  "die-drag-start": [index: number];
+  "die-drag-end": [];
 }>();
+
+function isDieDraggable(die: FarkleDie): boolean {
+  return !die.is_assigned && die.assigned_to_party_index === null;
+}
+
+function handleDieDragStart(event: DragEvent, index: number, die: FarkleDie): void {
+  if (!isDieDraggable(die)) {
+    event.preventDefault();
+    return;
+  }
+  emit("die-drag-start", index);
+}
+
+function handleDieDragEnd(): void {
+  emit("die-drag-end");
+}
 
 watch(
   () => ({

@@ -78,8 +78,6 @@ export interface FarkleBattleState {
   opponent_turn_result: OpponentTurnResult | null;
   player_bonuses_total: Partial<Record<ElementType, number>>;
   opponent_bonuses_total: Partial<Record<ElementType, number>>;
-  player_health: number;
-  opponent_health: number;
   combat_log: Array<Record<string, unknown>>;
   last_player_deployment?: number[];
   last_opponent_deployment?: number[];

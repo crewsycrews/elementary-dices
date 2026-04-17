@@ -5,6 +5,8 @@
       borderColorClass,
       isBuffed ? 'ring-2 ring-green-400 animate-pulse' : '',
       isTargeted ? 'ring-2 ring-red-400' : '',
+      dropHighlight ? 'ring-2 ring-cyan-300/70 bg-cyan-500/10 shadow-[0_0_18px_rgba(34,211,238,0.25)]' : '',
+      infusionContainerClass,
     ]"
   >
     <!-- Element + Level Badge -->
@@ -48,6 +50,11 @@
         </span>
       </div>
     </div>
+    <div v-if="hasPositiveBonus" class="mt-1 text-right">
+      <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300">
+        BONUS +{{ bonusPercent.toFixed(0) }}%
+      </span>
+    </div>
 
     <div class="flex items-center justify-between mt-1">
       <span class="text-xs text-muted-foreground">{{ t("battle_arena.hp") }}</span>
@@ -88,6 +95,8 @@ const props = defineProps<{
   showTarget?: boolean;
   targetName?: string;
   deploymentState?: "deployed" | "bench" | null;
+  dropHighlight?: boolean;
+  infusionElement?: string | null;
 }>();
 const { t } = useI18n();
 
@@ -113,6 +122,11 @@ const displayAttack = computed(() => props.member.current_attack.toFixed(0));
 const powerDiff = computed(
   () => props.member.current_attack - props.member.base_attack,
 );
+const bonusPercent = computed(() => {
+  if (props.member.base_attack <= 0) return 0;
+  return ((props.member.current_attack - props.member.base_attack) / props.member.base_attack) * 100;
+});
+const hasPositiveBonus = computed(() => bonusPercent.value > 0);
 
 const healthPct = computed(() => {
   if (props.member.max_health <= 0) return 0;
@@ -135,6 +149,21 @@ const statusClass = computed(() => {
   if (props.deploymentState === "bench") return "bg-muted text-muted-foreground";
   return "";
 });
+
+const INFUSION_THEME: Record<string, string> = {
+  fire: "shadow-[0_0_24px_rgba(239,68,68,0.7)]",
+  water: "shadow-[0_0_24px_rgba(59,130,246,0.7)]",
+  earth: "shadow-[0_0_24px_rgba(150,75,0,0.65)]",
+  air: "shadow-[0_0_24px_rgba(34,197,94,0.7)]",
+  lightning: "shadow-[0_0_24px_rgba(250,204,21,0.8)]",
+};
+
+const infusionTheme = computed(() => {
+  if (!props.infusionElement) return null;
+  return INFUSION_THEME[props.infusionElement] ?? null;
+});
+
+const infusionContainerClass = computed(() => infusionTheme.value ?? "");
 
 const previousPower = ref(props.member.current_attack);
 const powerChangeClass = ref("");

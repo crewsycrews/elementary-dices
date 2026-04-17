@@ -7,22 +7,29 @@
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-base font-bold text-blue-400">{{ t("battle_arena.your_party") }}</h3>
           <div class="text-right">
-            <p class="text-sm font-bold text-blue-400">{{ playerHealth }} {{ t("battle_arena.hp") }}</p>
             <p class="text-[11px] text-muted-foreground">
               {{ playerAliveCount }}/{{ playerParty.length }} {{ t("battle_arena.alive") }}
             </p>
           </div>
         </div>
         <div class="space-y-1.5">
-          <BattleElementalCard
+          <div
             v-for="(member, index) in playerParty"
             :key="member.elemental_id + '-' + index"
-            :member="member"
-            :is-buffed="isElementBuffed(member.element)"
-            :show-target="showTargets"
-            :target-name="getTargetName(member, 'player')"
-            :deployment-state="getDeploymentState(index, 'player')"
-          />
+            @dragover.prevent="isPlayerPartyDroppable && !member.is_destroyed"
+            @drop.prevent="handlePlayerPartyDrop(index)"
+            :class="isPlayerPartyDroppable && !member.is_destroyed ? 'rounded-lg ring-1 ring-transparent transition-colors' : ''"
+          >
+            <BattleElementalCard
+              :member="member"
+              :is-buffed="isElementBuffed(member.element)"
+              :show-target="showTargets"
+              :target-name="getTargetName(member, 'player')"
+              :deployment-state="getDeploymentState(index, 'player')"
+              :drop-highlight="isPlayerDropHighlighted(index)"
+              :infusion-element="getInfusionElement(index)"
+            />
+          </div>
         </div>
       </div>
 
@@ -48,7 +55,6 @@
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-base font-bold text-red-400">{{ opponentName }}</h3>
           <div class="text-right">
-            <p class="text-sm font-bold text-red-400">{{ opponentHealth }} {{ t("battle_arena.hp") }}</p>
             <p class="text-[11px] text-muted-foreground">
               {{ opponentAliveCount }}/{{ opponentParty.length }} {{ t("battle_arena.alive") }}
             </p>
@@ -80,12 +86,13 @@ const props = defineProps<{
   playerParty: BattlePartyMember[]
   opponentParty: BattlePartyMember[]
   opponentName: string
-  playerHealth?: number
-  opponentHealth?: number
   showTargets?: boolean
   buffedElement?: string | null
   playerDeployedIndices?: number[] | null
   opponentDeployedIndices?: number[] | null
+  isPlayerPartyDroppable?: boolean
+  highlightedPlayerIndices?: number[]
+  playerInfusionElements?: Record<number, string>
   targetLines?: Array<{
     fromIndex: number
     toIndex: number
@@ -93,13 +100,13 @@ const props = defineProps<{
     defenderElement: string
   }>
 }>()
+const emit = defineEmits<{
+  playerPartyDrop: [partyIndex: number]
+}>()
 const { t } = useI18n()
 
 const slots = useSlots()
 
-const MIN_BATTLE_HP = 120
-const playerHealth = computed(() => props.playerHealth ?? MIN_BATTLE_HP)
-const opponentHealth = computed(() => props.opponentHealth ?? MIN_BATTLE_HP)
 const playerAliveCount = computed(
   () => props.playerParty.filter((m) => !m.is_destroyed).length
 )
@@ -132,5 +139,18 @@ function getDeploymentState(
     return null
   }
   return deployed.includes(index) ? 'deployed' : 'bench'
+}
+
+function handlePlayerPartyDrop(index: number): void {
+  if (!props.isPlayerPartyDroppable) return
+  emit('playerPartyDrop', index)
+}
+
+function isPlayerDropHighlighted(index: number): boolean {
+  return (props.highlightedPlayerIndices ?? []).includes(index)
+}
+
+function getInfusionElement(index: number): string | null {
+  return props.playerInfusionElements?.[index] ?? null
 }
 </script>

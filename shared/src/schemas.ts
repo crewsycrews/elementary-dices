@@ -554,8 +554,6 @@ export const FarkleBattleStateSchema = t.Object({
   opponent_turn_result: t.Nullable(OpponentTurnResultSchema),
   player_bonuses_total: t.Record(t.String(), t.Number()),
   opponent_bonuses_total: t.Record(t.String(), t.Number()),
-  player_health: t.Integer({ minimum: 0 }),
-  opponent_health: t.Integer({ minimum: 0 }),
   combat_log: t.Array(t.Record(t.String(), t.Any())),
   last_player_deployment: t.Optional(t.Array(t.Integer())),
   last_opponent_deployment: t.Optional(t.Array(t.Integer())),
