@@ -8,7 +8,7 @@
       <div
         v-for="entry in row"
         :key="entry.index"
-        @click="!entry.die.is_set_aside && $emit('toggle-select', entry.index)"
+        @click="!entry.die.is_set_aside && !entry.die.is_assigned && $emit('toggle-select', entry.index)"
         :draggable="isDieDraggable(entry.die)"
         @dragstart="handleDieDragStart($event, entry.index, entry.die)"
         @dragend="handleDieDragEnd"
@@ -138,7 +138,8 @@ function getDiceResult(die: FarkleDie) {
 }
 
 function getDieClasses(die: FarkleDie): string {
-  if (die.is_set_aside) return "opacity-60 cursor-default";
+  if (die.is_assigned) return "opacity-60 cursor-default";
+  if (die.is_set_aside) return "opacity-80";
   return "hover:scale-105 active:scale-95";
 }
 

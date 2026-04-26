@@ -500,7 +500,6 @@ export const FarkleDieSchema = t.Object({
 
 export const FarkleTurnPhase = t.Union([
   t.Literal("initial_roll"),
-  t.Literal("can_reroll"),
   t.Literal("set_aside"),
   t.Literal("rolling_remaining"),
   t.Literal("ready_to_commit"),
@@ -510,9 +509,7 @@ export const FarkleTurnPhase = t.Union([
 export const FarkleTurnStateSchema = t.Object({
   phase: FarkleTurnPhase,
   dice: t.Array(FarkleDieSchema),
-  has_used_reroll: t.Boolean(),
   active_combinations: t.Array(CombinationSchema),
-  set_aside_element_bonus: t.Nullable(ElementType),
   accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
   accumulated_combination_elements: t.Optional(t.Array(ElementType)),
   accumulated_set_aside_elements: t.Optional(t.Array(ElementType)),
@@ -535,9 +532,7 @@ export const OpponentTurnResultSchema = t.Object({
 
 export const FarkleBattlePhase = t.Union([
   t.Literal("targeting"),
-  t.Literal("choose_element"),
   t.Literal("player_turn"),
-  t.Literal("opponent_turn"),
   t.Literal("resolved"),
 ]);
 
@@ -545,8 +540,6 @@ export const FarkleBattleStateSchema = t.Object({
   phase: FarkleBattlePhase,
   player_party: t.Array(BattlePartyMemberSchema),
   opponent_party: t.Array(BattlePartyMemberSchema),
-  set_aside_element: t.Nullable(ElementType),
-  opponent_set_aside_element: t.Nullable(ElementType),
   current_turn: t.Integer({ minimum: 1 }),
   player_turns_done: t.Integer({ minimum: 0 }),
   opponent_turns_done: t.Integer({ minimum: 0 }),

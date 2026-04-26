@@ -1,12 +1,10 @@
 import { EventService } from "../events/service";
-import { SharedFarkleService } from "../events/shared-farkle-service";
 import type { ResolveWildEncounterData } from "../events/models/wild-encounter";
 import type { Locale } from "../../shared/i18n";
 
 export class WildEncounterService {
   constructor(
     private eventService = new EventService(),
-    private sharedFarkleService = new SharedFarkleService(eventService),
   ) {}
 
   resolveWildEncounter(data: ResolveWildEncounterData, locale: Locale = "en") {
@@ -17,43 +15,34 @@ export class WildEncounterService {
     return this.eventService.skipWildEncounter(playerId, locale);
   }
 
-  farkleInit(playerId: string, eventId: string, setAsideElement: string) {
-    return this.sharedFarkleService.init(
-      playerId,
-      "wild_encounter",
-      eventId,
-      setAsideElement,
-    );
+  farkleInit(playerId: string, eventId: string) {
+    return this.eventService.farkleV4InitWildEncounter(playerId, eventId);
   }
 
   farkleRoll(playerId: string, farkleSessionId: string) {
-    return this.sharedFarkleService.roll(playerId, farkleSessionId);
+    return this.eventService.farkleV4RollWildEncounter(playerId, farkleSessionId);
   }
 
-  farkleReroll(playerId: string, farkleSessionId: string, diceIndicesToReroll: number[]) {
-    return this.sharedFarkleService.reroll(
-      playerId,
-      farkleSessionId,
-      diceIndicesToReroll,
-    );
-  }
-
-  farkleSetAside(
-    playerId: string,
-    farkleSessionId: string,
-    diceIndices: number[],
-    oneForAllElement?: string,
-  ) {
-    return this.sharedFarkleService.setAside(
+  farkleSetAside(playerId: string, farkleSessionId: string, diceIndices: number[]) {
+    return this.eventService.farkleV4SetAsideWildEncounter(
       playerId,
       farkleSessionId,
       diceIndices,
-      oneForAllElement,
     );
   }
 
-  farkleContinue(playerId: string, farkleSessionId: string) {
-    return this.sharedFarkleService.continue(playerId, farkleSessionId);
+  farkleAssign(
+    playerId: string,
+    farkleSessionId: string,
+    dieIndex: number,
+    partyIndex: number,
+  ) {
+    return this.eventService.farkleV4AssignWildEncounter(
+      playerId,
+      farkleSessionId,
+      dieIndex,
+      partyIndex,
+    );
   }
 
   farkleEndTurn(
@@ -62,11 +51,11 @@ export class WildEncounterService {
     locale: Locale = "en",
     itemId?: string,
   ) {
-    return this.sharedFarkleService.endTurnWithLocale(
+    return this.eventService.farkleV4CommitWildEncounter(
       playerId,
       farkleSessionId,
-      locale,
       itemId,
+      locale,
     );
   }
 }

@@ -60,7 +60,7 @@
       <div class="flex flex-col gap-6 items-center">
         <div class="space-y-4 flex flex-col w-full max-w-md">
           <ElementalCard
-            v-if="wildElemental && canRoll && !captureResult"
+            v-if="wildElemental && canRoll && !captureResult && !wildBattleState"
             :elemental="wildElemental"
             :show-stats="false"
             :show-description="true"
@@ -75,38 +75,8 @@
             <span class="text-sm font-semibold capitalize">{{ encounterElement }}</span>
           </div>
 
-          <div
-            v-if="chosenSetAsideElement && !captureResult"
-            class="inline-flex items-center gap-2 self-start rounded-lg border border-yellow-500/60 bg-card/60 px-3 py-2"
-          >
-            <span class="text-lg">{{ getElementEmoji(chosenSetAsideElement) }}</span>
-            <span class="text-sm text-muted-foreground">{{ t("wild.set_aside_element") }}</span>
-            <span class="text-sm font-semibold capitalize">{{ chosenSetAsideElement }}</span>
-          </div>
-
-          <div v-if="needsSetAsideSelection && !captureResult" class="space-y-3">
-            <p class="text-sm text-muted-foreground">
-              {{ t("wild.pick_set_aside") }}
-            </p>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="el in selectablePartyElements"
-                :key="el"
-                @click="handleChooseSetAsideElement(el)"
-                :disabled="isBusy"
-                class="flex flex-col items-center gap-0.5 px-4 py-2 rounded-xl border-2 border-border hover:border-primary transition-all disabled:opacity-50 bg-card"
-              >
-                <span class="text-2xl">{{ getElementEmoji(el) }}</span>
-                <span class="text-sm font-semibold capitalize">{{ el }}</span>
-                <span class="text-[11px] text-muted-foreground leading-tight">
-                  {{ getPartyCountForElement(el) }} {{ t("common.in_party") }}
-                </span>
-              </button>
-            </div>
-          </div>
-
           <button
-            v-if="canRoll && !captureResult && !needsSetAsideSelection"
+            v-if="canRoll && !captureResult && !wildBattleState"
             @click="handleRoll"
             :disabled="isBusy"
             class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
@@ -123,23 +93,97 @@
             :player-party="wildBattleState.player_party"
             :opponent-party="wildBattleState.enemy_party"
             :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
-          />
+            :is-player-party-droppable="!!farkleState && !isBusy"
+            :highlighted-player-indices="highlightedDroppablePartyIndices"
+            :player-infusion-elements="playerInfusionElements"
+            @player-party-drop="handleDropToParty"
+          >
+            <template #centerActions>
+              <div class="w-full min-w-[18rem] max-w-md rounded-xl border border-border/60 bg-card/50 p-3 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <p>
+                    {{ t("wild.current_round") }}
+                    <span class="font-semibold">{{ wildBattleState.round }}</span>
+                  </p>
+                  <p>
+                    {{ t("wild.resolved_rounds") }}
+                    <span class="font-semibold">{{ roundsResolved }}</span>
+                  </p>
+                </div>
 
-          <div class="rounded-xl border border-border bg-card/40 p-4">
-            <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-              <p>
-                {{ t("wild.current_round") }}
-                <span class="font-semibold">{{ wildBattleState.round }}</span>
-              </p>
-              <p>
-                {{ t("wild.resolved_rounds") }}
-                <span class="font-semibold">{{ roundsResolved }}</span>
-              </p>
-            </div>
-            <p v-if="roundStatusMessage" class="mt-2 text-sm text-muted-foreground">
-              {{ roundStatusMessage }}
-            </p>
-          </div>
+                <p
+                  v-if="roundStatusMessage"
+                  class="text-sm text-muted-foreground"
+                >
+                  {{ roundStatusMessage }}
+                </p>
+
+                <div v-if="farkleState?.dice?.length" class="space-y-3">
+                  <div class="flex justify-end">
+                    <DiceCombinationsHint />
+                  </div>
+
+                  <FarkleDiceRow
+                    :dice="farkleState.dice"
+                    :selected-indices="selectedDiceIndices"
+                    :force-animate-indices="forcedAnimationIndices"
+                    :force-animate-nonce="forceAnimationNonce"
+                    @toggle-select="toggleDiceSelection"
+                    @die-drag-start="handleDieDragStart"
+                    @die-drag-end="handleDieDragEnd"
+                    @rolling-start="isDiceAnimating = true"
+                    @rolling-complete="isDiceAnimating = false"
+                  />
+
+                  <CombinationDisplay
+                    v-if="!isBusy"
+                    :combinations="detectedCombinations"
+                    :selectable="false"
+                    :show-empty="true"
+                  />
+                </div>
+
+                <div v-if="!isBusy" class="flex flex-wrap justify-center gap-3">
+                  <button
+                    v-if="canRoll"
+                    @click="handleRoll"
+                    :disabled="isBusy"
+                    class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+                  >
+                    {{ isBusy ? t("wild.rolling") : t("wild.start_round") }}
+                  </button>
+
+                  <button
+                    v-if="canSetAside"
+                    @click="handleSetAside"
+                    :disabled="isBusy || selectedDiceIndices.length === 0"
+                    class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
+                  >
+                    Set aside selected
+                  </button>
+
+                  <button
+                    v-if="canRollRemaining"
+                    @click="handleRoll"
+                    :disabled="isBusy"
+                    class="px-4 py-2 bg-sky-500/20 text-foreground border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
+                  >
+                    {{ t("wild.roll_remaining") }}
+                  </button>
+                </div>
+
+                <div v-if="canEndTurn && !isBusy" class="flex justify-center">
+                  <button
+                    @click="handleEndTurn"
+                    :disabled="isBusy"
+                    class="px-6 py-3 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50"
+                  >
+                    {{ t("wild.deploy_resolve") }}
+                  </button>
+                </div>
+              </div>
+            </template>
+          </BattleArena>
 
           <div
             v-if="lastRoundSummary"
@@ -213,84 +257,6 @@
               {{ t("wild.proceed") }}
             </button>
           </div>
-
-          <template v-else>
-            <div v-if="farkleState?.dice?.length" class="space-y-3">
-              <div class="flex justify-end">
-                <DiceCombinationsHint />
-              </div>
-
-              <FarkleDiceRow
-                :dice="farkleState.dice"
-                :selected-indices="selectedDiceIndices"
-                :force-animate-indices="forcedAnimationIndices"
-                :force-animate-nonce="forceAnimationNonce"
-                @toggle-select="toggleDiceSelection"
-                @rolling-start="isDiceAnimating = true"
-                @rolling-complete="isDiceAnimating = false"
-              />
-
-              <CombinationDisplay
-                v-if="!isBusy"
-                :combinations="detectedCombinations"
-                :selectable="false"
-                :show-empty="true"
-              />
-            </div>
-
-            <div class="space-y-3">
-              <div v-if="!isBusy" class="flex flex-wrap gap-3">
-                <button
-                  v-if="canReroll"
-                  @click="handleReroll"
-                  :disabled="isBusy || selectedDiceIndices.length === 0"
-                  class="px-4 py-2 bg-yellow-500/20 text-foreground border border-yellow-500 rounded-lg font-bold hover:bg-yellow-500/30 transition-all disabled:opacity-50"
-                >
-                  {{ t("wild.reroll_selected", { count: selectedDiceIndices.length }) }}
-                </button>
-
-                <button
-                  v-if="canSetAside"
-                  @click="handleSetAside"
-                  :disabled="isBusy"
-                  class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
-                >
-                  {{ t("wild.set_aside_best") }}
-                </button>
-
-                <button
-                  v-if="canSetAsideTargetElement"
-                  @click="handleSetAsideTargetElement"
-                  :disabled="isBusy"
-                  class="px-4 py-2 bg-blue-500/20 text-foreground border border-blue-500 rounded-lg font-semibold hover:bg-blue-500/30 transition-all disabled:opacity-50"
-                >
-                  {{ t("wild.set_aside_chosen") }}
-                </button>
-
-                <button
-                  v-if="canContinue"
-                  @click="handleContinue"
-                  :disabled="isBusy"
-                  class="px-4 py-2 bg-sky-500/20 text-foreground border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
-                >
-                  {{ t("wild.roll_remaining") }}
-                </button>
-              </div>
-
-              <button
-                v-if="canEndTurn && !isBusy"
-                @click="handleEndTurn"
-                :disabled="isBusy"
-                :class="
-                  isCaptureSetAsideBonusActive
-                    ? 'px-6 py-3 rounded-lg font-semibold transition-all disabled:opacity-50 border border-emerald-400 bg-emerald-500/15 text-foreground hover:bg-emerald-500/25 shadow-md shadow-emerald-500/20'
-                    : 'px-6 py-3 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50'
-                "
-              >
-                {{ t("wild.deploy_resolve") }}
-              </button>
-            </div>
-          </template>
         </div>
       </div>
 
@@ -337,6 +303,7 @@ const loading = ref(false);
 const isActing = ref(false);
 const isDiceAnimating = ref(false);
 const selectedDiceIndices = ref<number[]>([]);
+const draggingDieIndex = ref<number | null>(null);
 const forceAnimationNonce = ref(0);
 const forcedAnimationIndices = ref<number[]>([]);
 const captureResult = ref<any>(null);
@@ -390,9 +357,9 @@ const onboardingSteps = computed(() =>
         {
           title: "Encounter turn decisions",
           description:
-            "Use rerolls and set-aside choices to bias bonuses toward your current objective and survive long enough to close the fight.",
+            "Assign dice directly onto alive elementals or set them aside to shape combinations and survive long enough to close the fight.",
           bullets: [
-            "Set aside best combinations or chosen set-aside element opportunities.",
+            "Drag any unassigned die onto an alive elemental to assign and deploy it immediately.",
             "Bust removes turn bonuses, so commit deployment at the right time.",
             "Review round summaries to adjust next turn choices.",
           ],
@@ -492,10 +459,6 @@ const lastRoundSummary = computed(() => {
   };
 });
 
-const targetElement = computed(
-  () => eventStore.wildEncounterData?.set_aside_element ?? null,
-);
-
 const encounterElement = computed(
   () =>
     eventStore.wildEncounterData?.encounter_element ??
@@ -503,103 +466,23 @@ const encounterElement = computed(
     null,
 );
 
-const chosenSetAsideElement = computed(() => targetElement.value);
-
-const partyElementCounts = computed(() => {
-  const counts: Record<string, number> = {};
-  const fromBattleState =
-    (wildBattleState.value?.player_party as Array<{ element?: string }> | undefined) ?? [];
-
-  if (fromBattleState.length > 0) {
-    fromBattleState.forEach((member) => {
-      const element = member.element;
-      if (!element) return;
-      counts[element] = (counts[element] ?? 0) + 1;
-    });
-    return counts;
-  }
-
-  elementalsStore.activeParty.forEach((member: any) => {
-    const element = member.element_types?.[0] ?? member.element;
-    if (!element) return;
-    counts[element] = (counts[element] ?? 0) + 1;
-  });
-  return counts;
-});
-
-const selectablePartyElements = computed(() => Object.keys(partyElementCounts.value));
-
-const needsSetAsideSelection = computed(() => {
-  if (!eventStore.isWildEncounter || captureResult.value) return false;
-  if (chosenSetAsideElement.value) return false;
-  return !eventStore.wildEncounterData?.farkle_session_id;
-});
-
 const canRoll = computed(
   () => !farkleState.value || farkleState.value.phase === "initial_roll",
 );
-const canReroll = computed(
-  () =>
-    farkleState.value?.phase === "can_reroll" &&
-    !farkleState.value?.has_used_reroll,
-);
-const availableSetAsideCombinations = computed(() => {
-  if (!farkleState.value) return [] as Combination[];
-
-  return detectedCombinations.value.filter((combo) =>
-    combo.dice_indices.some(
-      (index) => !farkleState.value?.dice[index]?.is_set_aside,
-    ),
-  );
-});
 const canSetAside = computed(
   () =>
     !!farkleState.value &&
-    ["can_reroll", "set_aside", "rolling_remaining"].includes(
-      farkleState.value.phase,
-    ) &&
-    availableSetAsideCombinations.value.length > 0,
+    selectedDiceIndices.value.length > 0,
 );
-const canSetAsideTargetElement = computed(() => {
-  if (!farkleState.value || !chosenSetAsideElement.value) return false;
-  if (
-    !["can_reroll", "set_aside", "rolling_remaining"].includes(
-      farkleState.value.phase,
-    )
-  ) {
-    return false;
-  }
-  return farkleState.value.dice.some(
-    (d) => !d.is_set_aside && d.current_result === chosenSetAsideElement.value,
-  );
-});
-const canContinue = computed(
+const canRollRemaining = computed(
   () =>
     !!farkleState.value &&
-    farkleState.value.phase === "rolling_remaining" &&
     farkleState.value.dice.some((die) => !die.is_set_aside),
 );
 const canEndTurn = computed(() => {
   if (!farkleState.value) return false;
   if (farkleState.value.busted) return true;
-  return (
-    farkleState.value.active_combinations.length > 0 ||
-    farkleState.value.set_aside_element_bonus !== null
-  );
-});
-
-const isCaptureSetAsideBonusActive = computed(() => {
-  if (!farkleState.value || !chosenSetAsideElement.value) return false;
-  if (farkleState.value.busted) return false;
-
-  const targetSetAsideCount = farkleState.value.dice.filter(
-    (die) => die.is_set_aside && die.current_result === chosenSetAsideElement.value,
-  ).length;
-  const hasTargetCombination = farkleState.value.active_combinations.some(
-    (combo) => combo.elements.includes(chosenSetAsideElement.value!),
-  );
-
-  return targetSetAsideCount >= 2 || hasTargetCombination;
+  return Boolean(farkleState.value.can_commit);
 });
 
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
@@ -615,9 +498,6 @@ const ELEMENT_EMOJIS: Record<string, string> = {
 const getElementEmoji = (element: string): string =>
   ELEMENT_EMOJIS[element] ?? "❓";
 
-const getPartyCountForElement = (element: string): number =>
-  partyElementCounts.value[element] ?? 0;
-
 const getDifficultyClass = (difficulty?: string) => {
   switch (difficulty) {
     case "easy":
@@ -632,7 +512,6 @@ const getDifficultyClass = (difficulty?: string) => {
 };
 
 const toggleDiceSelection = (index: number) => {
-  if (!canReroll.value) return;
   const existing = selectedDiceIndices.value.indexOf(index);
   if (existing >= 0) selectedDiceIndices.value.splice(existing, 1);
   else selectedDiceIndices.value.push(index);
@@ -674,41 +553,15 @@ const handleRoll = async () => {
   }
 };
 
-const handleReroll = async () => {
-  if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
-  const indicesToAnimate = [...selectedDiceIndices.value];
-  isActing.value = true;
-  try {
-    const response = await eventStore.wildEncounterFarkleReroll(
-      userStore.userId,
-      [...selectedDiceIndices.value],
-    );
-    scheduleForcedDiceAnimation(indicesToAnimate);
-    updateFromTurnResult(response?.result);
-  } catch (error) {
-    console.error("Failed wild encounter reroll:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
 const handleSetAside = async () => {
-  if (!userStore.userId || availableSetAsideCombinations.value.length === 0)
-    return;
+  if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
   isActing.value = true;
-  const best = [...availableSetAsideCombinations.value].sort(
-    (a, b) =>
-      Object.values(b.bonuses).reduce((sum, v) => sum + Number(v), 0) -
-      Object.values(a.bonuses).reduce((sum, v) => sum + Number(v), 0),
-  )[0];
   try {
     const response = await eventStore.wildEncounterFarkleSetAside(
       userStore.userId,
-      best.dice_indices,
-      best.type === "one_for_all"
-        ? (chosenSetAsideElement.value ?? undefined)
-        : undefined,
+      [...selectedDiceIndices.value],
     );
+    selectedDiceIndices.value = [];
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter set aside:", error);
@@ -717,58 +570,65 @@ const handleSetAside = async () => {
   }
 };
 
-const handleSetAsideTargetElement = async () => {
-  if (!userStore.userId || !farkleState.value || !chosenSetAsideElement.value)
-    return;
-  const indices = farkleState.value.dice
-    .map((d, i) => ({ d, i }))
+const assignedPartyIndexSet = computed(() => {
+  const assigned = new Set<number>();
+  farkleState.value?.dice.forEach((die) => {
+    if (die.is_assigned && typeof die.assigned_to_party_index === "number") {
+      assigned.add(die.assigned_to_party_index);
+    }
+  });
+  return assigned;
+});
+
+const playerInfusionElements = computed<Record<number, string>>(() => {
+  const infused: Record<number, string> = {};
+  farkleState.value?.dice.forEach((die) => {
+    if (
+      die.is_assigned &&
+      typeof die.assigned_to_party_index === "number" &&
+      typeof die.current_result === "string"
+    ) {
+      infused[die.assigned_to_party_index] = die.current_result;
+    }
+  });
+  return infused;
+});
+
+const highlightedDroppablePartyIndices = computed(() => {
+  if (draggingDieIndex.value === null || !wildBattleState.value) return [] as number[];
+  return wildBattleState.value.player_party
+    .map((member, index) => ({ member, index }))
     .filter(
-      ({ d }) =>
-        !d.is_set_aside && d.current_result === chosenSetAsideElement.value,
+      ({ member, index }) =>
+        !member.is_destroyed && !assignedPartyIndexSet.value.has(index),
     )
-    .map(({ i }) => i);
-  if (indices.length < 1) return;
-  isActing.value = true;
-  try {
-    const response = await eventStore.wildEncounterFarkleSetAside(
-      userStore.userId,
-      indices,
-    );
-    updateFromTurnResult(response?.result);
-  } catch (error) {
-    console.error("Failed target-element set aside:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
-const handleChooseSetAsideElement = async (element: string) => {
-  if (!userStore.userId || !element) return;
-  isActing.value = true;
-  try {
-    await eventStore.chooseWildSetAsideElement(userStore.userId, element);
-  } catch (error) {
-    console.error("Failed to choose wild set-aside element:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
-const handleContinue = async () => {
-  if (!userStore.userId) return;
-  const indicesToAnimate = (farkleState.value?.dice ?? [])
-    .map((die, index) => ({ die, index }))
-    .filter(({ die }) => !die.is_set_aside)
     .map(({ index }) => index);
+});
+
+const handleDieDragStart = (dieIndex: number) => {
+  draggingDieIndex.value = dieIndex;
+};
+
+const handleDieDragEnd = () => {
+  draggingDieIndex.value = null;
+};
+
+const handleDropToParty = async (partyIndex: number) => {
+  if (!userStore.userId) return;
+  const dieIndex = draggingDieIndex.value;
+  draggingDieIndex.value = null;
+  if (dieIndex === null) return;
   isActing.value = true;
   try {
-    const response = await eventStore.wildEncounterFarkleContinue(
+    const response = await eventStore.wildEncounterFarkleAssign(
       userStore.userId,
+      dieIndex,
+      partyIndex,
     );
-    scheduleForcedDiceAnimation(indicesToAnimate);
+    selectedDiceIndices.value = selectedDiceIndices.value.filter((index) => index !== dieIndex);
     updateFromTurnResult(response?.result);
   } catch (error) {
-    console.error("Failed wild encounter continue:", error);
+    console.error("Failed wild encounter assign:", error);
   } finally {
     isActing.value = false;
   }
@@ -778,7 +638,7 @@ const handleEndTurn = async () => {
   if (!userStore.userId) return;
   isActing.value = true;
   try {
-    const response = await eventStore.wildEncounterFarkleEndTurn(
+    const response = await eventStore.wildEncounterFarkleCommit(
       userStore.userId,
     );
 
@@ -795,8 +655,7 @@ const handleEndTurn = async () => {
       return;
     }
 
-    roundStatusMessage.value =
-      turnResult?.result?.message ?? t("wild.battle_continues");
+    roundStatusMessage.value = turnResult?.result?.message ?? t("wild.battle_continues");
 
     await eventStore.initializeEventState(userStore.userId);
     detectedCombinations.value = (farkleState.value?.detected_combinations ??
@@ -845,17 +704,6 @@ onMounted(async () => {
       detectedCombinations.value = (farkleState.value?.detected_combinations ??
         []) as Combination[];
 
-      if (!eventStore.wildEncounterData.farkle_session_id) {
-        const activePartyCount = elementalsStore.activeParty.length;
-        if (activePartyCount === 1) {
-          const onlyMember = elementalsStore.activeParty[0] as any;
-          const autoElement =
-            onlyMember?.element_types?.[0] ?? onlyMember?.element ?? null;
-          if (autoElement) {
-            await handleChooseSetAsideElement(autoElement);
-          }
-        }
-      }
     }
   } catch (error) {
     console.error("Failed to load encounter data:", error);

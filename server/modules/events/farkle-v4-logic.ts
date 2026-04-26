@@ -27,7 +27,6 @@ export interface FarkleV4Die {
 
 export type FarkleV4TurnPhase =
   | "initial_roll"
-  | "can_reroll"
   | "set_aside"
   | "rolling_remaining"
   | "ready_to_commit"
@@ -39,8 +38,6 @@ export interface FarkleV4TurnState {
   active_combinations: V4Combination[];
   is_dice_rush: boolean;
   busted: boolean;
-  has_used_reroll: boolean;
-  set_aside_element_bonus: ElementType | null;
   assignment_required_party_indices: number[];
   assigned_party_indices: number[];
   can_commit: boolean;
@@ -69,7 +66,7 @@ export function rollRemainingDice(dice: FarkleV4Die[]): FarkleV4Die[] {
 export function detectV4Combinations(dice: FarkleV4Die[]): V4Combination[] {
   const setAsideDice = dice
     .map((die, index) => ({ die, index }))
-    .filter(({ die }) => die.is_assigned);
+    .filter(({ die }) => die.is_set_aside);
 
   const combos: V4Combination[] = [];
   if (setAsideDice.length < 2) return combos;
@@ -125,8 +122,6 @@ export function buildInitialV4TurnState(dice: FarkleV4Die[]): FarkleV4TurnState 
     active_combinations: [],
     is_dice_rush: false,
     busted: false,
-    has_used_reroll: false,
-    set_aside_element_bonus: null,
     assignment_required_party_indices: [],
     assigned_party_indices: [],
     can_commit: false,

@@ -6,8 +6,7 @@ import {
   BattleStartDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
-  GenericFarkleRerollDTO,
-  GenericFarkleContinueDTO,
+  GenericFarkleSetAsideDTO,
   GenericFarkleEndTurnDTO,
   GenericFarkleAssignDTO,
 } from "../events/models/battle";
@@ -39,7 +38,6 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
       const result = await battleService.farkleInit(
         body.player_id,
         body.event_id,
-        body.set_aside_element ?? "fire",
       );
       return { result };
     },
@@ -60,32 +58,19 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
     { body: GenericFarkleRollDTO },
   )
   .post(
-    "/farkle/reroll",
+    "/farkle/set-aside",
     async ({ body, user, battleService }) => {
       if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only roll in your own battles");
+        throw new UnauthorizedError("You can only set aside in your own battles");
       }
-      const result = await battleService.farkleRoll(
+      const result = await battleService.farkleSetAside(
         body.player_id,
         body.farkle_session_id,
+        body.dice_indices,
       );
       return { result };
     },
-    { body: GenericFarkleRerollDTO },
-  )
-  .post(
-    "/farkle/continue",
-    async ({ body, user, battleService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only continue your own battles");
-      }
-      const result = await battleService.farkleRoll(
-        body.player_id,
-        body.farkle_session_id,
-      );
-      return { result };
-    },
-    { body: GenericFarkleContinueDTO },
+    { body: GenericFarkleSetAsideDTO },
   )
   .post(
     "/farkle/assign",

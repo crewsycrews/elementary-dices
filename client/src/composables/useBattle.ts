@@ -89,16 +89,7 @@ export function useBattle() {
       if (battlePhase.value !== "player_turn" || !farkleTurnState.value) {
         return false;
       }
-
-      const hasAccumulatedDiceRushBonuses = Object.values(
-        farkleTurnState.value.accumulated_dice_rush_bonuses ?? {},
-      ).some((bonus) => bonus > 0);
-
-      return (
-        activeCombinations.value.length > 0 ||
-        hasAccumulatedDiceRushBonuses ||
-        isBusted.value
-      );
+      return Boolean(farkleTurnState.value.can_commit) || isBusted.value;
     },
   );
 

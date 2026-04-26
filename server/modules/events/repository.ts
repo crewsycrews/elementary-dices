@@ -306,7 +306,7 @@ export interface FarkleSession {
   player_id: string;
   event_type: EncounterTypeValue;
   event_id: string;
-  set_aside_element: ElementTypeValue;
+  set_aside_element: ElementTypeValue | null;
   opponent_set_aside_element?: ElementTypeValue | null;
   status: 'active' | 'resolved';
   created_at: string;
@@ -334,7 +334,7 @@ export interface CreateFarkleSessionData {
   player_id: string;
   event_type: EncounterTypeValue;
   event_id: string;
-  set_aside_element: ElementTypeValue;
+  set_aside_element?: ElementTypeValue | null;
   opponent_set_aside_element?: ElementTypeValue | null;
 }
 
@@ -385,7 +385,7 @@ export class FarkleSessionRepository {
         player_id: data.player_id,
         event_type: data.event_type,
         event_id: data.event_id,
-        set_aside_element: data.set_aside_element,
+        set_aside_element: data.set_aside_element ?? null,
         opponent_set_aside_element: data.opponent_set_aside_element ?? null,
         status: 'active',
       })

@@ -7,9 +7,8 @@ import {
   SkipWildEncounterDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
-  GenericFarkleRerollDTO,
   GenericFarkleSetAsideDTO,
-  GenericFarkleContinueDTO,
+  GenericFarkleAssignDTO,
   GenericFarkleEndTurnDTO,
 } from "../events/models/wild-encounter";
 import { resolveLocale } from "../../shared/i18n";
@@ -51,7 +50,6 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
       const result = await wildEncounterService.farkleInit(
         body.player_id,
         body.event_id,
-        body.set_aside_element ?? "fire",
       );
       return { result };
     },
@@ -72,21 +70,6 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
     { body: GenericFarkleRollDTO },
   )
   .post(
-    "/farkle/reroll",
-    async ({ body, user, wildEncounterService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only reroll in your own encounters");
-      }
-      const result = await wildEncounterService.farkleReroll(
-        body.player_id,
-        body.farkle_session_id,
-        body.dice_indices_to_reroll,
-      );
-      return { result };
-    },
-    { body: GenericFarkleRerollDTO },
-  )
-  .post(
     "/farkle/set-aside",
     async ({ body, user, wildEncounterService }) => {
       if (user.id !== body.player_id) {
@@ -96,25 +79,42 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
         body.player_id,
         body.farkle_session_id,
         body.dice_indices,
-        body.one_for_all_element,
       );
       return { result };
     },
     { body: GenericFarkleSetAsideDTO },
   )
   .post(
-    "/farkle/continue",
+    "/farkle/assign",
     async ({ body, user, wildEncounterService }) => {
       if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only continue your own encounters");
+        throw new UnauthorizedError("You can only assign in your own encounters");
       }
-      const result = await wildEncounterService.farkleContinue(
+      const result = await wildEncounterService.farkleAssign(
         body.player_id,
         body.farkle_session_id,
+        body.die_index,
+        body.party_index,
       );
       return { result };
     },
-    { body: GenericFarkleContinueDTO },
+    { body: GenericFarkleAssignDTO },
+  )
+  .post(
+    "/farkle/commit",
+    async ({ body, user, locale, wildEncounterService }) => {
+      if (user.id !== body.player_id) {
+        throw new UnauthorizedError("You can only end your own encounter turn");
+      }
+      const result = await wildEncounterService.farkleEndTurn(
+        body.player_id,
+        body.farkle_session_id,
+        locale,
+        body.item_id,
+      );
+      return { result };
+    },
+    { body: GenericFarkleEndTurnDTO },
   )
   .post(
     "/farkle/end-turn",

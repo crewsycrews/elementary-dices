@@ -157,7 +157,7 @@ export function simulateV4CombatRound(
     const defendingOrder = sideToAct === "player" ? opponentOrder : playerOrder;
     const attacker = actingParty[attackerIndex];
 
-    const executeAttack = (isSecondAttack: boolean): void => {
+    const selectAliveDefenders = (): number[] => {
       const deployedDefenders = defendingOrder.filter((idx) => {
         const target = defendingParty[idx];
         return target && !target.is_destroyed && target.current_health > 0;
@@ -166,13 +166,48 @@ export function simulateV4CombatRound(
         .map((member, idx) => ({ member, idx }))
         .filter(({ member }) => !member.is_destroyed && member.current_health > 0)
         .map(({ idx }) => idx);
-      const aliveDefenders = deployedDefenders.length > 0 ? deployedDefenders : fallbackDefenders;
+      return deployedDefenders.length > 0 ? deployedDefenders : fallbackDefenders;
+    };
 
+    const executeAttack = (
+      isSecondAttack: boolean,
+      lockedTargetIndex?: number,
+    ): number | null => {
+      const aliveDefenders = selectAliveDefenders();
       if (aliveDefenders.length === 0) {
-        return;
+        return null;
       }
 
-      const targetIndex = chooseTargetIndex(attacker.element, aliveDefenders, defendingParty);
+      if (
+        isSecondAttack &&
+        typeof lockedTargetIndex === "number" &&
+        !aliveDefenders.includes(lockedTargetIndex)
+      ) {
+        const priorDefender = defendingParty[lockedTargetIndex];
+        log.push({
+          round: state.round,
+          step,
+          side: sideToAct,
+          attacker_index: attackerIndex,
+          attacker_name: attacker.name,
+          attacker_element: attacker.element,
+          target: "unit",
+          defender_index: lockedTargetIndex,
+          defender_name: priorDefender?.name,
+          defender_element: priorDefender?.element,
+          damage: 0,
+          weakness_bonus_applied: false,
+          second_attack: true,
+          second_attack_lost: true,
+          defender_remaining_health: priorDefender?.current_health,
+        });
+        return null;
+      }
+
+      const targetIndex =
+        typeof lockedTargetIndex === "number"
+          ? lockedTargetIndex
+          : chooseTargetIndex(attacker.element, aliveDefenders, defendingParty);
       const defender = defendingParty[targetIndex];
       const attackResult = computeDamage(attacker, defender);
 
@@ -201,34 +236,15 @@ export function simulateV4CombatRound(
         defender_remaining_health: defender.current_health,
       });
 
-      if (isSecondAttack && defender.is_destroyed) {
-        // locked behavior: same target only; if first hit killed it, second attack is lost.
-        log.push({
-          round: state.round,
-          step,
-          side: sideToAct,
-          attacker_index: attackerIndex,
-          attacker_name: attacker.name,
-          attacker_element: attacker.element,
-          target: "unit",
-          defender_index: targetIndex,
-          defender_name: defender.name,
-          defender_element: defender.element,
-          damage: 0,
-          weakness_bonus_applied: false,
-          second_attack: true,
-          second_attack_lost: true,
-          defender_remaining_health: defender.current_health,
-        });
-      }
+      return targetIndex;
     };
 
-    executeAttack(false);
+    const firstTargetIndex = executeAttack(false);
 
     const attackerModifiers = getModifiers(attacker);
     const shouldDoubleAttack = Math.random() < attackerModifiers.double_attack_pct;
     if (shouldDoubleAttack && !attacker.is_destroyed && attacker.current_health > 0) {
-      executeAttack(true);
+      executeAttack(true, firstTargetIndex ?? undefined);
     }
 
     step += 1;

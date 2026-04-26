@@ -3,9 +3,8 @@ export {
   SkipWildEncounterDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
-  GenericFarkleRerollDTO,
   GenericFarkleSetAsideDTO,
-  GenericFarkleContinueDTO,
+  GenericFarkleAssignDTO,
   GenericFarkleEndTurnDTO,
   type ResolveWildEncounterData,
 } from "../models";

@@ -10,12 +10,16 @@ export class BattleService {
     return this.eventService.startBattle(playerId);
   }
 
-  farkleInit(playerId: string, eventId: string, setAsideElement: string) {
-    return this.eventService.farkleV4InitBattle(playerId, eventId, setAsideElement as any);
+  farkleInit(playerId: string, eventId: string) {
+    return this.eventService.farkleV4InitBattle(playerId, eventId);
   }
 
   farkleRoll(playerId: string, farkleSessionId: string) {
     return this.eventService.farkleV4Roll(playerId, farkleSessionId);
+  }
+
+  farkleSetAside(playerId: string, farkleSessionId: string, diceIndices: number[]) {
+    return this.eventService.farkleV4SetAside(playerId, farkleSessionId, diceIndices);
   }
 
   farkleAssign(

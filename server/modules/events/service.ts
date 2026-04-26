@@ -350,14 +350,15 @@ export class EventService {
     return {
       phase: "initial_roll",
       dice: [],
-      has_used_reroll: false,
       active_combinations: [],
-      set_aside_element_bonus: null,
       accumulated_combination_elements: [],
       accumulated_set_aside_elements: [],
       is_dice_rush: false,
       busted: false,
       detected_combinations: [],
+      assignment_required_party_indices: [],
+      assigned_party_indices: [],
+      can_commit: false,
     };
   }
 
@@ -365,14 +366,15 @@ export class EventService {
     return {
       phase: state.phase as WildEncounterFarkleState["phase"],
       dice: (state.dice_state ?? []) as FarkleDie[],
-      has_used_reroll: state.has_used_reroll,
       active_combinations: (state.active_combinations ?? []) as any,
-      set_aside_element_bonus: (state.set_aside_element_bonus as ElementType) ?? null,
       accumulated_combination_elements: [],
       accumulated_set_aside_elements: [],
       is_dice_rush: state.is_dice_rush,
       busted: state.busted,
       detected_combinations: (state.detected_combinations ?? []) as any,
+      assignment_required_party_indices: (state.meta?.assignment_required_party_indices ?? []) as number[],
+      assigned_party_indices: (state.meta?.assigned_party_indices ?? []) as number[],
+      can_commit: Boolean(state.meta?.can_commit),
     };
   }
 
@@ -383,14 +385,29 @@ export class EventService {
   ) {
     await this.farkleSessionRepo.updateState(sessionId, {
       phase: state.phase,
-      has_used_reroll: state.has_used_reroll,
-      set_aside_element_bonus: state.set_aside_element_bonus,
+      has_used_reroll: false,
+      set_aside_element_bonus: null,
       is_dice_rush: state.is_dice_rush,
       busted: state.busted,
       dice_state: state.dice,
       active_combinations: state.active_combinations as any[],
       detected_combinations: state.detected_combinations as any[],
-      ...(meta ? { meta } : {}),
+      ...(meta
+        ? {
+            meta: {
+              ...meta,
+              assignment_required_party_indices: state.assignment_required_party_indices ?? [],
+              assigned_party_indices: state.assigned_party_indices ?? [],
+              can_commit: state.can_commit ?? false,
+            },
+          }
+        : {
+            meta: {
+              assignment_required_party_indices: state.assignment_required_party_indices ?? [],
+              assigned_party_indices: state.assigned_party_indices ?? [],
+              can_commit: state.can_commit ?? false,
+            },
+          }),
     });
   }
 
@@ -736,8 +753,8 @@ export class EventService {
       const initial = this.createInitialWildEncounterFarkleState();
       await this.farkleSessionRepo.createState(existingSession.id, {
         phase: initial.phase,
-        has_used_reroll: initial.has_used_reroll,
-        set_aside_element_bonus: initial.set_aside_element_bonus,
+        has_used_reroll: false,
+        set_aside_element_bonus: null,
         is_dice_rush: initial.is_dice_rush,
         busted: initial.busted,
         dice_state: initial.dice,
@@ -948,7 +965,7 @@ export class EventService {
     return turn;
   }
 
-  private getV4DetectedCombinationsForUi(dice: FarkleV4Die[]): Combination[] {
+  private getV4CandidateCombinationsForUi(dice: FarkleV4Die[]): Combination[] {
     const byElement = new Map<ElementType, number[]>();
     for (const [index, die] of dice.entries()) {
       const current = byElement.get(die.current_result) ?? [];
@@ -1008,7 +1025,7 @@ export class EventService {
             type: "full_house",
             elements: [tripletEl, pairEl],
             dice_indices: [...(byElement.get(tripletEl) ?? []), ...(byElement.get(pairEl) ?? [])],
-            bonuses: { [tripletEl]: 0.35, [pairEl]: 0.25 },
+            bonuses: {},
           });
         }
       }
@@ -1017,10 +1034,41 @@ export class EventService {
     return combos;
   }
 
+  private toUiCombinations(combos: ReturnType<typeof detectV4Combinations>): Combination[] {
+    return combos.map((combo) => {
+      const bonuses: Record<string, number> = {};
+      if (combo.type !== "one_for_all" && combo.type !== "full_house") {
+        const element = combo.elements[0];
+        bonuses[element] =
+          combo.type === "doublet"
+            ? 0.2
+            : combo.type === "triplet"
+              ? 0.3
+              : combo.type === "quartet"
+                ? 0.4
+                : 0.5;
+      }
+      return {
+        type: combo.type as Combination["type"],
+        elements: combo.elements,
+        dice_indices: combo.dice_indices,
+        bonuses,
+      };
+    });
+  }
+
+  private getV4DetectedCombinationsForResponse(turn: FarkleV4TurnState): Combination[] {
+    const reservedDiceCount = turn.dice.filter((die) => die.is_set_aside).length;
+    if (reservedDiceCount === 0) {
+      return this.getV4CandidateCombinationsForUi(turn.dice);
+    }
+    return this.toUiCombinations(detectV4Combinations(turn.dice));
+  }
+
   async farkleV4InitBattle(
     playerId: string,
     eventId: string,
-    setAsideElement: ElementType = "fire",
+    setAsideElement: ElementType | null = null,
   ): Promise<{
     farkle_session_id: string;
     event_type: "pvp_battle";
@@ -1114,17 +1162,24 @@ export class EventService {
       battleState.player_turn = turn as any;
     }
 
+    const remainingDice = turn.dice.filter((die) => !die.is_set_aside);
+    if (turn.dice.length > 0 && remainingDice.length === 0) {
+      throw new BadRequestError("No remaining dice to roll");
+    }
+
     turn.dice = rollRemainingDice(turn.dice);
     for (const die of turn.dice) {
-      await this.diceRollService.performRoll({
-        player_id: playerId,
-        dice_type_id: die.dice_type_id,
-        context: "farkle_battle",
-      });
+      if (!die.is_set_aside) {
+        await this.diceRollService.performRoll({
+          player_id: playerId,
+          dice_type_id: die.dice_type_id,
+          context: "farkle_battle",
+        });
+      }
     }
 
     turn.phase = "set_aside";
-    turn.active_combinations = this.getV4DetectedCombinationsForUi(turn.dice) as any;
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(battleState.player_party, turn);
 
     await this.farkleSessionRepo.updateState(sessionId, {
@@ -1133,7 +1188,7 @@ export class EventService {
 
     return {
       battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForUi(turn.dice),
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
       is_busted: false,
       is_dice_rush: false,
     };
@@ -1149,12 +1204,49 @@ export class EventService {
     is_busted: boolean;
     is_dice_rush: boolean;
   }> {
-    void playerId;
-    void farkleSessionId;
-    void diceIndices;
-    throw new BadRequestError(
-      "Set-aside action is removed in V4. Assign rolled dice directly to elementals.",
-    );
+    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
+    if (eventType !== "pvp_battle") {
+      throw new BadRequestError("V4 set-aside is only available for battles");
+    }
+
+    const { sessionId, battleState } = await this.getFarkleBattle(playerId);
+    if (sessionId !== farkleSessionId) {
+      throw new BadRequestError("Invalid session id for active battle");
+    }
+
+    const turn = this.ensureV4TurnState(battleState);
+    if (diceIndices.length === 0) {
+      throw new BadRequestError("Must select at least one die");
+    }
+
+    for (const dieIndex of diceIndices) {
+      const die = turn.dice[dieIndex];
+      if (!die) {
+        throw new BadRequestError("Invalid die index");
+      }
+      if (die.is_set_aside) {
+        throw new BadRequestError("Die is already set aside");
+      }
+      turn.dice[dieIndex] = {
+        ...die,
+        is_set_aside: true,
+      };
+    }
+
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
+    validateDeployAllPossible(battleState.player_party, turn);
+    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
+
+    await this.farkleSessionRepo.updateState(sessionId, {
+      meta: { battle_state: battleState },
+    });
+
+    return {
+      battle_state: battleState,
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      is_busted: false,
+      is_dice_rush: false,
+    };
   }
 
   async farkleV4Assign(
@@ -1207,9 +1299,9 @@ export class EventService {
       assigned_to_party_index: partyIndex,
     };
 
-    turn.active_combinations = this.getV4DetectedCombinationsForUi(turn.dice) as any;
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(battleState.player_party, turn);
-    turn.phase = turn.can_commit ? "ready_to_commit" : "set_aside";
+    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
 
     await this.farkleSessionRepo.updateState(sessionId, {
       meta: { battle_state: battleState },
@@ -1217,7 +1309,7 @@ export class EventService {
 
     return {
       battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForUi(turn.dice),
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
       is_busted: false,
       is_dice_rush: false,
     };
@@ -1301,6 +1393,7 @@ export class EventService {
     for (let i = 0; i < assignable; i += 1) {
       rolledOpponentDice[i] = {
         ...rolledOpponentDice[i],
+        is_set_aside: true,
         is_assigned: true,
         assigned_to_party_index: opponentAliveIndices[i],
       };
@@ -1386,7 +1479,7 @@ export class EventService {
 
     return {
       battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForUi(turn.dice),
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
       is_busted: false,
       is_dice_rush: false,
       is_resolved: isResolved,
@@ -2505,6 +2598,468 @@ export class EventService {
       wildBattleState,
       sessionId: session.id,
       farkleState: this.mapStateRowToWildFarkleState(state),
+    };
+  }
+
+  async farkleV4InitWildEncounter(
+    playerId: string,
+    eventId: string,
+  ): Promise<{
+    farkle_session_id: string;
+    event_type: "wild_encounter";
+    farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
+  }> {
+    const currentEvent = await this.repository.getCurrentEvent(playerId);
+    if (!currentEvent || currentEvent.event_type !== "wild_encounter") {
+      throw new BadRequestError("No active wild encounter event");
+    }
+    if (!currentEvent.wild_encounter_id || currentEvent.wild_encounter_id !== eventId) {
+      throw new BadRequestError("Wild encounter id does not match active event");
+    }
+
+    const existingSession = await this.farkleSessionRepo.findSessionByEvent(
+      "wild_encounter",
+      eventId,
+    );
+    if (existingSession) {
+      const existingState = await this.farkleSessionRepo.getState(existingSession.id);
+      if (!existingState) {
+        throw new BadRequestError("Wild encounter state is not initialized");
+      }
+      return {
+        farkle_session_id: existingSession.id,
+        event_type: "wild_encounter",
+        farkle_state: this.mapStateRowToWildFarkleState(existingState),
+        wild_battle_state: existingState.meta?.wild_battle_state as WildBattleState,
+      };
+    }
+
+    const wildEncounter = await this.wildEncounterRepo.findById(eventId);
+    if (!wildEncounter || wildEncounter.player_id !== playerId) {
+      throw new NotFoundError("Wild encounter event");
+    }
+    const [elemental] = await db("elementals").where({ id: wildEncounter.elemental_id }).limit(1);
+    if (!elemental) {
+      throw new NotFoundError("Elemental");
+    }
+    const wildBattleState = await this.buildInitialWildBattleState(playerId, elemental as any);
+    const initial = this.createInitialWildEncounterFarkleState();
+    const createdSession = await this.farkleSessionRepo.createSession({
+      player_id: playerId,
+      event_type: "wild_encounter",
+      event_id: eventId,
+      set_aside_element: wildBattleState.player_party[0]?.element as ElementType | undefined,
+    });
+    await this.farkleSessionRepo.createState(createdSession.id, {
+      phase: initial.phase,
+      has_used_reroll: false,
+      set_aside_element_bonus: null,
+      is_dice_rush: initial.is_dice_rush,
+      busted: initial.busted,
+      dice_state: initial.dice,
+      active_combinations: initial.active_combinations as any[],
+      detected_combinations: initial.detected_combinations as any[],
+      meta: { wild_battle_state: wildBattleState },
+    });
+
+    return {
+      farkle_session_id: createdSession.id,
+      event_type: "wild_encounter",
+      farkle_state: initial,
+      wild_battle_state: wildBattleState,
+    };
+  }
+
+  async farkleV4RollWildEncounter(
+    playerId: string,
+    farkleSessionId: string,
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
+    if (eventType !== "wild_encounter") {
+      throw new BadRequestError("V4 roll is only available for wild encounters");
+    }
+
+    const { sessionId, farkleState, wildBattleState } =
+      await this.getWildEncounterForFarkle(playerId);
+    if (sessionId !== farkleSessionId) {
+      throw new BadRequestError("Invalid session id for active encounter");
+    }
+
+    const turn = farkleState as unknown as FarkleV4TurnState;
+    if (turn.dice.length === 0) {
+      Object.assign(turn, buildInitialV4TurnState(await this.getEquippedV4Dice(playerId)));
+    } else {
+      const remainingDice = turn.dice.filter((die) => !die.is_set_aside);
+      if (remainingDice.length === 0) {
+        throw new BadRequestError("No remaining dice to roll");
+      }
+    }
+
+    turn.dice = rollRemainingDice(turn.dice);
+    for (const die of turn.dice) {
+      if (!die.is_set_aside) {
+        await this.diceRollService.performRoll({
+          player_id: playerId,
+          dice_type_id: die.dice_type_id,
+          context: "farkle_battle",
+        });
+      }
+    }
+
+    turn.phase = "set_aside";
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
+    validateDeployAllPossible(wildBattleState.player_party, turn);
+
+    await this.saveWildFarkleState(sessionId, farkleState, {
+      wild_battle_state: wildBattleState,
+    });
+
+    return {
+      farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async farkleV4SetAsideWildEncounter(
+    playerId: string,
+    farkleSessionId: string,
+    diceIndices: number[],
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
+    if (eventType !== "wild_encounter") {
+      throw new BadRequestError("V4 set-aside is only available for wild encounters");
+    }
+
+    const { sessionId, farkleState, wildBattleState } =
+      await this.getWildEncounterForFarkle(playerId);
+    if (sessionId !== farkleSessionId) {
+      throw new BadRequestError("Invalid session id for active encounter");
+    }
+
+    const turn = farkleState as unknown as FarkleV4TurnState;
+    if (diceIndices.length === 0) {
+      throw new BadRequestError("Must select at least one die");
+    }
+
+    for (const dieIndex of diceIndices) {
+      const die = turn.dice[dieIndex];
+      if (!die) {
+        throw new BadRequestError("Invalid die index");
+      }
+      if (die.is_set_aside) {
+        throw new BadRequestError("Die is already set aside");
+      }
+      turn.dice[dieIndex] = {
+        ...die,
+        is_set_aside: true,
+      };
+    }
+
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
+    validateDeployAllPossible(wildBattleState.player_party, turn);
+    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
+
+    await this.saveWildFarkleState(sessionId, farkleState, {
+      wild_battle_state: wildBattleState,
+    });
+
+    return {
+      farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async farkleV4AssignWildEncounter(
+    playerId: string,
+    farkleSessionId: string,
+    dieIndex: number,
+    partyIndex: number,
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+  }> {
+    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
+    if (eventType !== "wild_encounter") {
+      throw new BadRequestError("V4 assign is only available for wild encounters");
+    }
+
+    const { sessionId, farkleState, wildBattleState } =
+      await this.getWildEncounterForFarkle(playerId);
+    if (sessionId !== farkleSessionId) {
+      throw new BadRequestError("Invalid session id for active encounter");
+    }
+
+    const turn = farkleState as unknown as FarkleV4TurnState;
+    const die = turn.dice[dieIndex];
+    if (!die) {
+      throw new BadRequestError("Invalid die index");
+    }
+    if (die.is_assigned) {
+      throw new BadRequestError("Die is already assigned");
+    }
+
+    const member = wildBattleState.player_party[partyIndex];
+    if (!member) {
+      throw new BadRequestError("Invalid party index");
+    }
+    if (member.is_destroyed || member.current_health <= 0) {
+      throw new BadRequestError("Cannot assign to destroyed elemental");
+    }
+
+    const alreadyAssigned = turn.dice.some((d) => d.assigned_to_party_index === partyIndex);
+    if (alreadyAssigned) {
+      throw new BadRequestError("Elemental already has an assigned die this turn");
+    }
+
+    turn.dice[dieIndex] = {
+      ...die,
+      is_set_aside: true,
+      is_assigned: true,
+      assigned_to_party_index: partyIndex,
+    };
+
+    turn.active_combinations = detectV4Combinations(turn.dice) as any;
+    validateDeployAllPossible(wildBattleState.player_party, turn);
+    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
+
+    await this.saveWildFarkleState(sessionId, farkleState, {
+      wild_battle_state: wildBattleState,
+    });
+
+    return {
+      farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
+      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: false,
+    };
+  }
+
+  async farkleV4CommitWildEncounter(
+    playerId: string,
+    farkleSessionId: string,
+    _itemId?: string,
+    locale: Locale = "en",
+  ): Promise<{
+    farkle_state: WildEncounterFarkleState;
+    wild_battle_state: WildBattleState;
+    detected_combinations: Combination[];
+    is_busted: boolean;
+    is_dice_rush: boolean;
+    is_resolved: boolean;
+    result: WildEncounterResult;
+  }> {
+    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
+    if (eventType !== "wild_encounter") {
+      throw new BadRequestError("V4 commit is only available for wild encounters");
+    }
+
+    const { sessionId, wildEncounter, elemental, farkleState, wildBattleState } =
+      await this.getWildEncounterForFarkle(playerId);
+    if (sessionId !== farkleSessionId) {
+      throw new BadRequestError("Invalid session id for active encounter");
+    }
+
+    const turn = farkleState as unknown as FarkleV4TurnState;
+    const deployValidation = validateDeployAllPossible(wildBattleState.player_party, turn);
+    if (!deployValidation.can_commit) {
+      throw new BadRequestError("You must deploy all possible alive elementals before commit");
+    }
+
+    const playerApplied = applyV4CommitBonuses(wildBattleState.player_party, turn);
+    wildBattleState.player_party = playerApplied.updated_party;
+
+    const opponentAliveIndices = wildBattleState.enemy_party
+      .map((member, index) => ({ member, index }))
+      .filter(({ member }) => !member.is_destroyed && member.current_health > 0)
+      .map(({ index }) => index);
+
+    const opponentDice: FarkleV4Die[] = Array.from({ length: 5 }, (_, index) => ({
+      player_dice_id: `wild-opponent-${index}`,
+      dice_type_id: `wild-opponent-${index}`,
+      dice_notation: "d6",
+      faces: ["fire", "water", "earth", "air", "lightning"],
+      current_result: "fire",
+      is_set_aside: false,
+      is_assigned: false,
+      assigned_to_party_index: null,
+    }));
+    const rolledOpponentDice = rollRemainingDice(opponentDice);
+    const assignable = Math.min(opponentAliveIndices.length, rolledOpponentDice.length);
+    for (let i = 0; i < assignable; i += 1) {
+      rolledOpponentDice[i] = {
+        ...rolledOpponentDice[i],
+        is_set_aside: true,
+        is_assigned: true,
+        assigned_to_party_index: opponentAliveIndices[i],
+      };
+    }
+    const opponentTurn: FarkleV4TurnState = {
+      ...buildInitialV4TurnState(rolledOpponentDice),
+      phase: "ready_to_commit",
+      active_combinations: detectV4Combinations(rolledOpponentDice),
+    };
+    const opponentApplied = applyV4CommitBonuses(
+      wildBattleState.enemy_party,
+      opponentTurn,
+    );
+    wildBattleState.enemy_party = opponentApplied.updated_party;
+
+    const combatResult = simulateV4CombatRound(
+      {
+        round: wildBattleState.round,
+        player_party: wildBattleState.player_party,
+        opponent_party: wildBattleState.enemy_party,
+      },
+      {
+        player_deployed_indices: playerApplied.deployed_indices,
+        opponent_deployed_indices: opponentApplied.deployed_indices,
+      },
+    );
+
+    wildBattleState.player_party = combatResult.player_party;
+    wildBattleState.enemy_party = combatResult.opponent_party;
+    wildBattleState.combat_log = [
+      ...wildBattleState.combat_log,
+      ...combatResult.log,
+    ];
+    wildBattleState.round += 1;
+
+    let elementalCaught:
+      | {
+          id: string;
+          name: string;
+          level: number;
+        }
+      | undefined;
+
+    const success = !hasLivingElementals(wildBattleState.enemy_party);
+    const failed = !hasLivingElementals(wildBattleState.player_party);
+
+    if (success) {
+      const elementalCount = (await db("player_elementals")
+        .where({ player_id: playerId })
+        .count("* as count")
+        .first()) as { count: string | number } | undefined;
+
+      if (elementalCount && Number(elementalCount.count) >= 15) {
+        throw new BadRequestError("Maximum elemental capacity reached (15)");
+      }
+
+      const [playerElemental] = await db("player_elementals")
+        .insert({
+          player_id: playerId,
+          elemental_id: elemental.id,
+          current_stats: elemental.base_stats,
+          is_in_active_party: false,
+          party_position: null,
+        })
+        .returning("*");
+
+      elementalCaught = {
+        id: playerElemental.id,
+        name: elemental.name,
+        level: elemental.level,
+      };
+
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "victory",
+        captured_player_elemental_id: playerElemental.id,
+        resolved_at: new Date(),
+      });
+
+      await db("player_progress")
+        .where({ player_id: playerId })
+        .increment("successful_captures", 1)
+        .increment("total_elementals_owned", 1);
+
+      const previousCaptures = (await db("player_elementals")
+        .where({ player_id: playerId, elemental_id: elemental.id })
+        .count("* as count")
+        .first()) as { count: string | number } | undefined;
+
+      if (previousCaptures && Number(previousCaptures.count) === 1) {
+        await db("player_progress")
+          .where({ player_id: playerId })
+          .increment("unique_elementals_collected", 1);
+      }
+    } else if (failed) {
+      await this.wildEncounterRepo.updateResolution(wildEncounter.id, {
+        status: "completed",
+        outcome: "defeat",
+        resolved_at: new Date(),
+      });
+    }
+
+    const isResolved = success || failed;
+    if (isResolved) {
+      await this.repository.clearCurrentEvent(playerId);
+      await this.farkleSessionRepo.resolveSession(sessionId);
+      farkleState.phase = "resolved";
+      farkleState.detected_combinations = [];
+    } else {
+      const nextState = this.createInitialWildEncounterFarkleState();
+      Object.assign(farkleState, nextState);
+    }
+
+    await this.saveWildFarkleState(sessionId, farkleState, {
+      wild_battle_state: wildBattleState,
+    });
+
+    const result: WildEncounterResult = isResolved
+      ? {
+          success,
+          message: success
+            ? `You captured ${elemental.name}.`
+            : `${elemental.name} escaped after the battle.`,
+          elemental_caught: elementalCaught,
+          can_continue: true,
+        }
+      : {
+          success: false,
+          message: "Battle continues. Roll again.",
+          can_continue: false,
+        };
+
+    return {
+      farkle_state: farkleState,
+      wild_battle_state: wildBattleState,
+      detected_combinations: isResolved
+        ? []
+        : this.getV4DetectedCombinationsForResponse(turn),
+      is_busted: false,
+      is_dice_rush: false,
+      is_resolved: isResolved,
+      result,
     };
   }
 

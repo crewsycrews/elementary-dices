@@ -54,7 +54,6 @@ export const WildEncounterDataDTO = t.Object({
   elemental_name: t.String(),
   elemental_level: t.Number(),
   encounter_element: t.Optional(t.String()),
-  set_aside_element: t.Optional(t.String()),
   capture_difficulty: t.String(), // 'easy', 'medium', 'hard'
   farkle_initialized: t.Optional(t.Boolean()),
   farkle_session_id: t.Optional(t.String()),
@@ -250,22 +249,21 @@ export const FarkleCombinationDTO = t.Object({
 export const FarkleTurnStateDTO = t.Object({
   phase: t.String(),
   dice: t.Array(FarkleRollResultDieDTO),
-  has_used_reroll: t.Boolean(),
   active_combinations: t.Array(FarkleCombinationDTO),
-  set_aside_element_bonus: t.Nullable(t.String()),
   accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
   accumulated_combination_elements: t.Optional(t.Array(t.String())),
   accumulated_set_aside_elements: t.Optional(t.Array(t.String())),
   is_dice_rush: t.Boolean(),
   busted: t.Boolean(),
+  assignment_required_party_indices: t.Optional(t.Array(t.Number())),
+  assigned_party_indices: t.Optional(t.Array(t.Number())),
+  can_commit: t.Optional(t.Boolean()),
 });
 
 export const FarkleBattleStateDTO = t.Object({
   phase: t.String(),
   player_party: t.Array(BattlePartyMemberDTO),
   opponent_party: t.Array(BattlePartyMemberDTO),
-  set_aside_element: t.Nullable(t.String()),
-  opponent_set_aside_element: t.Nullable(t.String()),
   current_turn: t.Number(),
   player_turns_done: t.Number(),
   opponent_turns_done: t.Number(),
@@ -331,9 +329,7 @@ export const FarkleContextDTO = t.Union([
 
 export const FarkleInitDTO = t.Object({
   player_id: t.String(),
-  event_type: FarkleContextDTO,
   event_id: t.String(),
-  set_aside_element: t.Optional(ElementType),
 });
 
 export const FarkleSessionActionBaseDTO = t.Object({
@@ -346,18 +342,10 @@ export const GenericFarkleRollDTO = t.Intersect([
   t.Object({}),
 ]);
 
-export const GenericFarkleRerollDTO = t.Intersect([
-  FarkleSessionActionBaseDTO,
-  t.Object({
-    dice_indices_to_reroll: t.Array(t.Number()),
-  }),
-]);
-
 export const GenericFarkleSetAsideDTO = t.Intersect([
   FarkleSessionActionBaseDTO,
   t.Object({
     dice_indices: t.Array(t.Number()),
-    one_for_all_element: t.Optional(t.String()),
   }),
 ]);
 
@@ -423,7 +411,6 @@ export type FarkleEndTurnData = typeof FarkleEndTurnDTO.static;
 export type FarkleContextData = typeof FarkleContextDTO.static;
 export type FarkleInitData = typeof FarkleInitDTO.static;
 export type GenericFarkleRollData = typeof GenericFarkleRollDTO.static;
-export type GenericFarkleRerollData = typeof GenericFarkleRerollDTO.static;
 export type GenericFarkleSetAsideData = typeof GenericFarkleSetAsideDTO.static;
 export type GenericFarkleContinueData = typeof GenericFarkleContinueDTO.static;
 export type GenericFarkleEndTurnData = typeof GenericFarkleEndTurnDTO.static;
