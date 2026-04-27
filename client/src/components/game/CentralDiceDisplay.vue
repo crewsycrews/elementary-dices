@@ -10,6 +10,11 @@
         :element-faces="elementFaces"
         :spinning="spinning"
         @click="handleToyRoll"
+        @roll-completed="
+          (value) => {
+            diceValue = value;
+          }
+        "
       />
     </div>
 
@@ -17,14 +22,14 @@
       class="pt-4 text-xs text-muted-foreground text-center cursor-pointer"
       @click="handleToyRoll"
     >
-        Try your luck!
+      Try your luck!
     </p>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import Dice3D from "./Dice3D.vue";
+import Dice3D from "./Dice3DThree.vue";
 import type { DiceType } from "./dice-geometry";
 
 interface Props {
@@ -42,6 +47,7 @@ const props = withDefaults(defineProps<Props>(), {
 });
 
 const dice3dRef = ref<InstanceType<typeof Dice3D> | null>(null);
+const diceValue = ref<number | null>(null);
 
 function handleToyRoll() {
   if (!diceType.value || !dice3dRef.value) return;
