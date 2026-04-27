@@ -50,6 +50,22 @@ export interface V4MemberModifiers {
   double_attack_pct: number;
 }
 
+export interface V4HealingLogEntry {
+  party_index: number;
+  unit_name: string;
+  unit_element: ElementType;
+  source_element: "water";
+  amount: number;
+  health_before: number;
+  health_after: number;
+  max_health: number;
+}
+
+export interface V4DeploymentEffectEntry {
+  party_index: number;
+  applied_elements: ElementType[];
+}
+
 const ALL_ELEMENTS: ElementType[] = ["water", "fire", "air", "earth", "lightning"];
 
 function randomFace(faces: ElementType[]): ElementType {
@@ -181,10 +197,11 @@ function applyElementEffect(
   sourceElement: ElementType,
   scale: number,
   singleDie: boolean,
-): void {
+): number {
   const modifiers = getOrInitModifiers(member);
 
   if (sourceElement === "water") {
+    const healthBefore = member.current_health;
     const healMultiplier = singleDie
       ? 0.5
       : scale === 2
@@ -196,7 +213,7 @@ function applyElementEffect(
             : 3;
     const healed = Math.round(member.current_attack * healMultiplier);
     member.current_health = Math.min(member.max_health, member.current_health + healed);
-    return;
+    return Math.max(0, member.current_health - healthBefore);
   }
 
   if (sourceElement === "earth") {
@@ -210,7 +227,7 @@ function applyElementEffect(
             ? 0.15
             : 0.2;
     modifiers.armor_pct = Math.min(0.5, modifiers.armor_pct + add);
-    return;
+    return 0;
   }
 
   if (sourceElement === "fire") {
@@ -224,7 +241,7 @@ function applyElementEffect(
             ? 0.4
             : 0.5;
     modifiers.damage_pct += add;
-    return;
+    return 0;
   }
 
   if (sourceElement === "air") {
@@ -238,7 +255,7 @@ function applyElementEffect(
             ? 0.12
             : 0.15;
     modifiers.dodge_pct = Math.min(0.4, modifiers.dodge_pct + add);
-    return;
+    return 0;
   }
 
   if (sourceElement === "lightning") {
@@ -253,6 +270,7 @@ function applyElementEffect(
             : 0.15;
     modifiers.double_attack_pct = Math.min(0.4, modifiers.double_attack_pct + add);
   }
+  return 0;
 }
 
 export function applyV4CommitBonuses(
@@ -262,6 +280,8 @@ export function applyV4CommitBonuses(
   updated_party: BattlePartyMember[];
   applied_bonuses: Partial<Record<ElementType, number>>;
   deployed_indices: number[];
+  healing_events: V4HealingLogEntry[];
+  deployment_effects: V4DeploymentEffectEntry[];
 } {
   const updatedParty = party.map((member) => ({ ...member }));
   const assignedDice = turn.dice.filter(
@@ -288,19 +308,55 @@ export function applyV4CommitBonuses(
   }
 
   const assignedMembers = deployedIndices
-    .map((index) => updatedParty[index])
-    .filter((member): member is BattlePartyMember => Boolean(member));
+    .map((index) => ({ member: updatedParty[index], index }))
+    .filter((entry): entry is { member: BattlePartyMember; index: number } =>
+      Boolean(entry.member),
+    );
+  const healingEvents: V4HealingLogEntry[] = [];
+  const deploymentEffects = new Map<number, Set<ElementType>>();
+
+  const markDeploymentEffect = (partyIndex: number, sourceElement: ElementType) => {
+    const current = deploymentEffects.get(partyIndex) ?? new Set<ElementType>();
+    current.add(sourceElement);
+    deploymentEffects.set(partyIndex, current);
+  };
+
+  const applyEffectAndLogHealing = (
+    member: BattlePartyMember,
+    partyIndex: number,
+    sourceElement: ElementType,
+    scale: number,
+    singleDie: boolean,
+  ) => {
+    const healthBefore = member.current_health;
+    const amount = applyElementEffect(member, sourceElement, scale, singleDie);
+    if (sourceElement !== "water" || amount <= 0) {
+      return;
+    }
+    healingEvents.push({
+      party_index: partyIndex,
+      unit_name: member.name,
+      unit_element: member.element,
+      source_element: "water",
+      amount,
+      health_before: healthBefore,
+      health_after: member.current_health,
+      max_health: member.max_health,
+    });
+  };
 
   if (hasOneForAll) {
-    for (const member of assignedMembers) {
+    for (const { member, index } of assignedMembers) {
       for (const element of ALL_ELEMENTS) {
-        applyElementEffect(member, element, 2, false);
+        markDeploymentEffect(index, element);
+        applyEffectAndLogHealing(member, index, element, 2, false);
       }
     }
   } else {
-    for (const member of assignedMembers) {
+    for (const { member, index } of assignedMembers) {
       for (const [element, comboType] of comboByElement.entries()) {
-        applyElementEffect(member, element, scaleForCombo(comboType), false);
+        markDeploymentEffect(index, element);
+        applyEffectAndLogHealing(member, index, element, scaleForCombo(comboType), false);
       }
     }
 
@@ -311,7 +367,8 @@ export function applyV4CommitBonuses(
       if (comboByElement.has(die.current_result)) {
         continue;
       }
-      applyElementEffect(member, die.current_result, 0, true);
+      markDeploymentEffect(partyIndex, die.current_result);
+      applyEffectAndLogHealing(member, partyIndex, die.current_result, 0, true);
     }
   }
 
@@ -345,6 +402,13 @@ export function applyV4CommitBonuses(
     updated_party: updatedParty,
     applied_bonuses: appliedBonuses,
     deployed_indices: deployedIndices,
+    healing_events: healingEvents,
+    deployment_effects: [...deploymentEffects.entries()].map(
+      ([partyIndex, appliedElements]) => ({
+        party_index: partyIndex,
+        applied_elements: [...appliedElements],
+      }),
+    ),
   };
 }
 

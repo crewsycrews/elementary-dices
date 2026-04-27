@@ -359,6 +359,14 @@ export const BattlePartyMemberSchema = t.Object({
   current_health: t.Number(),
   is_destroyed: t.Boolean(),
   target_index: t.Integer(),
+  battle_modifiers: t.Optional(
+    t.Object({
+      damage_pct: t.Number(),
+      armor_pct: t.Number(),
+      dodge_pct: t.Number(),
+      double_attack_pct: t.Number(),
+    }),
+  ),
 });
 
 export const BattleRollRecordSchema = t.Object({
@@ -376,6 +384,7 @@ export const BattleLogEntryType = t.Union([
   t.Literal("round_started"),
   t.Literal("deployment_revealed"),
   t.Literal("bonus_applied"),
+  t.Literal("unit_healed"),
   t.Literal("initiative_decided"),
   t.Literal("attack_resolved"),
   t.Literal("unit_destroyed"),

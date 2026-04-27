@@ -1,6 +1,7 @@
 <template>
   <div
-    class="battle-elemental-card rounded-lg border-2 p-2 transition-all duration-300"
+    class="battle-elemental-card group relative rounded-lg border-2 p-2 transition-all duration-300"
+    tabindex="0"
     :class="[
       borderColorClass,
       isBuffed ? 'ring-2 ring-green-400 animate-pulse' : '',
@@ -54,6 +55,24 @@
       <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300">
         BONUS +{{ bonusPercent.toFixed(0) }}%
       </span>
+    </div>
+
+    <div
+      v-if="powerUpTips.length > 0"
+      class="pointer-events-none absolute left-2 right-2 top-full z-20 mt-2 rounded-md border border-slate-600 bg-slate-950 px-2 py-1.5 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
+    >
+      <p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+        Power-ups
+      </p>
+      <div class="space-y-0.5">
+        <p
+          v-for="tip in powerUpTips"
+          :key="tip"
+          class="text-[10px] leading-snug text-slate-100"
+        >
+          {{ tip }}
+        </p>
+      </div>
     </div>
 
     <div class="flex items-center justify-between mt-1">
@@ -127,6 +146,32 @@ const bonusPercent = computed(() => {
   return ((props.member.current_attack - props.member.base_attack) / props.member.base_attack) * 100;
 });
 const hasPositiveBonus = computed(() => bonusPercent.value > 0);
+const formatPct = (value: number) => `+${Math.round(value * 100)}%`;
+
+const powerUpTips = computed(() => {
+  const tips: string[] = [];
+  if (bonusPercent.value > 0) {
+    tips.push(`ATK ${bonusPercent.value.toFixed(0)}% of base (${props.member.base_attack.toFixed(0)} -> ${props.member.current_attack.toFixed(0)})`);
+  }
+
+  const modifiers = props.member.battle_modifiers;
+  if (!modifiers) return tips;
+
+  if (modifiers.damage_pct > 0) {
+    tips.push(`Damage ${formatPct(modifiers.damage_pct)} before weakness/armor`);
+  }
+  if (modifiers.armor_pct > 0) {
+    tips.push(`Armor ${formatPct(modifiers.armor_pct)} incoming damage reduction`);
+  }
+  if (modifiers.dodge_pct > 0) {
+    tips.push(`Dodge ${formatPct(modifiers.dodge_pct)} chance to avoid attacks`);
+  }
+  if (modifiers.double_attack_pct > 0) {
+    tips.push(`Double attack ${formatPct(modifiers.double_attack_pct)} chance`);
+  }
+
+  return tips;
+});
 
 const healthPct = computed(() => {
   if (props.member.max_health <= 0) return 0;

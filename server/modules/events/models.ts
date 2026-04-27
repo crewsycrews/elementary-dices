@@ -96,6 +96,14 @@ export const BattlePartyMemberDTO = t.Object({
   current_health: t.Number(),
   is_destroyed: t.Boolean(),
   target_index: t.Number(),
+  battle_modifiers: t.Optional(
+    t.Object({
+      damage_pct: t.Number(),
+      armor_pct: t.Number(),
+      dodge_pct: t.Number(),
+      double_attack_pct: t.Number(),
+    }),
+  ),
 });
 
 // PvP Battle specific

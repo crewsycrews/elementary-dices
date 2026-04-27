@@ -287,20 +287,30 @@
             v-if="isCombatHistoryOpen && groupedBattleLogEntries.length > 0"
             class="space-y-3 max-h-80 overflow-y-auto rounded-lg border border-border/60 p-3"
           >
-            <div v-for="group in groupedBattleLogEntries" :key="group.round" class="space-y-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {{ t("common.round") }} {{ group.round }}
-              </p>
-              <div
-                v-for="entry in group.entries"
-                :key="`${entry.round}-${entry.sequence}-${entry.type}`"
-                class="text-xs rounded-md border p-2 leading-relaxed"
-                :class="battleLogEntryClass(entry)"
+            <details
+              v-for="group in groupedBattleLogEntries"
+              :key="group.round"
+              open
+              class="group rounded-lg border border-border/60 bg-card/50"
+            >
+              <summary
+                class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
               >
-                <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
-                {{ formatBattleLogEntry(entry) }}
+                <span>{{ t("common.round") }} {{ group.round }}</span>
+                <span class="transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <div class="space-y-2 border-t border-border/60 p-2">
+                <div
+                  v-for="entry in group.entries"
+                  :key="`${entry.round}-${entry.sequence}-${entry.type}`"
+                  class="text-xs rounded-md border p-2 leading-relaxed"
+                  :class="battleLogEntryClass(entry)"
+                >
+                  <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
+                  {{ formatBattleLogEntry(entry) }}
+                </div>
               </div>
-            </div>
+            </details>
           </div>
         </div>
       </template>
@@ -451,20 +461,30 @@
         >
           <p class="text-sm font-bold text-muted-foreground">{{ t("battle.full_combat_log") }}</p>
           <div class="space-y-3 max-h-96 overflow-y-auto rounded-lg border border-border/60 p-3">
-            <div v-for="group in groupedBattleLogEntries" :key="group.round" class="space-y-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
-                {{ t("common.round") }} {{ group.round }}
-              </p>
-              <div
-                v-for="entry in group.entries"
-                :key="`${entry.round}-${entry.sequence}-${entry.type}`"
-                class="text-xs rounded-md border p-2 leading-relaxed"
-                :class="battleLogEntryClass(entry)"
+            <details
+              v-for="group in groupedBattleLogEntries"
+              :key="group.round"
+              open
+              class="group rounded-lg border border-border/60 bg-card/50"
+            >
+              <summary
+                class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
               >
-                <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
-                {{ formatBattleLogEntry(entry) }}
+                <span>{{ t("common.round") }} {{ group.round }}</span>
+                <span class="transition-transform group-open:rotate-180">⌄</span>
+              </summary>
+              <div class="space-y-2 border-t border-border/60 p-2">
+                <div
+                  v-for="entry in group.entries"
+                  :key="`${entry.round}-${entry.sequence}-${entry.type}`"
+                  class="text-xs rounded-md border p-2 leading-relaxed"
+                  :class="battleLogEntryClass(entry)"
+                >
+                  <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
+                  {{ formatBattleLogEntry(entry) }}
+                </div>
               </div>
-            </div>
+            </details>
           </div>
         </div>
       </template>
@@ -841,6 +861,35 @@ function formatPercent(value: unknown): string {
   return typeof value === "number" ? `${Math.round(value * 100)}%` : "0%";
 }
 
+function bonusEffectLabel(element: string): string {
+  const labels: Record<string, string> = {
+    fire: t("battle.bonus_effect_damage"),
+    earth: t("battle.bonus_effect_armor"),
+    air: t("battle.bonus_effect_dodge"),
+    lightning: t("battle.bonus_effect_double_attack"),
+    water: t("battle.bonus_effect_heal"),
+  };
+  return labels[element] ?? t("battle.bonus_effect_attack");
+}
+
+function payloadString(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback: string,
+): string {
+  const value = payload[key];
+  return typeof value === "string" ? value : fallback;
+}
+
+function payloadNumber(
+  payload: Record<string, unknown>,
+  key: string,
+  fallback = 0,
+): number {
+  const value = payload[key];
+  return typeof value === "number" ? value : fallback;
+}
+
 function formatElementList(value: unknown): string {
   if (!Array.isArray(value) || value.length === 0) return t("battle.none");
   return value
@@ -850,7 +899,14 @@ function formatElementList(value: unknown): string {
       const name = typeof candidate.name === "string" ? candidate.name : null;
       const element = typeof candidate.element === "string" ? candidate.element : "";
       if (!name) return null;
-      return `${name} (${getElementEmoji(element)})`;
+      const appliedElements = Array.isArray(candidate.applied_elements)
+        ? candidate.applied_elements
+            .filter((applied): applied is string => typeof applied === "string")
+            .map((applied) => getElementEmoji(applied))
+        : [];
+      const appliedLabel =
+        appliedElements.length > 0 ? ` ← ${appliedElements.join(" ")}` : "";
+      return `${name} (${getElementEmoji(element)})${appliedLabel}`;
     })
     .filter(Boolean)
     .join(", ");
@@ -866,10 +922,21 @@ function formatBattleLogEntry(entry: BattleLogEntry): string {
         units: formatElementList(entry.payload.units),
       });
     case "bonus_applied":
-      return t("battle.log_bonus", {
+      return t("battle.log_bonus_detail", {
         side: sideLabel(entry.side),
         element: getElementEmoji(String(entry.payload.element ?? "")),
         amount: formatPercent(entry.payload.amount),
+        effect: bonusEffectLabel(String(entry.payload.element ?? "")),
+      });
+    case "unit_healed":
+      return t("battle.log_healed", {
+        side: sideLabel(entry.side),
+        unit: payloadString(entry.payload, "unit_name", t("battle.unknown_unit")),
+        element: getElementEmoji(payloadString(entry.payload, "unit_element", "")),
+        amount: payloadNumber(entry.payload, "amount"),
+        before: payloadNumber(entry.payload, "health_before"),
+        after: payloadNumber(entry.payload, "health_after"),
+        max: payloadNumber(entry.payload, "max_health"),
       });
     case "initiative_decided":
       return t("battle.log_initiative", {
@@ -928,6 +995,7 @@ function battleLogEntryClass(entry: BattleLogEntry): string {
       : "border-red-500/30 bg-red-500/5";
   }
   if (entry.type === "unit_destroyed") return "border-orange-500/40 bg-orange-500/10";
+  if (entry.type === "unit_healed") return "border-cyan-500/40 bg-cyan-500/10";
   if (entry.type === "battle_ended") return "border-primary/40 bg-primary/10";
   return "border-border/60 bg-card/70";
 }

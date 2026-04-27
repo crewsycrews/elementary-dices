@@ -25,6 +25,12 @@ export interface BattlePartyMember {
   current_health: number;
   is_destroyed: boolean;
   target_index: number;
+  battle_modifiers?: {
+    damage_pct: number;
+    armor_pct: number;
+    dodge_pct: number;
+    double_attack_pct: number;
+  };
 }
 
 export interface CombatLogEntry {
@@ -51,6 +57,7 @@ export type BattleLogEntryType =
   | "round_started"
   | "deployment_revealed"
   | "bonus_applied"
+  | "unit_healed"
   | "initiative_decided"
   | "attack_resolved"
   | "unit_destroyed"

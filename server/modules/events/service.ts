@@ -59,6 +59,8 @@ import {
   validateDeployAllPossible,
   type FarkleV4Die,
   type FarkleV4TurnState,
+  type V4DeploymentEffectEntry,
+  type V4HealingLogEntry,
 } from "./farkle-v4-logic";
 import { simulateV4CombatRound } from "./farkle-v4-combat";
 
@@ -105,15 +107,34 @@ function hasLivingElementals(party: BattlePartyMember[]): boolean {
 function deployedUnits(
   party: BattlePartyMember[],
   indices: number[],
-): Array<{ index: number; name: string; element: ElementType }> {
+  deploymentEffects: V4DeploymentEffectEntry[] = [],
+): Array<{
+  index: number;
+  name: string;
+  element: ElementType;
+  applied_elements: ElementType[];
+}> {
+  const effectsByPartyIndex = new Map(
+    deploymentEffects.map((effect) => [effect.party_index, effect.applied_elements]),
+  );
   return indices
     .map((index) => {
       const member = party[index];
       if (!member) return null;
-      return { index, name: member.name, element: member.element };
+      return {
+        index,
+        name: member.name,
+        element: member.element,
+        applied_elements: effectsByPartyIndex.get(index) ?? [],
+      };
     })
-    .filter((unit): unit is { index: number; name: string; element: ElementType } =>
-      unit !== null,
+    .filter(
+      (unit): unit is {
+        index: number;
+        name: string;
+        element: ElementType;
+        applied_elements: ElementType[];
+      } => unit !== null,
     );
 }
 
@@ -154,6 +175,10 @@ function buildBattleRoundLog(input: {
   opponentDeployedIndices: number[];
   playerBonuses: Partial<Record<ElementType, number>>;
   opponentBonuses: Partial<Record<ElementType, number>>;
+  playerDeploymentEffects?: V4DeploymentEffectEntry[];
+  opponentDeploymentEffects?: V4DeploymentEffectEntry[];
+  playerHealingEvents?: V4HealingLogEntry[];
+  opponentHealingEvents?: V4HealingLogEntry[];
   firstAttacker?: "player" | "opponent";
   attackLog: Array<Record<string, unknown>>;
 }): BattleLogEntry[] {
@@ -195,7 +220,11 @@ function buildBattleRoundLog(input: {
     side: "player",
     payload: {
       deployed_indices: input.playerDeployedIndices,
-      units: deployedUnits(input.playerPartyBeforeCombat, input.playerDeployedIndices),
+      units: deployedUnits(
+        input.playerPartyBeforeCombat,
+        input.playerDeployedIndices,
+        input.playerDeploymentEffects,
+      ),
     },
   });
 
@@ -204,7 +233,11 @@ function buildBattleRoundLog(input: {
     side: "opponent",
     payload: {
       deployed_indices: input.opponentDeployedIndices,
-      units: deployedUnits(input.opponentPartyBeforeCombat, input.opponentDeployedIndices),
+      units: deployedUnits(
+        input.opponentPartyBeforeCombat,
+        input.opponentDeployedIndices,
+        input.opponentDeploymentEffects,
+      ),
     },
   });
 
@@ -223,6 +256,22 @@ function buildBattleRoundLog(input: {
       type: "bonus_applied",
       side: "opponent",
       payload: { element, amount },
+    });
+  }
+
+  for (const healing of input.playerHealingEvents ?? []) {
+    push({
+      type: "unit_healed",
+      side: "player",
+      payload: { ...healing },
+    });
+  }
+
+  for (const healing of input.opponentHealingEvents ?? []) {
+    push({
+      type: "unit_healed",
+      side: "opponent",
+      payload: { ...healing },
     });
   }
 
@@ -1647,6 +1696,10 @@ export class EventService {
         opponentDeployedIndices: opponentApplied.deployed_indices,
         playerBonuses: playerApplied.applied_bonuses,
         opponentBonuses: opponentApplied.applied_bonuses,
+        playerDeploymentEffects: playerApplied.deployment_effects,
+        opponentDeploymentEffects: opponentApplied.deployment_effects,
+        playerHealingEvents: playerApplied.healing_events,
+        opponentHealingEvents: opponentApplied.healing_events,
         firstAttacker: combatResult.first_attacker,
         attackLog: combatResult.log,
       }),

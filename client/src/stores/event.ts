@@ -49,6 +49,12 @@ export type BattlePartyMember = {
   current_health: number;
   is_destroyed: boolean;
   target_index: number;
+  battle_modifiers?: {
+    damage_pct: number;
+    armor_pct: number;
+    dodge_pct: number;
+    double_attack_pct: number;
+  };
 };
 
 // Farkle Battle types
