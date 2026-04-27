@@ -1,26 +1,61 @@
 <template>
   <div
-    class="battle-elemental-card group relative rounded-lg border-2 p-2 transition-all duration-300"
+    class="battle-elemental-card group relative mx-auto flex w-full max-w-[8.5rem] flex-col items-center gap-1.5 rounded-lg px-2 py-1.5 transition-all duration-300"
     tabindex="0"
     :class="[
-      borderColorClass,
-      isBuffed ? 'ring-2 ring-green-400 animate-pulse' : '',
+      isBuffed ? 'bg-emerald-500/5' : '',
       isTargeted ? 'ring-2 ring-red-400' : '',
-      dropHighlight ? 'ring-2 ring-cyan-300/70 bg-cyan-500/10 shadow-[0_0_18px_rgba(34,211,238,0.25)]' : '',
+      dropHighlight ? 'bg-cyan-500/10 shadow-[0_0_18px_rgba(34,211,238,0.25)] ring-2 ring-cyan-300/80' : '',
       infusionContainerClass,
+      member.is_destroyed ? 'opacity-60 grayscale' : '',
     ]"
   >
-    <!-- Element + Level Badge -->
-    <div class="flex items-center justify-between mb-1.5">
-      <span class="text-lg">{{ elementEmoji }}</span>
-      <span
-        class="text-[11px] font-bold bg-black/60 text-white px-1.5 py-0.5 rounded"
+    <div
+      class="relative grid h-20 w-20 place-items-center rounded-full p-[4px] shadow-sm transition-transform duration-200 group-hover:scale-105 group-focus:scale-105"
+      :style="healthRingStyle"
+    >
+      <div
+        class="grid h-full w-full place-items-center overflow-hidden rounded-full border bg-background"
+        :class="avatarInnerClass"
       >
-        Lv.{{ member.level }}
+        <img
+          v-if="member.image_url"
+          :src="member.image_url"
+          :alt="member.name"
+          class="h-full w-full object-cover"
+        />
+        <div
+          v-else
+          class="grid h-full w-full place-items-center text-2xl font-black uppercase"
+          :class="fallbackAvatarClass"
+          aria-hidden="true"
+        >
+          {{ fallbackInitial }}
+        </div>
+      </div>
+
+      <span
+        class="absolute -right-1 -top-1 grid h-6 w-6 place-items-center rounded-full border border-background bg-foreground text-[10px] font-bold text-background shadow"
+      >
+        {{ member.level }}
+      </span>
+      <span
+        v-if="infusionElement"
+        class="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full border border-background text-xs shadow"
+        :class="infusionPipClass"
+      >
+        {{ infusionEmoji }}
       </span>
     </div>
 
-    <div v-if="statusLabel" class="mb-1.5">
+    <div class="min-w-0 max-w-full text-center">
+      <p class="truncate text-xs font-bold leading-tight">{{ member.name }}</p>
+      <p class="text-[10px] font-semibold uppercase leading-tight text-muted-foreground">
+        HP {{ formatNumber(member.current_health) }}/{{ formatNumber(member.max_health) }}
+      </p>
+    </div>
+
+    <div v-if="statusLabel" class="min-h-5">
       <span
         class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide"
         :class="statusClass"
@@ -29,81 +64,58 @@
       </span>
     </div>
 
-    <!-- Name -->
-    <h4 class="font-bold text-xs truncate mb-1.5">{{ member.name }}</h4>
-
-    <!-- Attack Display -->
-    <div class="flex items-center justify-between">
-      <span class="text-xs text-muted-foreground">ATK</span>
-      <div class="flex items-center gap-0.5">
+    <div
+      class="pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-64 -translate-x-1/2 rounded-md border border-slate-600 bg-slate-950 px-3 py-2 text-left opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
+    >
+      <div class="mb-2 flex items-start justify-between gap-2">
+        <div class="min-w-0">
+          <p class="truncate text-xs font-bold text-slate-50">{{ member.name }}</p>
+          <p class="text-[10px] uppercase tracking-wide text-slate-400">
+            {{ member.element }} elemental
+          </p>
+        </div>
         <span
-          class="font-bold text-base transition-all duration-500"
-          :class="powerChangeClass"
+          v-if="statusLabel"
+          class="shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold uppercase"
+          :class="statusClass"
         >
-          {{ displayAttack }}
-        </span>
-        <span
-          v-if="powerDiff !== 0"
-          class="text-xs font-bold"
-          :class="powerDiff > 0 ? 'text-green-400' : 'text-red-400'"
-        >
-          {{ powerDiff > 0 ? "+" : "" }}{{ powerDiff.toFixed(0) }}
+          {{ statusLabel }}
         </span>
       </div>
-    </div>
-    <div v-if="hasPositiveBonus" class="mt-1 text-right">
-      <span class="inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-bold bg-emerald-500/15 text-emerald-300">
-        BONUS +{{ bonusPercent.toFixed(0) }}%
-      </span>
-    </div>
 
-    <div
-      v-if="powerUpTips.length > 0"
-      class="pointer-events-none absolute left-2 right-2 top-full z-20 mt-2 rounded-md border border-slate-600 bg-slate-950 px-2 py-1.5 opacity-0 shadow-xl transition-opacity duration-150 group-hover:opacity-100 group-focus:opacity-100"
-    >
-      <p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
-        Power-ups
-      </p>
-      <div class="space-y-0.5">
+      <div class="space-y-1 text-[11px] leading-snug text-slate-100">
+        <p v-for="row in statRows" :key="row.label">
+          <span class="font-semibold text-slate-300">{{ row.label }}:</span>
+          {{ row.value }}
+        </p>
+      </div>
+
+      <div v-if="bonusDescriptions.length > 0" class="mt-2 border-t border-slate-700 pt-2">
+        <p class="mb-1 text-[10px] font-bold uppercase tracking-wide text-cyan-200">
+          Buffs applied
+        </p>
         <p
-          v-for="tip in powerUpTips"
+          v-for="tip in bonusDescriptions"
           :key="tip"
-          class="text-[10px] leading-snug text-slate-100"
+          class="text-[10px] leading-snug text-slate-200"
         >
           {{ tip }}
         </p>
       </div>
-    </div>
 
-    <div class="flex items-center justify-between mt-1">
-      <span class="text-xs text-muted-foreground">{{ t("battle_arena.hp") }}</span>
-      <span class="text-xs font-semibold" :class="member.is_destroyed ? 'text-red-400' : ''">
-        {{ member.current_health }}/{{ member.max_health }}
-      </span>
-    </div>
-    <div class="mt-1 h-1.5 rounded bg-muted overflow-hidden">
-      <div
-        class="h-full transition-all duration-300"
-        :class="member.is_destroyed ? 'bg-red-500' : 'bg-emerald-500'"
-        :style="{ width: `${healthPct}%` }"
-      ></div>
-    </div>
-
-    <!-- Target Arrow Indicator -->
-    <div
-      v-if="showTarget && targetName"
-      class="mt-1.5 pt-1.5 border-t border-border"
-    >
-      <div class="flex items-center gap-1 text-xs text-muted-foreground">
-        <span>→</span>
-        <span>{{ targetName }}</span>
-      </div>
+      <p v-if="infusionLabel" class="mt-2 border-t border-slate-700 pt-2 text-[10px] text-slate-300">
+        {{ infusionLabel }}
+      </p>
+      <p v-if="showTarget && targetName" class="mt-2 text-[10px] text-slate-400">
+        Target: {{ targetName }}
+      </p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed } from "vue";
+import type { CSSProperties } from "vue";
 import type { BattlePartyMember } from "@/stores/event";
 import { useI18n } from "@/i18n";
 
@@ -116,62 +128,58 @@ const props = defineProps<{
   deploymentState?: "deployed" | "bench" | null;
   dropHighlight?: boolean;
   infusionElement?: string | null;
+  infusionLabel?: string;
 }>();
 const { t } = useI18n();
 
-const ELEMENT_CONFIG: Record<string, { emoji: string; borderColor: string }> = {
-  fire: { emoji: "🔥", borderColor: "border-red-500/60" },
-  water: { emoji: "💧", borderColor: "border-blue-500/60" },
-  earth: { emoji: "🏔️", borderColor: "border-amber-600/60" },
-  air: { emoji: "💨", borderColor: "border-cyan-400/60" },
-  lightning: { emoji: "⚡", borderColor: "border-yellow-400/60" },
+const ELEMENT_CONFIG: Record<
+  string,
+  { emoji: string; hp: string; empty: string; inner: string; fallback: string; pip: string }
+> = {
+  fire: {
+    emoji: "🔥",
+    hp: "#ef4444",
+    empty: "rgba(239,68,68,0.18)",
+    inner: "border-red-500/50",
+    fallback: "bg-red-500/15 text-red-300",
+    pip: "bg-red-500 text-white",
+  },
+  water: {
+    emoji: "💧",
+    hp: "#3b82f6",
+    empty: "rgba(59,130,246,0.18)",
+    inner: "border-blue-500/50",
+    fallback: "bg-blue-500/15 text-blue-300",
+    pip: "bg-blue-500 text-white",
+  },
+  earth: {
+    emoji: "⛰️",
+    hp: "#d97706",
+    empty: "rgba(217,119,6,0.18)",
+    inner: "border-amber-600/50",
+    fallback: "bg-amber-600/15 text-amber-200",
+    pip: "bg-amber-600 text-white",
+  },
+  air: {
+    emoji: "💨",
+    hp: "#22d3ee",
+    empty: "rgba(34,211,238,0.18)",
+    inner: "border-cyan-400/50",
+    fallback: "bg-cyan-400/15 text-cyan-200",
+    pip: "bg-cyan-500 text-white",
+  },
+  lightning: {
+    emoji: "⚡",
+    hp: "#facc15",
+    empty: "rgba(250,204,21,0.18)",
+    inner: "border-yellow-400/50",
+    fallback: "bg-yellow-400/15 text-yellow-200",
+    pip: "bg-yellow-400 text-slate-950",
+  },
 };
 
-const elementEmoji = computed(
-  () => ELEMENT_CONFIG[props.member.element]?.emoji ?? "❓",
-);
-
-const borderColorClass = computed(
-  () =>
-    ELEMENT_CONFIG[props.member.element]?.borderColor ?? "border-gray-500/60",
-);
-
-const displayAttack = computed(() => props.member.current_attack.toFixed(0));
-
-const powerDiff = computed(
-  () => props.member.current_attack - props.member.base_attack,
-);
-const bonusPercent = computed(() => {
-  if (props.member.base_attack <= 0) return 0;
-  return ((props.member.current_attack - props.member.base_attack) / props.member.base_attack) * 100;
-});
-const hasPositiveBonus = computed(() => bonusPercent.value > 0);
-const formatPct = (value: number) => `+${Math.round(value * 100)}%`;
-
-const powerUpTips = computed(() => {
-  const tips: string[] = [];
-  if (bonusPercent.value > 0) {
-    tips.push(`ATK ${bonusPercent.value.toFixed(0)}% of base (${props.member.base_attack.toFixed(0)} -> ${props.member.current_attack.toFixed(0)})`);
-  }
-
-  const modifiers = props.member.battle_modifiers;
-  if (!modifiers) return tips;
-
-  if (modifiers.damage_pct > 0) {
-    tips.push(`Damage ${formatPct(modifiers.damage_pct)} before weakness/armor`);
-  }
-  if (modifiers.armor_pct > 0) {
-    tips.push(`Armor ${formatPct(modifiers.armor_pct)} incoming damage reduction`);
-  }
-  if (modifiers.dodge_pct > 0) {
-    tips.push(`Dodge ${formatPct(modifiers.dodge_pct)} chance to avoid attacks`);
-  }
-  if (modifiers.double_attack_pct > 0) {
-    tips.push(`Double attack ${formatPct(modifiers.double_attack_pct)} chance`);
-  }
-
-  return tips;
-});
+const elementConfig = computed(() => ELEMENT_CONFIG[props.member.element]);
+const fallbackInitial = computed(() => props.member.name.trim().charAt(0) || "?");
 
 const healthPct = computed(() => {
   if (props.member.max_health <= 0) return 0;
@@ -179,6 +187,109 @@ const healthPct = computed(() => {
     0,
     Math.min(100, (props.member.current_health / props.member.max_health) * 100),
   );
+});
+
+const healthColor = computed(() => {
+  if (props.member.is_destroyed || healthPct.value <= 30) return "#ef4444";
+  if (healthPct.value <= 60) return "#eab308";
+  return elementConfig.value?.hp ?? "#10b981";
+});
+
+const healthRingStyle = computed<CSSProperties>(() => {
+  const empty = elementConfig.value?.empty ?? "rgba(148,163,184,0.22)";
+  return {
+    background: `conic-gradient(${healthColor.value} ${healthPct.value}%, ${empty} 0)`,
+  };
+});
+
+const avatarInnerClass = computed(
+  () => elementConfig.value?.inner ?? "border-slate-500/50",
+);
+const fallbackAvatarClass = computed(
+  () => elementConfig.value?.fallback ?? "bg-slate-600/20 text-slate-200",
+);
+
+const modifiers = computed(
+  () =>
+    props.member.battle_modifiers ?? {
+      damage_pct: 0,
+      armor_pct: 0,
+      dodge_pct: 0,
+      double_attack_pct: 0,
+    },
+);
+
+const formatNumber = (value: number) => Math.round(value).toString();
+const formatPct = (value: number) => `${Math.round(value * 100)}%`;
+
+const baseAttackBonus = computed(() =>
+  Math.max(0, props.member.current_attack - props.member.base_attack),
+);
+const fireAttackBonus = computed(() =>
+  Math.max(0, props.member.current_attack * modifiers.value.damage_pct),
+);
+const effectiveAttack = computed(() =>
+  Math.round(props.member.current_attack + fireAttackBonus.value),
+);
+
+const attackValue = computed(() => {
+  const parts: string[] = [];
+  if (baseAttackBonus.value > 0) {
+    parts.push(
+      `${formatNumber(baseAttackBonus.value)} from ${props.member.element} attack bonus`,
+    );
+  }
+  if (fireAttackBonus.value > 0) {
+    parts.push(`${formatNumber(fireAttackBonus.value)} from fire bonus`);
+  }
+  if (parts.length === 0) return formatNumber(effectiveAttack.value);
+  return `${formatNumber(effectiveAttack.value)} (${formatNumber(props.member.base_attack)} + ${parts.join(" + ")})`;
+});
+
+const upcomingHeal = computed(() => {
+  if (props.infusionElement !== "water") return 0;
+  return Math.round(props.member.current_attack * 0.5);
+});
+
+const statRows = computed(() => [
+  {
+    label: "Health",
+    value: `${formatNumber(props.member.current_health)}/${formatNumber(props.member.max_health)}`,
+  },
+  { label: "Attack", value: attackValue.value },
+  { label: "Defence", value: formatPct(modifiers.value.armor_pct) },
+  { label: "Double Attack", value: formatPct(modifiers.value.double_attack_pct) },
+  { label: "Upcoming Heal", value: formatNumber(upcomingHeal.value) },
+  { label: "Evasion", value: formatPct(modifiers.value.dodge_pct) },
+]);
+
+const bonusDescriptions = computed(() => {
+  const tips: string[] = [];
+  if (baseAttackBonus.value > 0) {
+    tips.push(
+      `${props.member.element} attack bonus: ${formatNumber(props.member.base_attack)} -> ${formatNumber(props.member.current_attack)} attack.`,
+    );
+  }
+  if (modifiers.value.damage_pct > 0) {
+    tips.push(
+      `Fire bonus: +${formatPct(modifiers.value.damage_pct)} damage before weakness and defence.`,
+    );
+  }
+  if (modifiers.value.armor_pct > 0) {
+    tips.push(`Earth bonus: ${formatPct(modifiers.value.armor_pct)} incoming damage reduction.`);
+  }
+  if (modifiers.value.dodge_pct > 0) {
+    tips.push(`Air bonus: ${formatPct(modifiers.value.dodge_pct)} chance to avoid attacks.`);
+  }
+  if (modifiers.value.double_attack_pct > 0) {
+    tips.push(
+      `Lightning bonus: ${formatPct(modifiers.value.double_attack_pct)} chance to attack twice.`,
+    );
+  }
+  if (upcomingHeal.value > 0) {
+    tips.push(`Water assignment: heals ${formatNumber(upcomingHeal.value)} HP on commit.`);
+  }
+  return tips;
 });
 
 const statusLabel = computed(() => {
@@ -196,11 +307,11 @@ const statusClass = computed(() => {
 });
 
 const INFUSION_THEME: Record<string, string> = {
-  fire: "shadow-[0_0_24px_rgba(239,68,68,0.7)]",
-  water: "shadow-[0_0_24px_rgba(59,130,246,0.7)]",
-  earth: "shadow-[0_0_24px_rgba(150,75,0,0.65)]",
-  air: "shadow-[0_0_24px_rgba(34,197,94,0.7)]",
-  lightning: "shadow-[0_0_24px_rgba(250,204,21,0.8)]",
+  fire: "shadow-[0_0_18px_rgba(239,68,68,0.45)]",
+  water: "shadow-[0_0_18px_rgba(59,130,246,0.45)]",
+  earth: "shadow-[0_0_18px_rgba(150,75,0,0.4)]",
+  air: "shadow-[0_0_18px_rgba(34,197,94,0.45)]",
+  lightning: "shadow-[0_0_18px_rgba(250,204,21,0.5)]",
 };
 
 const infusionTheme = computed(() => {
@@ -209,22 +320,12 @@ const infusionTheme = computed(() => {
 });
 
 const infusionContainerClass = computed(() => infusionTheme.value ?? "");
-
-const previousPower = ref(props.member.current_attack);
-const powerChangeClass = ref("");
-
-watch(
-  () => props.member.current_attack,
-  (newVal, oldVal) => {
-    if (newVal > oldVal) {
-      powerChangeClass.value = "text-green-400 scale-110";
-    } else if (newVal < oldVal) {
-      powerChangeClass.value = "text-red-400 scale-110";
-    }
-    setTimeout(() => {
-      powerChangeClass.value = "";
-    }, 600);
-    previousPower.value = newVal;
-  },
+const infusionEmoji = computed(() => {
+  if (!props.infusionElement) return "";
+  return ELEMENT_CONFIG[props.infusionElement]?.emoji ?? "";
+});
+const infusionPipClass = computed(
+  () => ELEMENT_CONFIG[props.infusionElement ?? ""]?.pip ?? "bg-muted text-foreground",
 );
+
 </script>

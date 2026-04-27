@@ -53,9 +53,10 @@
           <span
             v-for="(count, element) in faceDistribution"
             :key="element"
-            class="font-semibold text-foreground"
+            class="text-foreground"
             :title="`${element} x${count}`"
-          >{{ ELEMENT_EMOJI[element as string] || element }}x{{ count }}</span>
+            >{{ ELEMENT_EMOJI[element as string] || element }}x{{ count }}</span
+          >
         </div>
       </div>
     </div>
@@ -79,7 +80,9 @@
       class="w-full py-1.5 text-sm border-2 border-border rounded-md font-bold hover:bg-muted transition-all"
       @click.stop="$emit('setFavorite')"
     >
-      {{ isFavorite ? t("dice_card.favorite_dice") : t("dice_card.set_favorite") }}
+      {{
+        isFavorite ? t("dice_card.favorite_dice") : t("dice_card.set_favorite")
+      }}
     </button>
   </div>
 </template>
@@ -91,11 +94,11 @@ import type { DiceType } from "./dice-geometry";
 import { useI18n } from "@/i18n";
 
 const ELEMENT_EMOJI: Record<string, string> = {
-  fire: '\uD83D\uDD25',
-  water: '\uD83C\uDF0A',
-  air: '\uD83D\uDCA8',
-  earth: '\u26F0\uFE0F',
-  lightning: '\u26A1',
+  fire: "\uD83D\uDD25",
+  water: "\uD83C\uDF0A",
+  air: "\uD83D\uDCA8",
+  earth: "\u26F0\uFE0F",
+  lightning: "\u26A1",
 };
 
 interface DiceTypeData {
@@ -139,13 +142,9 @@ const maxValue = computed(() => {
   return map[props.dice.dice_type?.dice_notation ?? "d6"] ?? 6;
 });
 
-const faces = computed(
-  () => props.dice.dice_type?.faces ?? [],
-);
+const faces = computed(() => props.dice.dice_type?.faces ?? []);
 
-const primaryElement = computed(
-  () => faces.value[0] ?? null,
-);
+const primaryElement = computed(() => faces.value[0] ?? null);
 
 const faceDistribution = computed(() => {
   const counts: Record<string, number> = {};

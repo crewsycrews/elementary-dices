@@ -24,11 +24,11 @@ export interface DiceFace {
  * Element emoji mapping for rendering elemental faces
  */
 export const ELEMENT_EMOJI: Record<string, string> = {
-  fire: "",
-  water: "",
-  air: "",
-  earth: "",
-  lightning: "",
+  fire: "🔥",
+  water: "🌊",
+  air: "💨",
+  earth: "⛰️",
+  lightning: "⚡",
 };
 
 /**

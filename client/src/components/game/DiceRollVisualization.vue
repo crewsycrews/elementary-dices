@@ -144,7 +144,7 @@ defineExpose({
   padding: 0.5rem 1rem;
   border-radius: 9999px;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.5rem;
   white-space: nowrap;
 }
 

@@ -40,6 +40,7 @@ export type BattlePartyMember = {
   player_elemental_id?: string;
   elemental_id: string;
   name: string;
+  image_url?: string | null;
   element: string;
   elements: string[];
   level: number;

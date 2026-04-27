@@ -676,6 +676,7 @@ export class EventService {
       id: string;
       name: string;
       level: number;
+      image_url?: string | null;
       element_types: string[];
       base_stats?: { attack?: number; health?: number };
     },
@@ -687,6 +688,7 @@ export class EventService {
         "elementals.id as elemental_id",
         "elementals.name",
         "elementals.level",
+        "elementals.image_url",
         "elementals.element_types",
         "elementals.base_stats",
         "player_elementals.id as player_elemental_id",
@@ -699,6 +701,7 @@ export class EventService {
           id: pe.elemental_id,
           name: pe.name,
           level: pe.level,
+          image_url: pe.image_url,
           element_types: pe.element_types,
           base_stats: pe.base_stats,
         },
@@ -711,6 +714,7 @@ export class EventService {
         id: encounteredElemental.id,
         name: encounteredElemental.name,
         level: encounteredElemental.level,
+        image_url: encounteredElemental.image_url,
         element_types: encounteredElemental.element_types,
         base_stats: encounteredElemental.base_stats,
       }),
@@ -742,6 +746,7 @@ export class EventService {
         "elementals.id as elemental_id",
         "elementals.name",
         "elementals.level",
+        "elementals.image_url",
         "elementals.element_types",
         "elementals.base_stats",
         "player_elementals.id as player_elemental_id",
@@ -755,6 +760,7 @@ export class EventService {
           id: pe.elemental_id,
           name: pe.name,
           level: pe.level,
+          image_url: pe.image_url,
           element_types: pe.element_types,
           base_stats: pe.base_stats,
         },
@@ -831,7 +837,7 @@ export class EventService {
   private async generateOpponentParty(playerPartyLevels: number[]): Promise<BattlePartyMember[]> {
     // Get all elementals from DB and group them by level so AI mirrors player tier.
     const allElementals = await db("elementals")
-      .select("id", "name", "level", "element_types", "base_stats")
+      .select("id", "name", "level", "image_url", "element_types", "base_stats")
       .orderByRaw("RANDOM()");
 
     if (allElementals.length === 0) {
@@ -880,6 +886,7 @@ export class EventService {
         id: elemental.id,
         name: elemental.name,
         level: elemental.level,
+        image_url: elemental.image_url,
         element_types: elemental.element_types,
         base_stats: elemental.base_stats,
       });

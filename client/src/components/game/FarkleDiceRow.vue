@@ -3,7 +3,7 @@
     <div
       v-for="(row, rowIndex) in diceRows"
       :key="rowIndex"
-      class="flex justify-center gap-3"
+      class="flex flex-wrap justify-center gap-3"
     >
       <div
         v-for="entry in row"
@@ -12,11 +12,12 @@
         :draggable="isDieDraggable(entry.die)"
         @dragstart="handleDieDragStart($event, entry.index, entry.die)"
         @dragend="handleDieDragEnd"
-        class="relative flex flex-col items-center gap-1 cursor-pointer select-none"
+        class="relative flex flex-col items-center gap-1 select-none"
         :class="getDieClasses(entry.die)"
+        :title="getDieTitle(entry.die)"
       >
         <div
-          class="rounded-xl transition-all duration-200"
+          class="rounded-xl border-2 transition-all duration-200"
           :class="getDieFaceClasses(entry.index, entry.die)"
         >
           <DiceRollVisualization
@@ -33,26 +34,13 @@
           {{ entry.die.dice_notation }}
         </span>
 
-        <div
-          v-if="entry.die.is_assigned"
-          class="absolute -top-1 -right-1 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
+        <span
+          v-if="getDieBadge(entry.index, entry.die)"
+          class="absolute -top-2 -right-2 max-w-[4.75rem] truncate rounded-full border px-1.5 py-0.5 text-[9px] font-black uppercase leading-none shadow"
+          :class="getDieBadgeClasses(entry.index, entry.die)"
         >
-          A
-        </div>
-
-        <div
-          v-else-if="entry.die.is_set_aside"
-          class="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-        >
-          S
-        </div>
-
-        <div
-          v-else-if="props.selectedIndices?.includes(entry.index)"
-          class="absolute -top-1 -right-1 w-5 h-5 bg-yellow-500 rounded-full flex items-center justify-center text-white text-[10px] font-bold"
-        >
-          R
-        </div>
+          {{ getDieBadge(entry.index, entry.die) }}
+        </span>
       </div>
     </div>
   </div>
@@ -62,6 +50,7 @@
 import { computed, nextTick, ref, watch } from "vue";
 import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
 import type { FarkleDie } from "@/stores/event";
+import { useI18n } from "@/i18n";
 
 const props = defineProps<{
   dice: FarkleDie[];
@@ -70,6 +59,8 @@ const props = defineProps<{
   forceAnimateIndices?: number[];
   forceAnimateNonce?: number;
 }>();
+
+const { t } = useI18n();
 
 type DiceNotation = "d4" | "d6" | "d10" | "d12" | "d20";
 type ElementType = "fire" | "water" | "earth" | "air" | "lightning";
@@ -138,22 +129,47 @@ function getDiceResult(die: FarkleDie) {
 }
 
 function getDieClasses(die: FarkleDie): string {
-  if (die.is_assigned) return "opacity-60 cursor-default";
-  if (die.is_set_aside) return "opacity-80";
-  return "hover:scale-105 active:scale-95";
+  if (die.is_assigned) return "cursor-default opacity-70";
+  if (die.is_set_aside) return "cursor-default opacity-85";
+  return "cursor-grab hover:scale-105 active:cursor-grabbing active:scale-95";
 }
 
 function getDieFaceClasses(index: number, die: FarkleDie): string {
+  if (die.is_assigned) {
+    return "border-blue-500/80 bg-blue-500/10";
+  }
   if (die.is_set_aside) {
-    return "border-green-500";
+    return "border-green-500/80 bg-green-500/10";
   }
   if (props.selectedIndices?.includes(index)) {
-    return "border-yellow-400 scale-105";
+    return "border-yellow-400 bg-yellow-400/10 scale-105 shadow-[0_0_16px_rgba(250,204,21,0.22)]";
   }
   if (props.highlightIndices?.includes(index)) {
-    return "border-purple-400 bg-purple-400/20";
+    return "border-cyan-400 bg-cyan-400/15";
   }
   return "border-border bg-card hover:border-primary/50";
+}
+
+function getDieBadge(index: number, die: FarkleDie): string {
+  if (die.is_assigned) return t("dice_state.assigned");
+  if (die.is_set_aside) return t("dice_state.aside");
+  if (props.selectedIndices?.includes(index)) return t("dice_state.selected");
+  return "";
+}
+
+function getDieBadgeClasses(index: number, die: FarkleDie): string {
+  if (die.is_assigned) return "border-blue-400/60 bg-blue-500 text-white";
+  if (die.is_set_aside) return "border-green-400/60 bg-green-500 text-white";
+  if (props.selectedIndices?.includes(index)) {
+    return "border-yellow-300/70 bg-yellow-400 text-black";
+  }
+  return "border-border bg-card text-foreground";
+}
+
+function getDieTitle(die: FarkleDie): string {
+  if (die.is_assigned) return t("dice_state.assigned_hint");
+  if (die.is_set_aside) return t("dice_state.aside_hint");
+  return t("dice_state.ready_hint");
 }
 
 const emit = defineEmits<{
@@ -165,7 +181,7 @@ const emit = defineEmits<{
 }>();
 
 function isDieDraggable(die: FarkleDie): boolean {
-  return !die.is_assigned && die.assigned_to_party_index === null;
+  return !die.is_assigned && !die.is_set_aside && die.assigned_to_party_index === null;
 }
 
 function handleDieDragStart(event: DragEvent, index: number, die: FarkleDie): void {

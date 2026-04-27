@@ -1,19 +1,30 @@
 <template>
-  <div v-if="combinations.length > 0" class="space-y-2">
-    <h3 class="text-sm font-bold text-muted-foreground uppercase tracking-wide">
-      {{ t("battle.combinations_detected") }}
-    </h3>
+  <div v-if="combinations.length > 0" class="rounded-lg border border-border/70 bg-card/55 p-3">
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <h3 class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+        {{ t("battle.active_bonuses") }}
+      </h3>
+      <span class="rounded bg-muted px-1.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+        {{ combinations.length }}
+      </span>
+    </div>
     <div class="grid gap-2">
       <div
         v-for="(combo, i) in combinations"
         :key="i"
         @click="selectable && $emit('select-combination', combo)"
-        class="flex items-start justify-between gap-3 px-3 py-2 rounded-lg border transition-all"
+        class="flex items-start justify-between gap-3 rounded-md border px-3 py-2 transition-all"
         :class="getComboClasses(combo)"
       >
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
-            <span class="font-bold text-sm">{{ getLabel(combo) }}</span>
+            <span class="truncate text-sm font-bold">{{ getLabel(combo) }}</span>
+            <span
+              v-if="isBestCombo(combo) && combinations.length > 1"
+              class="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-emerald-300"
+            >
+              {{ t("battle.best_combo") }}
+            </span>
             <div class="flex gap-0.5">
               <span v-for="el in combo.elements" :key="el" class="text-base">{{
                 getEmoji(el)
@@ -25,11 +36,11 @@
           </p>
         </div>
 
-        <div class="shrink-0 text-xs font-mono text-green-400">
+        <div class="shrink-0 text-right text-xs font-mono text-emerald-400">
           <span
             v-for="(pct, el) in combo.bonuses"
             :key="el"
-            class="ml-2 first:ml-0"
+            class="ml-2 block first:ml-0 sm:inline"
           >
             {{ getEmoji(el) }} +{{ Math.round(Number(pct) * 100) }}%
           </span>
@@ -40,7 +51,7 @@
 
   <div
     v-else-if="showEmpty"
-    class="text-center text-sm text-muted-foreground py-2"
+    class="rounded-lg border border-dashed border-border/80 bg-card/35 px-3 py-2 text-center text-sm text-muted-foreground"
   >
     {{ t("battle.no_combinations_detected") }}
   </div>
@@ -142,8 +153,8 @@ function getComboClasses(combo: Combination): string {
     ? "cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
     : "";
   if (isBestCombo(combo) && props.combinations.length > 1) {
-    return `${base} border-purple-500 bg-purple-500/10`;
+    return `${base} border-emerald-500/60 bg-emerald-500/10`;
   }
-  return `${base} border-border bg-card/50`;
+  return `${base} border-border/70 bg-background/45`;
 }
 </script>

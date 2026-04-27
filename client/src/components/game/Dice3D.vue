@@ -32,10 +32,15 @@
             :class="`dice-face-${diceType}`"
             :style="faceStyles[face.value]"
           >
-            <!-- Elemental faces: show element emoji -->
-            <span class="face-value face-value-emoji">{{
-              ELEMENT_EMOJI[getFaceElement(face.value) ?? ""] ?? face.value
-            }}</span>
+            <!-- Elemental faces: show vector element icon -->
+            <component
+              v-if="getFaceIcon(face.value)"
+              :is="getFaceIcon(face.value)"
+              class="face-icon"
+              :stroke-width="2.7"
+              aria-hidden="true"
+            />
+            <span v-else class="face-value">{{ face.value }}</span>
           </div>
         </div>
       </div>
@@ -61,7 +66,14 @@
           <tbody>
             <tr v-for="row in probabilityRows" :key="row.element">
               <td class="probability-element">
-                {{ ELEMENT_EMOJI[row.element] ?? "•" }}
+                <component
+                  v-if="getElementIcon(row.element)"
+                  :is="getElementIcon(row.element)"
+                  class="probability-element-icon"
+                  :stroke-width="2.4"
+                  aria-hidden="true"
+                />
+                <span v-else>•</span>
                 <span>{{ row.element }}</span>
               </td>
               <td>{{ row.count }}</td>
@@ -75,37 +87,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, type Component } from "vue";
+import { Droplets, Flame, Mountain, Wind, Zap } from "lucide-vue-next";
 import { useI18n } from "@/i18n";
-import {
-  getGeometry,
-  type DiceType,
-  createTransform,
-  ELEMENT_EMOJI,
-} from "./dice-geometry";
-import airTexture from "../../../assets/dice-affinities/air.gif";
-import fireTexture from "../../../assets/dice-affinities/fire.gif";
-import waterTexture from "../../../assets/dice-affinities/water.gif";
-import earthTexture from "../../../assets/dice-affinities/stone.avif";
-import lightningTexture from "../../../assets/dice-affinities/lightning 2.gif";
+import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
 
-const affinityTextures: Record<string, string> = {
-  air: airTexture,
-  fire: fireTexture,
-  water: waterTexture,
-  earth: earthTexture,
-  lightning: lightningTexture,
+const ELEMENT_FACE_STYLES: Record<string, string> = {
+  fire: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.26), transparent 24%), linear-gradient(135deg, #f97316 0%, #dc2626 52%, #7f1d1d 100%)",
+  water:
+    "radial-gradient(circle at 35% 28%, rgba(255,255,255,0.3), transparent 26%), linear-gradient(135deg, #38bdf8 0%, #2563eb 54%, #1e3a8a 100%)",
+  earth:
+    "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.18), transparent 24%), linear-gradient(135deg, #84cc16 0%, #78716c 48%, #3f3f46 100%)",
+  air: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.82), transparent 28%), linear-gradient(135deg, #e0f2fe 0%, #67e8f9 48%, #0e7490 100%)",
+  lightning:
+    "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.72), transparent 22%), linear-gradient(135deg, #fde047 0%, #f59e0b 42%, #7c3aed 100%)",
+};
+
+const ELEMENT_ICONS: Record<string, Component> = {
+  air: Wind,
+  fire: Flame,
+  water: Droplets,
+  earth: Mountain,
+  lightning: Zap,
 };
 
 interface Props {
   /** The type of dice to render (d4, d6, d10, d12, d20) */
   diceType: DiceType;
 
-  /** Element affinity to use as face texture (legacy — uses single texture for all faces) */
+  /** Element affinity to use as face style (legacy - uses single style for all faces) */
   affinity?: "fire" | "water" | "earth" | "air" | "lightning";
 
-  /** Elemental faces array from dice type data. When provided, each face renders its element emoji
-   *  and gets a per-face texture based on its element. Takes priority over `affinity`. */
+  /** Elemental faces array from dice type data. When provided, each face renders its element icon
+   *  and gets a per-face style based on its element. Takes priority over `affinity`. */
   elementFaces?: string[];
 
   /** The current face value to display (1-N) */
@@ -185,12 +199,12 @@ const faceStyles = computed(() => {
     if (face.clipPath) style.clipPath = face.clipPath;
     if (props.diceType === "d12") style.transformOrigin = "center bottom";
 
-    // Per-face element texture when elementFaces is provided
+    // Per-face element styling when elementFaces is provided
     const faceElement = props.elementFaces?.[face.value - 1];
-    if (faceElement && affinityTextures[faceElement]) {
-      style.background = `url(${affinityTextures[faceElement]}) center / cover`;
-    } else if (props.affinity && affinityTextures[props.affinity]) {
-      style.background = `url(${affinityTextures[props.affinity]}) center / cover`;
+    if (faceElement && ELEMENT_FACE_STYLES[faceElement]) {
+      style.background = ELEMENT_FACE_STYLES[faceElement];
+    } else if (props.affinity && ELEMENT_FACE_STYLES[props.affinity]) {
+      style.background = ELEMENT_FACE_STYLES[props.affinity];
     }
 
     styles[face.value] = style;
@@ -210,7 +224,10 @@ const probabilityRows = computed(() => {
     counts[props.affinity] = geometry.value.faces.length;
   }
 
-  const totalFaces = Object.values(counts).reduce((sum, count) => sum + count, 0);
+  const totalFaces = Object.values(counts).reduce(
+    (sum, count) => sum + count,
+    0,
+  );
   if (totalFaces === 0) {
     return [];
   }
@@ -231,6 +248,14 @@ const showProbabilityTooltip = computed(
 /** Get the element for a specific face (1-based index) */
 function getFaceElement(faceValue: number): string | undefined {
   return props.elementFaces?.[faceValue - 1];
+}
+
+function getElementIcon(element: string | undefined): Component | undefined {
+  return element ? ELEMENT_ICONS[element] : undefined;
+}
+
+function getFaceIcon(faceValue: number): Component | undefined {
+  return getElementIcon(getFaceElement(faceValue));
 }
 
 /**
@@ -440,6 +465,13 @@ defineExpose({
   text-transform: capitalize;
 }
 
+.probability-element-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  color: currentColor;
+  flex: 0 0 auto;
+}
+
 .dice-shadow {
   position: absolute;
   bottom: -50px;
@@ -547,6 +579,16 @@ defineExpose({
   pointer-events: none;
 }
 
+.face-icon {
+  width: 40%;
+  height: 40%;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.72))
+    drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
+  pointer-events: none;
+  user-select: none;
+}
+
 /* D4 face value positioning - 3 values per triangular face */
 .face-value-d4-left {
   position: relative;
@@ -574,6 +616,12 @@ defineExpose({
 
 .dice-d20 .face-value {
   font-size: 1.4rem;
+}
+
+.dice-d12 .face-icon,
+.dice-d20 .face-icon {
+  width: 32%;
+  height: 32%;
 }
 
 /* Special styling for triangular faces (d4, d20) */
@@ -610,6 +658,17 @@ defineExpose({
 
   .dice-d20 .face-value {
     font-size: 1.1rem;
+  }
+
+  .face-icon {
+    width: 34%;
+    height: 34%;
+  }
+
+  .dice-d12 .face-icon,
+  .dice-d20 .face-icon {
+    width: 28%;
+    height: 28%;
   }
 }
 </style>
