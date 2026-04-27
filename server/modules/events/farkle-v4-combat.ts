@@ -8,6 +8,9 @@ import type { V4MemberModifiers } from "./farkle-v4-logic";
 interface V4CombatLogEntry {
   [key: string]: unknown;
   round: number;
+  sequence?: number;
+  type?: "attack_resolved";
+  payload?: Record<string, unknown>;
   step: number;
   side: "player" | "opponent";
   attacker_index: number;

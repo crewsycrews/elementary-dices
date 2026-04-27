@@ -12,6 +12,7 @@ import {
   ElementalEvolutionSchema,
   StatsSchema,
   BattlePartyMemberSchema,
+  BattleLogEntrySchema,
   BattleRollRecordSchema,
   BattleStateSchema,
   BattlePhase,
@@ -56,6 +57,7 @@ export type EncounterStatusValue = Static<typeof EncounterStatus>;
 export type BattleOutcomeValue = Static<typeof BattleOutcome>;
 export type ItemTypeValue = Static<typeof ItemType>;
 export type BattlePartyMember = Static<typeof BattlePartyMemberSchema>;
+export type BattleLogEntry = Static<typeof BattleLogEntrySchema>;
 export type BattleRollRecord = Static<typeof BattleRollRecordSchema>;
 export type BattleState = Static<typeof BattleStateSchema>;
 export type BattlePhaseValue = Static<typeof BattlePhase>;

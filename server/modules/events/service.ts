@@ -31,6 +31,7 @@ import {
   simulateCombatRound,
   calculateTotalPower,
   type BattlePartyMember,
+  type BattleLogEntry,
   type ElementType,
 } from "./battle-logic";
 import {
@@ -99,6 +100,211 @@ function toElementSet(values: ElementType[]): ElementType[] {
 
 function hasLivingElementals(party: BattlePartyMember[]): boolean {
   return party.some((member) => !member.is_destroyed && member.current_health > 0);
+}
+
+function deployedUnits(
+  party: BattlePartyMember[],
+  indices: number[],
+): Array<{ index: number; name: string; element: ElementType }> {
+  return indices
+    .map((index) => {
+      const member = party[index];
+      if (!member) return null;
+      return { index, name: member.name, element: member.element };
+    })
+    .filter((unit): unit is { index: number; name: string; element: ElementType } =>
+      unit !== null,
+    );
+}
+
+function appendBattleEndedLog(
+  log: Array<Record<string, unknown>>,
+  round: number,
+  winner: "player" | "opponent" | "draw",
+  playerTotal: number,
+  opponentTotal: number,
+): Array<Record<string, unknown>> {
+  const nextSequence =
+    log
+      .filter((entry) => entry.round === round && typeof entry.sequence === "number")
+      .reduce((max, entry) => Math.max(max, entry.sequence as number), 0) + 1;
+
+  const entry: BattleLogEntry = {
+    round,
+    sequence: nextSequence,
+    type: "battle_ended",
+    payload: {
+      winner,
+      player_total_attack: playerTotal,
+      opponent_total_attack: opponentTotal,
+    },
+  };
+
+  return [
+    ...log,
+    entry,
+  ];
+}
+
+function buildBattleRoundLog(input: {
+  round: number;
+  playerPartyBeforeCombat: BattlePartyMember[];
+  opponentPartyBeforeCombat: BattlePartyMember[];
+  playerDeployedIndices: number[];
+  opponentDeployedIndices: number[];
+  playerBonuses: Partial<Record<ElementType, number>>;
+  opponentBonuses: Partial<Record<ElementType, number>>;
+  firstAttacker?: "player" | "opponent";
+  attackLog: Array<Record<string, unknown>>;
+}): BattleLogEntry[] {
+  type BattleLogEntryDraft = {
+    type: BattleLogEntry["type"];
+    side?: "player" | "opponent";
+    payload: Record<string, unknown>;
+    step?: number;
+    attacker_index?: number;
+    attacker_name?: string;
+    attacker_element?: ElementType;
+    target?: "unit";
+    defender_index?: number;
+    defender_name?: string;
+    defender_element?: ElementType;
+    damage?: number;
+    weakness_bonus_applied?: boolean;
+    dodged?: boolean;
+    second_attack?: boolean;
+    second_attack_lost?: boolean;
+    defender_remaining_health?: number;
+  };
+
+  const entries: BattleLogEntry[] = [];
+  let sequence = 1;
+
+  const push = (entry: BattleLogEntryDraft) => {
+    entries.push({ ...entry, round: input.round, sequence });
+    sequence += 1;
+  };
+
+  push({
+    type: "round_started",
+    payload: { round: input.round },
+  });
+
+  push({
+    type: "deployment_revealed",
+    side: "player",
+    payload: {
+      deployed_indices: input.playerDeployedIndices,
+      units: deployedUnits(input.playerPartyBeforeCombat, input.playerDeployedIndices),
+    },
+  });
+
+  push({
+    type: "deployment_revealed",
+    side: "opponent",
+    payload: {
+      deployed_indices: input.opponentDeployedIndices,
+      units: deployedUnits(input.opponentPartyBeforeCombat, input.opponentDeployedIndices),
+    },
+  });
+
+  for (const [element, amount] of Object.entries(input.playerBonuses)) {
+    if (!amount) continue;
+    push({
+      type: "bonus_applied",
+      side: "player",
+      payload: { element, amount },
+    });
+  }
+
+  for (const [element, amount] of Object.entries(input.opponentBonuses)) {
+    if (!amount) continue;
+    push({
+      type: "bonus_applied",
+      side: "opponent",
+      payload: { element, amount },
+    });
+  }
+
+  const firstAttacker =
+    input.firstAttacker ??
+    (input.attackLog.find((entry) => entry.side === "player" || entry.side === "opponent")
+      ?.side as "player" | "opponent" | undefined);
+
+  if (firstAttacker) {
+    push({
+      type: "initiative_decided",
+      side: firstAttacker,
+      payload: { first_attacker: firstAttacker },
+    });
+  }
+
+  for (const rawAttack of input.attackLog) {
+    const attackEntry = {
+      ...rawAttack,
+      type: "attack_resolved",
+      payload: {
+        attacker_index: rawAttack.attacker_index,
+        attacker_name: rawAttack.attacker_name,
+        attacker_element: rawAttack.attacker_element,
+        defender_index: rawAttack.defender_index,
+        defender_name: rawAttack.defender_name,
+        defender_element: rawAttack.defender_element,
+        damage: rawAttack.damage,
+        weakness_bonus_applied: rawAttack.weakness_bonus_applied,
+        dodged: rawAttack.dodged,
+        second_attack: rawAttack.second_attack,
+        second_attack_lost: rawAttack.second_attack_lost,
+        defender_remaining_health: rawAttack.defender_remaining_health,
+      },
+    } as BattleLogEntryDraft;
+
+    push(attackEntry);
+
+    if (
+      rawAttack.target === "unit" &&
+      rawAttack.defender_name &&
+      rawAttack.defender_remaining_health === 0
+    ) {
+      push({
+        type: "unit_destroyed",
+        side: rawAttack.side === "player" ? "opponent" : "player",
+        step: rawAttack.step as number | undefined,
+        payload: {
+          defender_index: rawAttack.defender_index,
+          defender_name: rawAttack.defender_name,
+          defender_element: rawAttack.defender_element,
+          destroyed_by: rawAttack.attacker_name,
+          attacker_side: rawAttack.side,
+        },
+      });
+    }
+  }
+
+  const playerDamageTaken = input.attackLog
+    .filter((entry) => entry.side === "opponent")
+    .reduce((sum, entry) => sum + (typeof entry.damage === "number" ? entry.damage : 0), 0);
+  const opponentDamageTaken = input.attackLog
+    .filter((entry) => entry.side === "player")
+    .reduce((sum, entry) => sum + (typeof entry.damage === "number" ? entry.damage : 0), 0);
+  const playerUnitsDestroyed = input.attackLog.filter(
+    (entry) => entry.side === "opponent" && entry.defender_remaining_health === 0,
+  ).length;
+  const opponentUnitsDestroyed = input.attackLog.filter(
+    (entry) => entry.side === "player" && entry.defender_remaining_health === 0,
+  ).length;
+
+  push({
+    type: "round_ended",
+    payload: {
+      player_damage_taken: playerDamageTaken,
+      opponent_damage_taken: opponentDamageTaken,
+      player_units_destroyed: playerUnitsDestroyed,
+      opponent_units_destroyed: opponentUnitsDestroyed,
+    },
+  });
+
+  return entries;
 }
 
 export interface WildBattleState {
@@ -350,7 +556,9 @@ export class EventService {
     return {
       phase: "initial_roll",
       dice: [],
+      has_used_reroll: false,
       active_combinations: [],
+      set_aside_element_bonus: null,
       accumulated_combination_elements: [],
       accumulated_set_aside_elements: [],
       is_dice_rush: false,
@@ -366,7 +574,9 @@ export class EventService {
     return {
       phase: state.phase as WildEncounterFarkleState["phase"],
       dice: (state.dice_state ?? []) as FarkleDie[],
+      has_used_reroll: state.has_used_reroll,
       active_combinations: (state.active_combinations ?? []) as any,
+      set_aside_element_bonus: state.set_aside_element_bonus ?? null,
       accumulated_combination_elements: [],
       accumulated_set_aside_elements: [],
       is_dice_rush: state.is_dice_rush,
@@ -1410,6 +1620,9 @@ export class EventService {
     battleState.opponent_party = opponentApplied.updated_party;
     battleState.opponent_bonuses_total = opponentApplied.applied_bonuses;
 
+    const playerPartyBeforeCombat = battleState.player_party.map((member) => ({ ...member }));
+    const opponentPartyBeforeCombat = battleState.opponent_party.map((member) => ({ ...member }));
+
     const combatResult = simulateV4CombatRound(
       {
         round: battleState.current_turn,
@@ -1424,7 +1637,20 @@ export class EventService {
 
     battleState.player_party = combatResult.player_party;
     battleState.opponent_party = combatResult.opponent_party;
-    battleState.combat_log = [...(battleState.combat_log ?? []), ...combatResult.log];
+    battleState.combat_log = [
+      ...(battleState.combat_log ?? []),
+      ...buildBattleRoundLog({
+        round: battleState.current_turn,
+        playerPartyBeforeCombat,
+        opponentPartyBeforeCombat,
+        playerDeployedIndices: playerApplied.deployed_indices,
+        opponentDeployedIndices: opponentApplied.deployed_indices,
+        playerBonuses: playerApplied.applied_bonuses,
+        opponentBonuses: opponentApplied.applied_bonuses,
+        firstAttacker: combatResult.first_attacker,
+        attackLog: combatResult.log,
+      }),
+    ];
     battleState.last_player_deployment = playerApplied.deployed_indices;
     battleState.last_opponent_deployment = opponentApplied.deployed_indices;
     battleState.opponent_turn_result = {
@@ -1457,6 +1683,13 @@ export class EventService {
       battleState.winner = winner;
       battleState.player_total_attack = playerTotal;
       battleState.opponent_total_attack = opponentTotal;
+      battleState.combat_log = appendBattleEndedLog(
+        battleState.combat_log,
+        battleState.current_turn,
+        winner,
+        playerTotal,
+        opponentTotal,
+      );
       const victory = winner === "player" || winner === "draw";
       result = await this.resolveBattleOutcome(
         playerId,
@@ -2008,6 +2241,9 @@ export class EventService {
       opponentResult.combination_elements,
     );
 
+    const playerPartyBeforeCombat = battleState.player_party.map((member) => ({ ...member }));
+    const opponentPartyBeforeCombat = battleState.opponent_party.map((member) => ({ ...member }));
+
     const combatResult = simulateCombatRound(
       {
         round: battleState.current_turn,
@@ -2027,7 +2263,19 @@ export class EventService {
 
     battleState.player_party = combatResult.player_party;
     battleState.opponent_party = combatResult.opponent_party;
-    battleState.combat_log = [...(battleState.combat_log ?? []), ...combatResult.log];
+    battleState.combat_log = [
+      ...(battleState.combat_log ?? []),
+      ...buildBattleRoundLog({
+        round: battleState.current_turn,
+        playerPartyBeforeCombat,
+        opponentPartyBeforeCombat,
+        playerDeployedIndices: playerDeploymentIndices,
+        opponentDeployedIndices: opponentDeploymentIndices,
+        playerBonuses: battleState.player_bonuses_total,
+        opponentBonuses: battleState.opponent_bonuses_total,
+        attackLog: combatResult.log,
+      }),
+    ];
     battleState.last_player_deployment = playerDeploymentIndices;
     battleState.last_opponent_deployment = opponentDeploymentIndices;
 
@@ -2055,6 +2303,13 @@ export class EventService {
       battleState.winner = winner;
       battleState.player_total_attack = playerTotal;
       battleState.opponent_total_attack = opponentTotal;
+      battleState.combat_log = appendBattleEndedLog(
+        battleState.combat_log,
+        battleState.current_turn,
+        winner,
+        playerTotal,
+        opponentTotal,
+      );
 
       const victory = winner === "player" || winner === "draw";
       result = await this.resolveBattleOutcome(

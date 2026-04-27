@@ -284,21 +284,22 @@
             </span>
           </div>
           <div
-            v-if="isCombatHistoryOpen && lastRoundLogs.length > 0"
-            class="space-y-2 max-h-64 overflow-y-auto rounded-lg border border-border/60 p-2"
+            v-if="isCombatHistoryOpen && groupedBattleLogEntries.length > 0"
+            class="space-y-3 max-h-80 overflow-y-auto rounded-lg border border-border/60 p-3"
           >
-            <div
-              v-for="entry in lastRoundLogs"
-              :key="`${entry.round}-${entry.step}-${entry.side}-${entry.attacker_index}`"
-              class="text-xs rounded-md bg-card/70 p-2"
-            >
-              <span class="font-semibold">{{ t("battle.step", { step: entry.step }) }}</span>
-              {{ entry.attacker_name }} ({{ getElementEmoji(entry.attacker_element) }})
-              {{ t("battle.attacked") }}
-              <span v-if="entry.target === 'unit'">
-                {{ entry.defender_name }} ({{ getElementEmoji(entry.defender_element ?? "") }})
-              </span>
-              {{ t("battle.for_damage", { damage: entry.damage }) }}
+            <div v-for="group in groupedBattleLogEntries" :key="group.round" class="space-y-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {{ t("common.round") }} {{ group.round }}
+              </p>
+              <div
+                v-for="entry in group.entries"
+                :key="`${entry.round}-${entry.sequence}-${entry.type}`"
+                class="text-xs rounded-md border p-2 leading-relaxed"
+                :class="battleLogEntryClass(entry)"
+              >
+                <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
+                {{ formatBattleLogEntry(entry) }}
+              </div>
             </div>
           </div>
         </div>
@@ -443,6 +444,29 @@
             {{ t("battle.proceed_next") }}
           </button>
         </div>
+
+        <div
+          v-if="groupedBattleLogEntries.length > 0"
+          class="max-w-3xl mx-auto rounded-xl border border-border bg-card/40 p-4 space-y-3"
+        >
+          <p class="text-sm font-bold text-muted-foreground">{{ t("battle.full_combat_log") }}</p>
+          <div class="space-y-3 max-h-96 overflow-y-auto rounded-lg border border-border/60 p-3">
+            <div v-for="group in groupedBattleLogEntries" :key="group.round" class="space-y-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
+                {{ t("common.round") }} {{ group.round }}
+              </p>
+              <div
+                v-for="entry in group.entries"
+                :key="`${entry.round}-${entry.sequence}-${entry.type}`"
+                class="text-xs rounded-md border p-2 leading-relaxed"
+                :class="battleLogEntryClass(entry)"
+              >
+                <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
+                {{ formatBattleLogEntry(entry) }}
+              </div>
+            </div>
+          </div>
+        </div>
       </template>
     </div>
   </div>
@@ -463,6 +487,7 @@ import FarkleBonusTracker from "@/components/game/FarkleBonusTracker.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { Combination } from "@/stores/event";
+import type { BattleLogEntry } from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const router = useRouter();
@@ -574,6 +599,9 @@ const dismissOnboarding = () => {
 
 type CombatLogEntry = {
   round: number;
+  sequence?: number;
+  type?: string;
+  payload?: Record<string, unknown>;
   step: number;
   side: "player" | "opponent";
   attacker_index: number;
@@ -585,6 +613,11 @@ type CombatLogEntry = {
   defender_element?: string;
   damage: number;
   defender_remaining_health?: number;
+};
+
+type BattleLogRoundGroup = {
+  round: number;
+  entries: BattleLogEntry[];
 };
 
 const ELEMENT_EMOJIS: Record<string, string> = {
@@ -612,6 +645,50 @@ function getCombinationLabel(combo: Combination): string {
   return labels[combo.type] ?? combo.type;
 }
 
+const battleLogEntries = computed<BattleLogEntry[]>(() => {
+  const raw = (battle.battleState.value?.combat_log ?? []) as Array<
+    Partial<BattleLogEntry & CombatLogEntry>
+  >;
+  return raw
+    .map((entry): BattleLogEntry | null => {
+      if (
+        typeof entry.round === "number" &&
+        typeof entry.sequence === "number" &&
+        typeof entry.type === "string" &&
+        typeof entry.payload === "object" &&
+        entry.payload !== null
+      ) {
+        return entry as BattleLogEntry;
+      }
+
+      if (
+        typeof entry.round === "number" &&
+        typeof entry.step === "number" &&
+        (entry.side === "player" || entry.side === "opponent") &&
+        typeof entry.attacker_name === "string" &&
+        typeof entry.attacker_element === "string" &&
+        entry.target === "unit" &&
+        typeof entry.damage === "number"
+      ) {
+        return {
+          ...(entry as CombatLogEntry),
+          sequence: entry.step,
+          type: "attack_resolved",
+          payload: {
+            attacker_name: entry.attacker_name,
+            defender_name: entry.defender_name,
+            damage: entry.damage,
+            defender_remaining_health: entry.defender_remaining_health,
+          },
+        } as BattleLogEntry;
+      }
+
+      return null;
+    })
+    .filter((entry): entry is BattleLogEntry => entry !== null)
+    .sort((a, b) => a.round - b.round || a.sequence - b.sequence);
+});
+
 const combatLogEntries = computed<CombatLogEntry[]>(() => {
   const raw = (battle.battleState.value?.combat_log ?? []) as Array<
     Partial<CombatLogEntry>
@@ -625,9 +702,23 @@ const combatLogEntries = computed<CombatLogEntry[]>(() => {
         typeof entry.attacker_name === "string" &&
         typeof entry.attacker_element === "string" &&
         entry.target === "unit" &&
-        typeof entry.damage === "number",
+        typeof entry.damage === "number" &&
+        (!entry.type || entry.type === "attack_resolved"),
     )
-    .sort((a, b) => a.round - b.round || a.step - b.step);
+    .sort(
+      (a, b) =>
+        a.round - b.round ||
+        (a.sequence ?? a.step) - (b.sequence ?? b.step) ||
+        a.step - b.step,
+    );
+});
+
+const groupedBattleLogEntries = computed<BattleLogRoundGroup[]>(() => {
+  const groups = new Map<number, BattleLogEntry[]>();
+  for (const entry of battleLogEntries.value) {
+    groups.set(entry.round, [...(groups.get(entry.round) ?? []), entry]);
+  }
+  return [...groups.entries()].map(([round, entries]) => ({ round, entries }));
 });
 
 const lastResolvedRoundNumber = computed<number | null>(() => {
@@ -737,6 +828,109 @@ const roundsResolved = computed(() => {
   const rounds = new Set(combatLogEntries.value.map((entry) => entry.round));
   return rounds.size;
 });
+
+function sideLabel(side?: "player" | "opponent"): string {
+  if (side === "player") return t("battle.you");
+  if (side === "opponent") {
+    return eventStore.pvpData?.opponent_name ?? t("battle.opponent_name");
+  }
+  return "";
+}
+
+function formatPercent(value: unknown): string {
+  return typeof value === "number" ? `${Math.round(value * 100)}%` : "0%";
+}
+
+function formatElementList(value: unknown): string {
+  if (!Array.isArray(value) || value.length === 0) return t("battle.none");
+  return value
+    .map((unit) => {
+      if (!unit || typeof unit !== "object") return null;
+      const candidate = unit as Record<string, unknown>;
+      const name = typeof candidate.name === "string" ? candidate.name : null;
+      const element = typeof candidate.element === "string" ? candidate.element : "";
+      if (!name) return null;
+      return `${name} (${getElementEmoji(element)})`;
+    })
+    .filter(Boolean)
+    .join(", ");
+}
+
+function formatBattleLogEntry(entry: BattleLogEntry): string {
+  switch (entry.type) {
+    case "round_started":
+      return t("battle.log_round_started", { round: entry.round });
+    case "deployment_revealed":
+      return t("battle.log_deployment", {
+        side: sideLabel(entry.side),
+        units: formatElementList(entry.payload.units),
+      });
+    case "bonus_applied":
+      return t("battle.log_bonus", {
+        side: sideLabel(entry.side),
+        element: getElementEmoji(String(entry.payload.element ?? "")),
+        amount: formatPercent(entry.payload.amount),
+      });
+    case "initiative_decided":
+      return t("battle.log_initiative", {
+        side: sideLabel(entry.side),
+      });
+    case "attack_resolved": {
+      if (entry.second_attack_lost) {
+        return t("battle.log_second_attack_lost", {
+          attacker: entry.attacker_name ?? t("battle.unknown_unit"),
+        });
+      }
+      if (entry.dodged) {
+        return t("battle.log_dodged", {
+          attacker: entry.attacker_name ?? t("battle.unknown_unit"),
+          defender: entry.defender_name ?? t("battle.unknown_unit"),
+        });
+      }
+      return t("battle.log_attack", {
+        attacker: entry.attacker_name ?? t("battle.unknown_unit"),
+        attackerElement: getElementEmoji(entry.attacker_element ?? ""),
+        defender: entry.defender_name ?? t("battle.unknown_unit"),
+        defenderElement: getElementEmoji(entry.defender_element ?? ""),
+        damage: entry.damage ?? 0,
+        hp: entry.defender_remaining_health ?? 0,
+        weakness: entry.weakness_bonus_applied ? t("battle.log_weakness") : "",
+        second: entry.second_attack ? t("battle.log_second_attack") : "",
+      });
+    }
+    case "unit_destroyed":
+      return t("battle.log_destroyed", {
+        unit: String(entry.payload.defender_name ?? t("battle.unknown_unit")),
+      });
+    case "round_ended":
+      return t("battle.log_round_ended", {
+        playerDamage: Number(entry.payload.player_damage_taken ?? 0),
+        opponentDamage: Number(entry.payload.opponent_damage_taken ?? 0),
+      });
+    case "battle_ended":
+      return t("battle.log_battle_ended", {
+        winner:
+          entry.payload.winner === "player"
+            ? t("battle.you")
+            : entry.payload.winner === "opponent"
+              ? eventStore.pvpData?.opponent_name ?? t("battle.opponent_name")
+              : t("battle.draw"),
+      });
+    default:
+      return t("battle.log_unknown");
+  }
+}
+
+function battleLogEntryClass(entry: BattleLogEntry): string {
+  if (entry.type === "attack_resolved") {
+    return entry.side === "player"
+      ? "border-blue-500/30 bg-blue-500/5"
+      : "border-red-500/30 bg-red-500/5";
+  }
+  if (entry.type === "unit_destroyed") return "border-orange-500/40 bg-orange-500/10";
+  if (entry.type === "battle_ended") return "border-primary/40 bg-primary/10";
+  return "border-border/60 bg-card/70";
+}
 
 const isVictory = computed(() => {
   if (battle.battleResult.value) {

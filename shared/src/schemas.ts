@@ -372,6 +372,39 @@ export const BattleRollRecordSchema = t.Object({
   roll_value: t.Optional(t.Integer()),
 });
 
+export const BattleLogEntryType = t.Union([
+  t.Literal("round_started"),
+  t.Literal("deployment_revealed"),
+  t.Literal("bonus_applied"),
+  t.Literal("initiative_decided"),
+  t.Literal("attack_resolved"),
+  t.Literal("unit_destroyed"),
+  t.Literal("round_ended"),
+  t.Literal("battle_ended"),
+]);
+
+export const BattleLogEntrySchema = t.Object({
+  round: t.Integer({ minimum: 1 }),
+  sequence: t.Integer({ minimum: 1 }),
+  type: BattleLogEntryType,
+  side: t.Optional(t.Union([t.Literal("player"), t.Literal("opponent")])),
+  payload: t.Record(t.String(), t.Any()),
+  step: t.Optional(t.Integer({ minimum: 1 })),
+  attacker_index: t.Optional(t.Integer()),
+  attacker_name: t.Optional(t.String()),
+  attacker_element: t.Optional(ElementType),
+  target: t.Optional(t.Literal("unit")),
+  defender_index: t.Optional(t.Integer()),
+  defender_name: t.Optional(t.String()),
+  defender_element: t.Optional(ElementType),
+  damage: t.Optional(t.Number()),
+  weakness_bonus_applied: t.Optional(t.Boolean()),
+  dodged: t.Optional(t.Boolean()),
+  second_attack: t.Optional(t.Boolean()),
+  second_attack_lost: t.Optional(t.Boolean()),
+  defender_remaining_health: t.Optional(t.Number()),
+});
+
 export const BattlePhase = t.Union([
   t.Literal("targeting"),
   t.Literal("rolling"),
@@ -500,16 +533,20 @@ export const FarkleDieSchema = t.Object({
 
 export const FarkleTurnPhase = t.Union([
   t.Literal("initial_roll"),
+  t.Literal("can_reroll"),
   t.Literal("set_aside"),
   t.Literal("rolling_remaining"),
   t.Literal("ready_to_commit"),
   t.Literal("done"),
+  t.Literal("resolved"),
 ]);
 
 export const FarkleTurnStateSchema = t.Object({
   phase: FarkleTurnPhase,
   dice: t.Array(FarkleDieSchema),
+  has_used_reroll: t.Optional(t.Boolean()),
   active_combinations: t.Array(CombinationSchema),
+  set_aside_element_bonus: t.Optional(t.Nullable(ElementType)),
   accumulated_dice_rush_bonuses: t.Optional(t.Record(t.String(), t.Number())),
   accumulated_combination_elements: t.Optional(t.Array(ElementType)),
   accumulated_set_aside_elements: t.Optional(t.Array(ElementType)),
@@ -532,7 +569,9 @@ export const OpponentTurnResultSchema = t.Object({
 
 export const FarkleBattlePhase = t.Union([
   t.Literal("targeting"),
+  t.Literal("choose_element"),
   t.Literal("player_turn"),
+  t.Literal("opponent_turn"),
   t.Literal("resolved"),
 ]);
 
@@ -540,6 +579,8 @@ export const FarkleBattleStateSchema = t.Object({
   phase: FarkleBattlePhase,
   player_party: t.Array(BattlePartyMemberSchema),
   opponent_party: t.Array(BattlePartyMemberSchema),
+  set_aside_element: t.Optional(t.Nullable(ElementType)),
+  opponent_set_aside_element: t.Optional(t.Nullable(ElementType)),
   current_turn: t.Integer({ minimum: 1 }),
   player_turns_done: t.Integer({ minimum: 0 }),
   opponent_turns_done: t.Integer({ minimum: 0 }),

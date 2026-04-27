@@ -30,6 +30,9 @@ export interface BattlePartyMember {
 export interface CombatLogEntry {
   [key: string]: unknown;
   round: number;
+  sequence?: number;
+  type?: "attack_resolved";
+  payload?: Record<string, unknown>;
   step: number;
   side: "player" | "opponent";
   attacker_index: number;
@@ -41,6 +44,39 @@ export interface CombatLogEntry {
   defender_element?: ElementType;
   damage: number;
   weakness_bonus_applied: boolean;
+  defender_remaining_health?: number;
+}
+
+export type BattleLogEntryType =
+  | "round_started"
+  | "deployment_revealed"
+  | "bonus_applied"
+  | "initiative_decided"
+  | "attack_resolved"
+  | "unit_destroyed"
+  | "round_ended"
+  | "battle_ended";
+
+export interface BattleLogEntry {
+  [key: string]: unknown;
+  round: number;
+  sequence: number;
+  type: BattleLogEntryType;
+  side?: "player" | "opponent";
+  payload: Record<string, unknown>;
+  step?: number;
+  attacker_index?: number;
+  attacker_name?: string;
+  attacker_element?: ElementType;
+  target?: "unit";
+  defender_index?: number;
+  defender_name?: string;
+  defender_element?: ElementType;
+  damage?: number;
+  weakness_bonus_applied?: boolean;
+  dodged?: boolean;
+  second_attack?: boolean;
+  second_attack_lost?: boolean;
   defender_remaining_health?: number;
 }
 

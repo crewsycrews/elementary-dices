@@ -144,6 +144,9 @@ export interface WildEncounterFarkleState {
   accumulated_set_aside_elements?: ElementTypeValue[];
   is_dice_rush: boolean;
   busted: boolean;
+  assignment_required_party_indices?: number[];
+  assigned_party_indices?: number[];
+  can_commit?: boolean;
   detected_combinations: Array<{
     type: string;
     elements: ElementTypeValue[];

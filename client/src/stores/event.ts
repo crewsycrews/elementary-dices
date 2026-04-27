@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
+import type { BattleLogEntry } from "@elementary-dices/shared";
 
 // Types based on backend schemas
 type EventType = "wild_encounter" | "pvp_battle" | "merchant";
@@ -127,7 +128,7 @@ export type FarkleBattleState = {
   opponent_turn_result: OpponentTurnResult | null;
   player_bonuses_total: Record<string, number>;
   opponent_bonuses_total: Record<string, number>;
-  combat_log: Array<Record<string, unknown>>;
+  combat_log: BattleLogEntry[];
   last_player_deployment?: number[];
   last_opponent_deployment?: number[];
   winner?: "player" | "opponent" | "draw";
