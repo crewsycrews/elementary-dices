@@ -18,7 +18,6 @@
           <span class="font-medium ml-1">{{ userStore.username }}</span>
         </div>
 
-        <!-- Logout Button (placeholder) -->
         <button
           @click="handleLogout"
           class="text-sm px-3 py-1 border rounded-md hover:bg-secondary"
@@ -39,8 +38,8 @@ const userStore = useUserStore()
 const router = useRouter()
 const { t } = useI18n()
 
-function handleLogout() {
-  userStore.logout()
-  router.push({ name: 'Login' })
+async function handleLogout() {
+  await userStore.logout()
+  await router.push({ name: 'Login' })
 }
 </script>

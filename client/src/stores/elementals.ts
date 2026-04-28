@@ -197,6 +197,11 @@ export const useElementalsStore = defineStore('elementals', () => {
     )
   }
 
+  function resetState() {
+    allElementals.value = []
+    playerElementals.value = []
+  }
+
   return {
     // State
     allElementals,
@@ -215,5 +220,6 @@ export const useElementalsStore = defineStore('elementals', () => {
     getElementalById,
     getElementalsByLevel,
     getElementalsByElement,
+    resetState,
   }
 })

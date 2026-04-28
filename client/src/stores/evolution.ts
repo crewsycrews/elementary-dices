@@ -157,6 +157,12 @@ export const useEvolutionStore = defineStore('evolution', () => {
     lastCombineResult.value = null
   }
 
+  function resetState() {
+    allRecipes.value = []
+    discoveredRecipes.value = []
+    lastCombineResult.value = null
+  }
+
   return {
     // State
     allRecipes,
@@ -174,5 +180,6 @@ export const useEvolutionStore = defineStore('evolution', () => {
     getRecipeHint,
     validateCombination,
     clearLastResult,
+    resetState,
   }
 })

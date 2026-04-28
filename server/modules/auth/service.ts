@@ -235,7 +235,7 @@ export class AuthService {
   /**
    * Logout and revoke tokens
    */
-  async logout(userId: string, refreshTokenString?: string) {
+  async logout(userId?: string, refreshTokenString?: string) {
     if (refreshTokenString) {
       const tokenHash = hashToken(refreshTokenString);
       const storedToken =
@@ -244,7 +244,7 @@ export class AuthService {
       if (storedToken) {
         await this.repository.revokeRefreshToken(storedToken.id);
       }
-    } else {
+    } else if (userId) {
       // Revoke all user tokens if no specific token provided
       await this.repository.revokeAllUserTokens(userId);
     }

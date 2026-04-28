@@ -2,6 +2,9 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useEventStore } from "./event";
+import { useInventoryStore } from "./inventory";
+import { useElementalsStore } from "./elementals";
+import { useEvolutionStore } from "./evolution";
 
 // Import types from shared package
 import type { User } from "@elementary-dices/shared";
@@ -253,9 +256,15 @@ export const useUserStore = defineStore(
       favoriteDiceId.value = null;
       stats.value = null;
 
-      // Clear event state
       const eventStore = useEventStore();
-      eventStore.clearEvent();
+      const inventoryStore = useInventoryStore();
+      const elementalsStore = useElementalsStore();
+      const evolutionStore = useEvolutionStore();
+
+      eventStore.resetState();
+      inventoryStore.resetState();
+      elementalsStore.resetState();
+      evolutionStore.resetState();
     }
 
     async function logout() {
@@ -263,7 +272,7 @@ export const useUserStore = defineStore(
 
       try {
         // Call backend logout to invalidate tokens
-        await apiCall(() => api.api.users.logout.post({}), {
+        await apiCall(() => api.api.auth.logout.post({}), {
           silent: true,
         });
       } catch (error) {

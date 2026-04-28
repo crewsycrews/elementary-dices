@@ -1002,6 +1002,12 @@ export const useEventStore = defineStore(
       isEventActive.value = false;
     }
 
+    function resetState() {
+      clearEvent();
+      eventHistory.value = [];
+      eventOptions.value = null;
+    }
+
     return {
       // State
       currentEvent,
@@ -1036,6 +1042,7 @@ export const useEventStore = defineStore(
       leaveMerchant,
       initializeEventState,
       clearEvent,
+      resetState,
     };
   },
   {

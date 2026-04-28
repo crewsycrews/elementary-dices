@@ -8,7 +8,6 @@ import {
 import { requireAuth } from "../auth/middleware";
 import { AuthService } from "../auth/service";
 import { UnauthorizedError } from "../../shared/errors";
-import type { AccessTokenPayload } from "../auth/models";
 import {
   getAccessTokenCookieOptions,
   getRefreshTokenCookieOptions,
@@ -102,21 +101,6 @@ const protectedUsersRoutes = new Elysia()
    */
   .get("/me", async ({ user }) => {
     return { user };
-  })
-  /**
-   * POST /api/auth/logout
-   * Logout and revoke refresh token
-   */
-  .post("/logout", async ({ user, cookie, authService }) => {
-    const refreshToken = cookie.refresh_token?.value as string | undefined;
-
-    await authService.logout(user.id, refreshToken);
-
-    // Clear cookies
-    cookie.access_token.remove();
-    cookie.refresh_token.remove();
-
-    return { success: true };
   });
 // Main users module with public routes
 export const usersModule = new Elysia({ prefix: "/api/users" })

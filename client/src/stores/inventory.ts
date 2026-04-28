@@ -308,6 +308,14 @@ export const useInventoryStore = defineStore(
       await userStore.updateFavoriteDice(playerDiceId);
     }
 
+    function resetState() {
+      playerItems.value = [];
+      playerDice.value = [];
+      shopItems.value = [];
+      shopDice.value = [];
+      lastRoll.value = null;
+    }
+
     return {
       // State
       playerItems,
@@ -334,6 +342,7 @@ export const useInventoryStore = defineStore(
       equipDice,
       setFavoriteDice,
       updateLastRoll,
+      resetState,
     };
   },
   {

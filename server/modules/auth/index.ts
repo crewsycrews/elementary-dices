@@ -1,9 +1,13 @@
 import { Elysia } from "elysia";
 import { generateCodeVerifier, Google } from "arctic";
 import { AuthService } from "./service";
-import { LoginDTO, AuthResponseDTO } from "./models";
+import {
+  LoginDTO,
+  AuthResponseDTO,
+  RefreshResponseDTO,
+  LogoutResponseDTO,
+} from "./models";
 import { generateState } from "./utils";
-import { UserService } from "../users/service";
 import {
   getAccessTokenCookieOptions,
   getRefreshTokenCookieOptions,
@@ -56,7 +60,29 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
     cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
     return { success: true };
+  }, {
+    response: RefreshResponseDTO,
   })
+  /**
+   * POST /api/auth/logout
+   * Logout and revoke refresh token
+   */
+  .post(
+    "/logout",
+    async ({ cookie, authService }) => {
+      const refreshToken = cookie.refresh_token?.value as string | undefined;
+
+      await authService.logout(undefined, refreshToken);
+
+      cookie.access_token.remove();
+      cookie.refresh_token.remove();
+
+      return { success: true };
+    },
+    {
+      response: LogoutResponseDTO,
+    },
+  )
 
   /**
    * GET /api/auth/google
