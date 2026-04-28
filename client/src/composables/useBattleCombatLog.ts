@@ -1,6 +1,5 @@
 import { computed, type ComputedRef } from "vue";
-import type { BattlePartyMember } from "@/stores/event";
-import type { BattleLogEntry } from "@elementary-dices/shared";
+import type { BattleLogEntry, BattlePartyMember } from "@elementary-dices/shared";
 
 type CombatLogEntry = {
   round: number;
@@ -29,7 +28,7 @@ export type BattleLogRoundGroup = {
   entries: BattleLogEntry[];
 };
 
-type Translate = (key: string, params?: Record<string, unknown>) => string;
+type Translate = (key: string, params?: Record<string, string | number>) => string;
 
 type UseBattleCombatLogParams = {
   combatLog: ComputedRef<Array<Record<string, unknown>>>;

@@ -269,10 +269,13 @@ export const useUserStore = defineStore(
 
     async function logout() {
       const { api, apiCall } = useApi();
+      const authApi = api.api.auth as unknown as {
+        logout: { post: (body: Record<string, never>) => Promise<unknown> };
+      };
 
       try {
         // Call backend logout to invalidate tokens
-        await apiCall(() => api.api.auth.logout.post({}), {
+        await apiCall(() => authApi.logout.post({}), {
           silent: true,
         });
       } catch (error) {

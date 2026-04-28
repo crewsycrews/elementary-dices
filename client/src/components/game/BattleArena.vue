@@ -112,7 +112,7 @@
 <script setup lang="ts">
 import { computed, useSlots } from 'vue'
 import BattleElementalCard from './BattleElementalCard.vue'
-import type { BattlePartyMember } from '@/stores/event'
+import type { BattlePartyMember } from '@elementary-dices/shared'
 import { useI18n } from '@/i18n'
 
 const props = defineProps<{

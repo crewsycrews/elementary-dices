@@ -116,7 +116,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { CSSProperties } from "vue";
-import type { BattlePartyMember } from "@/stores/event";
+import type { BattlePartyMember } from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const props = defineProps<{

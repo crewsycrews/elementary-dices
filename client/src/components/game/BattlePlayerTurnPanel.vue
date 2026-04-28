@@ -75,7 +75,7 @@
 </template>
 
 <script setup lang="ts">
-import type { Combination, FarkleDie } from "@/stores/event";
+import type { Combination, FarkleDie } from "@elementary-dices/shared";
 import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
 import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
 import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";

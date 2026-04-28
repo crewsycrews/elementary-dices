@@ -182,12 +182,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useRouter } from "vue-router";
-import {
-  useEventStore,
-  type BattlePartyMember,
-  type Combination,
-  type WildEncounterFarkleState,
-} from "@/stores/event";
+import { useEventStore, type WildEncounterFarkleState } from "@/stores/event";
 import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
@@ -198,6 +193,12 @@ import WildEncounterCaptureResult from "@/components/game/WildEncounterCaptureRe
 import WildEncounterRoundSummary from "@/components/game/WildEncounterRoundSummary.vue";
 import WildEncounterTurnPanel from "@/components/game/WildEncounterTurnPanel.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
+import type {
+  BattlePartyMember,
+  Combination,
+  ElementTypeValue,
+  FarkleDie,
+} from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const router = useRouter();
@@ -383,7 +384,7 @@ const canRollRemaining = computed(
     !!farkleState.value &&
     !farkleState.value.busted &&
     farkleState.value.phase !== "done" &&
-    farkleState.value.dice.some((die) => !die.is_set_aside),
+    farkleState.value.dice.some((die: FarkleDie) => !die.is_set_aside),
 );
 const canEndTurn = computed(() => {
   if (!farkleState.value) return false;
@@ -486,13 +487,12 @@ const handleRoll = async () => {
   }
 };
 
-const playerInfusionElements = computed<Record<number, string[]>>(() => {
-  const infused: Record<number, string[]> = {};
-  farkleState.value?.dice.forEach((die) => {
+const playerInfusionElements = computed<Record<number, ElementTypeValue[]>>(() => {
+  const infused: Record<number, ElementTypeValue[]> = {};
+  farkleState.value?.dice.forEach((die: FarkleDie) => {
     if (
       die.is_assigned &&
-      typeof die.assigned_to_party_index === "number" &&
-      typeof die.current_result === "string"
+      typeof die.assigned_to_party_index === "number"
     ) {
       infused[die.assigned_to_party_index] ??= [];
       infused[die.assigned_to_party_index].push(die.current_result);

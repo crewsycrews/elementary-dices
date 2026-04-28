@@ -55,7 +55,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useInventoryStore } from "@/stores/inventory";
-import type { PlayerDice } from "@elementary-dices/shared";
+import type { ElementTypeValue, PlayerDiceWithDetails } from "@elementary-dices/shared";
 import Dice3D from "./Dice3D.vue";
 import type { DiceType } from "./dice-geometry/types";
 
@@ -78,7 +78,7 @@ const inventoryStore = useInventoryStore();
 
 // Group equipped dice by type
 const groupedDice = computed(() => {
-  const grouped: Record<string, PlayerDice[]> = {
+  const grouped: Record<string, PlayerDiceWithDetails[]> = {
     d4: [],
     d6: [],
     d10: [],
@@ -98,19 +98,19 @@ const groupedDice = computed(() => {
 
 // Get the primary face element of the first equipped dice for each type
 const diceAffinities = computed(() => {
-  const result: Record<string, "fire" | "water" | "earth" | "air" | "lightning" | undefined> = {};
+  const result: Record<string, ElementTypeValue | undefined> = {};
   for (const [type, dice] of Object.entries(groupedDice.value)) {
-    const faces = (dice[0] as any)?.dice_type?.faces as string[] | undefined;
-    result[type] = faces?.[0] as "fire" | "water" | "earth" | "air" | "lightning" | undefined;
+    const faces = dice[0]?.dice_type?.faces;
+    result[type] = faces?.[0];
   }
   return result;
 });
 
 // Get all element faces for the first equipped dice of each type
 const diceFaces = computed(() => {
-  const result: Record<string, string[] | undefined> = {};
+  const result: Record<string, ElementTypeValue[] | undefined> = {};
   for (const [type, dice] of Object.entries(groupedDice.value)) {
-    result[type] = (dice[0] as any)?.dice_type?.faces as string[] | undefined;
+    result[type] = dice[0]?.dice_type?.faces;
   }
   return result;
 });

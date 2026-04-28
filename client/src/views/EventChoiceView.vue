@@ -76,8 +76,7 @@ import MainMenuButton from "@/components/game/MainMenuButton.vue";
 import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
 import GameHeader from "@/components/layout/GameHeader.vue";
 import { useI18n } from "@/i18n";
-
-type EventType = "wild_encounter" | "pvp_battle" | "merchant";
+import type { EncounterTypeValue } from "@elementary-dices/shared";
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -86,17 +85,17 @@ const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
 const { t } = useI18n();
 
-const selectedType = ref<EventType | null>(null);
+const selectedType = ref<EncounterTypeValue | null>(null);
 const isSubmitting = ref(false);
 const isLoadingOptions = ref(false);
-const availableTypes = ref<EventType[]>([]);
+const availableTypes = ref<EncounterTypeValue[]>([]);
 
 const favoriteDice = computed(() => inventoryStore.favoriteDice);
 const favoriteDiceNotation = computed(
   () => favoriteDice.value?.dice_type?.dice_notation ?? "d20",
 );
 const favoriteDiceFaces = computed(
-  () => (favoriteDice.value?.dice_type as any)?.faces as string[] | undefined,
+  () => favoriteDice.value?.dice_type?.faces,
 );
 
 const getEventRoute = () => {
@@ -106,10 +105,10 @@ const getEventRoute = () => {
   return "/event";
 };
 
-const isAvailable = (type: EventType) => availableTypes.value.includes(type);
+const isAvailable = (type: EncounterTypeValue) => availableTypes.value.includes(type);
 const goBack = () => router.push("/menu");
 
-const selectEvent = async (type: EventType) => {
+const selectEvent = async (type: EncounterTypeValue) => {
   if (!userStore.userId || isSubmitting.value || !isAvailable(type)) return;
 
   selectedType.value = type;

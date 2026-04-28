@@ -2,56 +2,13 @@ import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
 import { useUserStore } from "@/stores/user";
-import type { DiceRoll } from "@elementary-dices/shared";
-
-// Types based on backend schemas
-type ItemEffect = {
-  capture_bonus?: number;
-  stat_modifier?: {
-    health?: number;
-    attack?: number;
-    defense?: number;
-    speed?: number;
-  };
-  duration?: number;
-};
-
-type Item = {
-  id: string;
-  name: string;
-  item_type: "capture" | "consumable" | "buff";
-  effect: ItemEffect;
-  price: number;
-  rarity: "common" | "rare" | "epic" | "legendary";
-  description: string;
-  is_consumable: boolean;
-};
-
-type PlayerInventoryItem = {
-  id: string;
-  player_id: string;
-  item_id: string;
-  quantity: number;
-  item?: Item;
-};
-
-type DiceType = {
-  id: string;
-  dice_notation: "d4" | "d6" | "d10" | "d12" | "d20";
-  rarity: "common" | "rare" | "epic" | "legendary";
-  name: string;
-  faces: ("fire" | "water" | "earth" | "air" | "lightning")[];
-  price: number;
-  description: string;
-};
-
-type PlayerDice = {
-  id: string;
-  player_id: string;
-  dice_type_id: string;
-  is_equipped: boolean;
-  dice_type?: DiceType;
-};
+import type {
+  DiceRoll,
+  DiceType,
+  Item,
+  PlayerDiceWithDetails,
+  PlayerInventoryItem,
+} from "@elementary-dices/shared";
 
 export const useInventoryStore = defineStore(
   "inventory",
@@ -60,7 +17,7 @@ export const useInventoryStore = defineStore(
 
     // State
     const playerItems = ref<PlayerInventoryItem[]>([]);
-    const playerDice = ref<PlayerDice[]>([]);
+    const playerDice = ref<PlayerDiceWithDetails[]>([]);
     const shopItems = ref<Item[]>([]);
     const shopDice = ref<DiceType[]>([]);
     const lastRoll = ref<DiceRoll | null>(null);
@@ -119,7 +76,7 @@ export const useInventoryStore = defineStore(
         );
 
         if (response.data) {
-          playerItems.value = response.data.inventory as PlayerInventoryItem[];
+          playerItems.value = response.data.inventory;
         }
       } catch (error) {
         console.error("Failed to fetch player items:", error);
@@ -136,7 +93,7 @@ export const useInventoryStore = defineStore(
         });
 
         if (response.data) {
-          shopItems.value = response.data.items as Item[];
+          shopItems.value = response.data.items;
         }
       } catch (error) {
         console.error("Failed to fetch shop items:", error);
@@ -216,7 +173,7 @@ export const useInventoryStore = defineStore(
         });
 
         if (response.data) {
-          playerDice.value = response.data.dice as PlayerDice[];
+          playerDice.value = response.data.dice;
         }
       } catch (error) {
         console.error("Failed to fetch player dice:", error);
@@ -237,7 +194,7 @@ export const useInventoryStore = defineStore(
         );
 
         if (response.data) {
-          shopDice.value = response.data.diceTypes as unknown as DiceType[];
+          shopDice.value = response.data.diceTypes;
         }
       } catch (error) {
         console.error("Failed to fetch shop dice:", error);

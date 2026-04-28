@@ -228,7 +228,12 @@ import BattlePlayerTurnPanel from "@/components/game/BattlePlayerTurnPanel.vue";
 import BattleRoundSummary from "@/components/game/BattleRoundSummary.vue";
 import BattleResolvedSummary from "@/components/game/BattleResolvedSummary.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
-import type { Combination } from "@/stores/event";
+import type {
+  BattlePartyMember,
+  Combination,
+  ElementTypeValue,
+  FarkleDie,
+} from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const router = useRouter();
@@ -466,26 +471,25 @@ const scheduleForcedDiceAnimation = (indices: number[]) => {
 
 const unassignedDice = computed(() =>
   battle.farkleDice.value
-    .map((die, index) => ({ die, index }))
+    .map((die: FarkleDie, index: number) => ({ die, index }))
     .filter(
-      ({ die }) =>
+      ({ die }: { die: FarkleDie }) =>
         !die.is_assigned &&
         die.assigned_to_party_index === null,
     ),
 );
 
 const rollableDice = computed(() =>
-  unassignedDice.value.filter(({ die }) => !die.is_set_aside),
+  unassignedDice.value.filter(({ die }: { die: FarkleDie }) => !die.is_set_aside),
 );
 
-const playerInfusionElements = computed<Record<number, string[]>>(() => {
+const playerInfusionElements = computed<Record<number, ElementTypeValue[]>>(() => {
   if (isDeploying.value) return {};
-  const infused: Record<number, string[]> = {};
-  battle.farkleDice.value.forEach((die) => {
+  const infused: Record<number, ElementTypeValue[]> = {};
+  battle.farkleDice.value.forEach((die: FarkleDie) => {
     if (
       die.is_assigned &&
-      typeof die.assigned_to_party_index === "number" &&
-      typeof die.current_result === "string"
+      typeof die.assigned_to_party_index === "number"
     ) {
       infused[die.assigned_to_party_index] ??= [];
       infused[die.assigned_to_party_index].push(die.current_result);
@@ -497,12 +501,12 @@ const playerInfusionElements = computed<Record<number, string[]>>(() => {
 const highlightedDroppablePartyIndices = computed(() => {
   if (draggingDieIndex.value === null) return [] as number[];
   return battle.playerParty.value
-    .map((member, index) => ({ member, index }))
+    .map((member: BattlePartyMember, index: number) => ({ member, index }))
     .filter(
-      ({ member }) =>
+      ({ member }: { member: BattlePartyMember }) =>
         !member.is_destroyed,
     )
-    .map(({ index }) => index);
+    .map(({ index }: { index: number }) => index);
 });
 
 // Can end turn when there's something set aside or busted

@@ -1,20 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useApi } from '@/composables/useApi'
-
-// Types based on backend schemas
-type EvolutionRecipe = {
-  id: string
-  result_elemental_id: string
-  required_level: number
-  required_count: number
-  required_same_element?: string
-  required_element_1?: string
-  required_element_2?: string
-  required_elemental_ids?: string[]
-  hint_text?: string
-  is_discovered_by_default: boolean
-}
+import type { ElementalEvolution } from '@elementary-dices/shared'
 
 type CombineResult = {
   success: boolean
@@ -31,8 +18,8 @@ type CombineResult = {
 
 export const useEvolutionStore = defineStore('evolution', () => {
   // State
-  const allRecipes = ref<EvolutionRecipe[]>([])
-  const discoveredRecipes = ref<EvolutionRecipe[]>([])
+  const allRecipes = ref<ElementalEvolution[]>([])
+  const discoveredRecipes = ref<ElementalEvolution[]>([])
   const lastCombineResult = ref<CombineResult | null>(null)
 
   // Computed
@@ -59,7 +46,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
       )
 
       if (response.data) {
-        allRecipes.value = response.data.recipes as EvolutionRecipe[]
+        allRecipes.value = response.data.recipes
       }
     } catch (error) {
       console.error('Failed to fetch evolution recipes:', error)
@@ -77,7 +64,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
       )
 
       if (response.data) {
-        discoveredRecipes.value = response.data.recipes as EvolutionRecipe[]
+        discoveredRecipes.value = response.data.recipes
       }
     } catch (error) {
       console.error('Failed to fetch discovered recipes:', error)
@@ -119,7 +106,7 @@ export const useEvolutionStore = defineStore('evolution', () => {
     }
   }
 
-  function getRecipeById(id: string): EvolutionRecipe | undefined {
+  function getRecipeById(id: string): ElementalEvolution | undefined {
     return allRecipes.value.find(r => r.id === id)
   }
 

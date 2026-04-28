@@ -59,7 +59,7 @@
 
 <script setup lang="ts">
 import { useI18n } from "@/i18n";
-import type { Combination } from "@/stores/event";
+import type { Combination } from "@elementary-dices/shared";
 
 const props = defineProps<{
   combinations: Combination[];
@@ -99,7 +99,10 @@ const ELEMENTAL_COMBO_TYPES = new Set([
 ]);
 
 function getTotalBonus(combo: Combination): number {
-  return Object.values(combo.bonuses).reduce((sum, value) => sum + value, 0);
+  return (Object.values(combo.bonuses) as number[]).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
 }
 
 function isBestCombo(combo: Combination): boolean {
@@ -113,8 +116,8 @@ function getLabel(combo: Combination): string {
   return COMBO_LABELS[combo.type] ?? combo.type;
 }
 
-function getEmoji(element: string): string {
-  return ELEMENT_EMOJIS[element] ?? "?";
+function getEmoji(element: string | number): string {
+  return ELEMENT_EMOJIS[String(element)] ?? "?";
 }
 
 function getEffectDescription(combo: Combination): string {

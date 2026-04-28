@@ -1,10 +1,11 @@
 import { ref, computed } from "vue";
 import type {
+  BattlePartyMember,
+  Combination,
   FarkleBattleState,
   FarkleDie,
-  Combination,
-  BattleResult,
-} from "@/stores/event";
+} from "@elementary-dices/shared";
+import type { BattleResult } from "@/stores/event";
 
 // Element display config
 const ELEMENT_CONFIG: Record<
@@ -94,16 +95,22 @@ export function useBattle() {
   );
 
   const totalPlayerPower = computed(() =>
-    playerParty.value.reduce((sum, m) => sum + m.current_attack, 0),
+    playerParty.value.reduce(
+      (sum: number, member: BattlePartyMember) => sum + member.current_attack,
+      0,
+    ),
   );
 
   const totalOpponentPower = computed(() =>
-    opponentParty.value.reduce((sum, m) => sum + m.current_attack, 0),
+    opponentParty.value.reduce(
+      (sum: number, member: BattlePartyMember) => sum + member.current_attack,
+      0,
+    ),
   );
 
   // Target lines (from targeting phase)
   const targetLines = computed(() => {
-    return playerParty.value.map((member, index) => {
+    return playerParty.value.map((member: BattlePartyMember, index: number) => {
       const target = opponentParty.value[member.target_index];
       return {
         fromIndex: index,
@@ -128,7 +135,7 @@ export function useBattle() {
   }
 
   function getCombinationBonusDescription(combo: Combination): string {
-    const parts = Object.entries(combo.bonuses)
+    const parts = (Object.entries(combo.bonuses) as Array<[string, number]>)
       .filter(([, pct]) => pct > 0)
       .map(
         ([el, pct]) =>
@@ -142,7 +149,9 @@ export function useBattle() {
   }
 
   function getPartyElementsPresent(): string[] {
-    const elements = new Set(playerParty.value.map((m) => m.element));
+    const elements = new Set(
+      playerParty.value.map((member: BattlePartyMember) => member.element),
+    );
     return ALL_ELEMENTS.filter((e) => elements.has(e));
   }
 

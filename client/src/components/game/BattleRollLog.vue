@@ -51,7 +51,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick } from "vue";
-import type { BattleRollRecord } from "@/stores/event";
+import type { BattleRollRecord } from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 defineProps<{

@@ -1,10 +1,21 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
-import type { BattleLogEntry, ElementTypeValue } from "@elementary-dices/shared";
+import type {
+  BattleLogEntry,
+  BattlePartyMember,
+  BattleRollRecord,
+  Combination,
+  ElementTypeValue,
+  EncounterTypeValue,
+  FarkleBattleState,
+  FarkleDie,
+  FarkleTurnState,
+  OpponentTurnResult,
+} from "@elementary-dices/shared";
 
 // Types based on backend schemas
-type EventType = "wild_encounter" | "pvp_battle" | "merchant";
+type EventType = EncounterTypeValue;
 
 type WildEncounterData = {
   event_id?: string;
@@ -36,120 +47,8 @@ type MerchantData = {
   }>;
 };
 
-export type BattlePartyMember = {
-  player_elemental_id?: string;
-  elemental_id: string;
-  name: string;
-  image_url?: string | null;
-  element: string;
-  elements: string[];
-  level: number;
-  base_attack: number;
-  current_attack: number;
-  max_health: number;
-  current_health: number;
-  is_destroyed: boolean;
-  target_index: number;
-  battle_modifiers?: {
-    damage_pct: number;
-    armor_pct: number;
-    dodge_pct: number;
-    double_attack_pct: number;
-  };
-};
-
-// Farkle Battle types
-export type FarkleDie = {
-  player_dice_id: string;
-  dice_type_id: string;
-  dice_notation: string;
-  faces: ElementTypeValue[];
-  current_result: string;
-  is_set_aside: boolean;
-  is_assigned?: boolean;
-  assigned_to_party_index?: number | null;
-};
-
-export type Combination = {
-  type:
-    | "doublet"
-    | "triplet"
-    | "quartet"
-    | "quintet"
-    | "all_for_one"
-    | "one_for_all"
-    | "full_house";
-  elements: string[];
-  dice_indices: number[];
-  bonuses: Record<string, number>;
-};
-
-export type FarkleTurnState = {
-  phase:
-    | "initial_roll"
-    | "can_reroll"
-    | "set_aside"
-    | "rolling_remaining"
-    | "ready_to_commit"
-    | "done"
-    | "resolved";
-  dice: FarkleDie[];
-  has_used_reroll?: boolean;
-  active_combinations: Combination[];
-  set_aside_element_bonus?: string | null;
-  accumulated_dice_rush_bonuses?: Record<string, number>;
-  accumulated_combination_elements?: string[];
-  accumulated_set_aside_elements?: string[];
-  is_dice_rush: boolean;
-  busted: boolean;
-  assignment_required_party_indices?: number[];
-  assigned_party_indices?: number[];
-  can_commit?: boolean;
-};
-
 export type WildEncounterFarkleState = FarkleTurnState & {
   detected_combinations: Combination[];
-};
-
-export type OpponentTurnResult = {
-  dice: FarkleDie[];
-  combination: Combination | null;
-  set_aside_element_used: boolean;
-  bonuses_applied: Record<string, number>;
-  deployable_elements: string[];
-  combination_elements: string[];
-  busted: boolean;
-};
-
-export type FarkleBattleState = {
-  phase: "targeting" | "player_turn" | "resolved";
-  player_party: BattlePartyMember[];
-  opponent_party: BattlePartyMember[];
-  current_turn: number;
-  player_turns_done: number;
-  opponent_turns_done: number;
-  player_turn: FarkleTurnState | null;
-  opponent_turn_result: OpponentTurnResult | null;
-  player_bonuses_total: Record<string, number>;
-  opponent_bonuses_total: Record<string, number>;
-  combat_log: BattleLogEntry[];
-  last_player_deployment?: number[];
-  last_opponent_deployment?: number[];
-  winner?: "player" | "opponent" | "draw";
-  player_total_attack?: number;
-  opponent_total_attack?: number;
-};
-
-// Legacy type kept for backward compatibility
-export type BattleRollRecord = {
-  turn: number;
-  side: "player" | "opponent";
-  dice_type_id?: string;
-  dice_element: string;
-  result_element: string;
-  bonus_applied: number;
-  affected_element: string;
-  roll_value?: number;
 };
 
 type PvPData = {

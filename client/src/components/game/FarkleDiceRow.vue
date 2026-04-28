@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from "vue";
 import DiceRollVisualization from "@/components/game/DiceRollVisualization.vue";
-import type { FarkleDie } from "@/stores/event";
+import type { ElementTypeValue, FarkleDie } from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const props = defineProps<{
@@ -62,7 +62,6 @@ const props = defineProps<{
 const { t } = useI18n();
 
 type DiceNotation = "d4" | "d6" | "d10" | "d12" | "d20";
-type ElementType = "fire" | "water" | "earth" | "air" | "lightning";
 
 const diceRefs = ref<Array<InstanceType<typeof DiceRollVisualization> | null>>(
   [],
@@ -102,7 +101,7 @@ function toDiceType(notation: string): DiceNotation {
   return "d6";
 }
 
-function toElementType(element: string): ElementType {
+function toElementType(element: string): ElementTypeValue {
   if (
     element === "fire" ||
     element === "water" ||
@@ -116,7 +115,9 @@ function toElementType(element: string): ElementType {
 }
 
 function getRollValue(die: FarkleDie): number {
-  const index = die.faces.findIndex((face) => face === die.current_result);
+  const index = die.faces.findIndex(
+    (face: ElementTypeValue) => face === die.current_result,
+  );
   return index >= 0 ? index + 1 : 1;
 }
 

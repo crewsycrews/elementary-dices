@@ -107,7 +107,7 @@ const favoriteDiceNotation = computed(
   () => favoriteDice.value?.dice_type?.dice_notation ?? "d20",
 );
 const favoriteDiceFaces = computed(
-  () => (favoriteDice.value?.dice_type as any)?.faces as string[] | undefined,
+  () => favoriteDice.value?.dice_type?.faces,
 );
 
 // Handle onboarding completion
