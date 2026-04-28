@@ -189,6 +189,14 @@ const messages: Record<Locale, Record<string, string>> = {
     "landing.hero": "Build a party. Roll for advantage. Hunt the next elemental.",
     "landing.description":
       "Elementary Dice is a fast tactical loop where your team composition, dice loadout, and event choices shape each run. Start with a fresh account, assemble your squad, and push through wild encounters, merchants, and PvP battles.",
+    "landing.logo_alt": "Elementary Dice logo with elemental die",
+    "landing.branding_caption":
+      "An elemental crest marks the rhythm of each run: recruit, roll, react, and push deeper.",
+    "landing.seo_title": "Elementary Dice | Elemental Dice Strategy RPG",
+    "landing.seo_description":
+      "Play Elementary Dice, a browser strategy RPG where you collect elementals, tune your dice loadout, and survive fast tactical runs.",
+    "landing.seo_keywords":
+      "Elementary Dice, browser RPG, strategy game, dice battler, elemental tactics, tactical run-based game",
     "landing.cta_login": "Log In",
     "landing.cta_register": "Create Account",
     "landing.feature_collect_icon": "🧪",
@@ -641,6 +649,14 @@ const messages: Record<Locale, Record<string, string>> = {
     "landing.hero": "Соберите группу. Бросайте кости. Охотьтесь за новым элементалем.",
     "landing.description":
       "Elementary Dice - это быстрая тактическая петля, где состав группы, набор костей и выбор событий формируют каждый забег. Создайте аккаунт, соберите команду и проходите через дикие встречи, торговцев и PvP-битвы.",
+    "landing.logo_alt": "Логотип Elementary Dice со стихийной костью",
+    "landing.branding_caption":
+      "Стихийный герб задает ритм каждого забега: нанимайте, бросайте, реагируйте и идите глубже.",
+    "landing.seo_title": "Elementary Dice | Тактическая RPG со стихийными костями",
+    "landing.seo_description":
+      "Играйте в Elementary Dice — браузерную тактическую RPG, где вы собираете элементалей, настраиваете набор костей и проходите короткие напряженные забеги.",
+    "landing.seo_keywords":
+      "Elementary Dice, браузерная RPG, тактическая игра, кости, элементали, пошаговая стратегия",
     "landing.cta_login": "Войти",
     "landing.cta_register": "Создать аккаунт",
     "landing.feature_collect_icon": "🧪",
