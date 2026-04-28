@@ -3,6 +3,15 @@
     class="flex min-h-screen items-center justify-center bg-gradient-to-br from-background to-muted p-4"
   >
     <div class="w-full max-w-md space-y-6">
+      <div class="flex justify-between gap-3">
+        <RouterLink
+          to="/"
+          class="inline-flex items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {{ t("login.back_home") }}
+        </RouterLink>
+      </div>
+
       <!-- Header -->
       <div class="text-center space-y-2">
         <h1 class="text-4xl font-bold">🎲 Elementary Dice</h1>
@@ -191,13 +200,16 @@
           {{ t("login.quick_start") }}
         </button>
       </div>
+
+      <PublicLegalLinks />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
-import { useRouter, useRoute } from "vue-router";
+import { ref, onMounted, watch } from "vue";
+import { RouterLink, useRouter, useRoute } from "vue-router";
+import PublicLegalLinks from "@/components/layout/PublicLegalLinks.vue";
 import { useUserStore } from "@/stores/user";
 import { useUIStore } from "@/stores/ui";
 import { useI18n } from "@/i18n";
@@ -218,8 +230,13 @@ const form = ref({
   password: "",
 });
 
+const syncModeFromRoute = () => {
+  isRegistering.value = route.query.mode === "register";
+};
+
 // Check for OAuth callback on mount
 onMounted(async () => {
+  syncModeFromRoute();
   const authStatus = route.query.auth as string;
   const authError = route.query.error as string;
 
@@ -230,7 +247,7 @@ onMounted(async () => {
       uiStore.showToast(t("login.toast_google_success"), "success");
 
       // Redirect to intended page or dashboard
-      const redirect = (route.query.redirect as string) || "/";
+      const redirect = (route.query.redirect as string) || "/menu";
       router.push(redirect);
     } catch (error) {
       console.error("OAuth callback error:", error);
@@ -242,6 +259,8 @@ onMounted(async () => {
     errorMessage.value = t("login.error_google_failed");
   }
 });
+
+watch(() => route.query.mode, syncModeFromRoute);
 
 // Handle form submission
 const handleSubmit = async () => {
@@ -274,7 +293,7 @@ const handleSubmit = async () => {
     }
 
     // Redirect to intended page or dashboard
-    const redirect = (route.query.redirect as string) || "/";
+    const redirect = (route.query.redirect as string) || "/menu";
     router.push(redirect);
   } catch (error) {
     console.error("Authentication error:", error);

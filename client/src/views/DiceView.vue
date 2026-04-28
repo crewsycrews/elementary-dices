@@ -12,7 +12,7 @@
     <!-- Header -->
     <div class="grid grid-cols-[auto_1fr_auto] items-start gap-3">
     <button
-      @click="$router.push('/')"
+      @click="$router.push('/menu')"
       class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
     >
       <span class="text-xl">←</span>
