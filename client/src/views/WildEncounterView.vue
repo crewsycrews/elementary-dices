@@ -102,165 +102,61 @@
             @player-party-drop="handleDropToParty"
           >
             <template #centerActions>
-              <div class="w-full min-w-[18rem] max-w-md space-y-3 rounded-xl border border-border/70 bg-card/65 p-3 shadow-sm">
-                <div class="rounded-lg border border-border/60 bg-background/45 px-3 py-2">
-                  <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    <p>
-                      {{ t("wild.current_round") }}
-                      <span class="text-foreground">{{ wildBattleState.round }}</span>
-                    </p>
-                    <p>
-                      {{ t("wild.resolved_rounds") }}
-                      <span class="text-foreground">{{ roundsResolved }}</span>
-                    </p>
-                  </div>
-                  <p class="mt-1 text-sm font-semibold">
-                    {{ wildTurnInstruction }}
-                  </p>
-                </div>
-
-                <p
-                  v-if="roundStatusMessage"
-                  class="text-sm text-muted-foreground"
-                >
-                  {{ roundStatusMessage }}
-                </p>
-
-                <div v-if="farkleState?.dice?.length" class="space-y-3">
-                  <div class="flex justify-end">
-                    <DiceCombinationsHint />
-                  </div>
-
-                  <FarkleDiceRow
-                    :dice="farkleState.dice"
-                    :force-animate-indices="forcedAnimationIndices"
-                    :force-animate-nonce="forceAnimationNonce"
-                    :interaction-disabled="!!farkleState?.busted || isBusy"
-                    @die-drag-start="handleDieDragStart"
-                    @die-drag-end="handleDieDragEnd"
-                    @rolling-start="isDiceAnimating = true"
-                    @rolling-complete="isDiceAnimating = false"
-                  />
-
-                  <CombinationDisplay
-                    v-if="!isBusy"
-                    :combinations="detectedCombinations"
-                    :selectable="false"
-                    :show-empty="true"
-                  />
-                </div>
-
-                <div v-if="!isBusy" class="flex flex-wrap justify-center gap-3">
-                  <button
-                    v-if="canRoll"
-                    @click="handleRoll"
-                    :disabled="isBusy"
-                    class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
-                  >
-                    {{ isBusy ? t("wild.rolling") : t("wild.start_round") }}
-                  </button>
-
-                  <button
-                    v-if="canRollRemaining"
-                    @click="handleRoll"
-                    :disabled="isBusy"
-                    class="rounded-lg border border-sky-500 bg-sky-500/20 px-4 py-2 font-bold text-foreground hover:bg-sky-500/30 disabled:opacity-50"
-                  >
-                    {{ t("wild.roll_remaining") }}
-                  </button>
-                </div>
-
-                <div v-if="canEndTurn && !isBusy" class="flex justify-center">
-                  <button
-                    @click="handleEndTurn"
-                    :disabled="isBusy"
-                    class="w-full rounded-lg border border-border bg-background px-6 py-3 font-semibold text-foreground hover:bg-card disabled:opacity-50"
-                  >
-                    {{ t("wild.deploy_resolve") }}
-                  </button>
-                </div>
-              </div>
+              <WildEncounterTurnPanel
+                :round="wildBattleState.round"
+                :rounds-resolved="roundsResolved"
+                :instruction="wildTurnInstruction"
+                :round-status-message="roundStatusMessage"
+                :dice="farkleState?.dice ?? []"
+                :combinations="detectedCombinations"
+                :force-animate-indices="forcedAnimationIndices"
+                :force-animate-nonce="forceAnimationNonce"
+                :is-busted="!!farkleState?.busted"
+                :is-busy="isBusy"
+                :can-roll="canRoll"
+                :can-roll-remaining="canRollRemaining"
+                :can-end-turn="canEndTurn"
+                :current-round-label="t('wild.current_round')"
+                :resolved-rounds-label="t('wild.resolved_rounds')"
+                :rolling-label="t('wild.rolling')"
+                :start-round-label="t('wild.start_round')"
+                :roll-remaining-label="t('wild.roll_remaining')"
+                :deploy-resolve-label="t('wild.deploy_resolve')"
+                @roll="handleRoll"
+                @end-turn="handleEndTurn"
+                @die-drag-start="handleDieDragStart"
+                @die-drag-end="handleDieDragEnd"
+                @rolling-start="isDiceAnimating = true"
+                @rolling-complete="isDiceAnimating = false"
+              />
             </template>
           </BattleArena>
 
-          <div
+          <WildEncounterRoundSummary
             v-if="lastRoundSummary"
-            class="rounded-xl border border-border bg-card/55 p-3 text-sm"
-          >
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                {{ t("wild.round_summary", { round: lastRoundSummary.round }) }}
-              </p>
-              <p class="text-xs text-muted-foreground">
-                {{ t("wild.first_attacker") }}
-                <span class="font-semibold text-foreground">{{
-                  lastRoundSummary.firstAttacker === "player"
-                    ? t("wild.attacker_you")
-                    : t("wild.attacker_wild")
-                }}</span>
-              </p>
-            </div>
-            <div class="mt-3 grid gap-2 sm:grid-cols-2">
-              <div class="rounded-md bg-background/45 p-2">
-                <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {{ t("wild.you_took") }}
-                </p>
-                <p class="font-semibold text-red-300">
-                  {{ lastRoundSummary.playerDamageTaken }} {{ t("wild.damage") }}
-                </p>
-              </div>
-              <div class="rounded-md bg-background/45 p-2">
-                <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
-                  {{ t("wild.wild_took") }}
-                </p>
-                <p class="font-semibold text-blue-300">
-                  {{ lastRoundSummary.opponentDamageTaken }} {{ t("wild.damage") }}
-                </p>
-              </div>
-            </div>
-          </div>
+            :title="t('wild.round_summary', { round: lastRoundSummary.round })"
+            :first-attacker-label="t('wild.first_attacker')"
+            :first-attacker-value="lastRoundSummary.firstAttacker === 'player' ? t('wild.attacker_you') : t('wild.attacker_wild')"
+            :player-damage-label="t('wild.you_took')"
+            :opponent-damage-label="t('wild.wild_took')"
+            :damage-unit-label="t('wild.damage')"
+            :player-damage="lastRoundSummary.playerDamageTaken"
+            :opponent-damage="lastRoundSummary.opponentDamageTaken"
+          />
         </div>
 
         <div class="space-y-4 w-full max-w-2xl">
-          <div
+          <WildEncounterCaptureResult
             v-if="captureResult"
-            class="p-6 rounded-lg"
-            :class="
-              captureResult.success
-                ? 'bg-green-500/10 border-2 border-green-500'
-                : 'bg-red-500/10 border-2 border-red-500'
-            "
-          >
-            <h2 class="text-2xl font-bold mb-2">
-              {{
-                captureResult.success
-                  ? t("wild.capture_success")
-                  : t("wild.capture_failed")
-              }}
-            </h2>
-            <p class="text-lg mb-2">{{ captureResult.message }}</p>
-
-            <div
-              v-if="captureResult.success && captureResult.elemental_caught"
-              class="mt-4 p-4 bg-background/50 rounded-lg"
-            >
-              <p class="font-bold text-xl">
-                {{ captureResult.elemental_caught.name }}
-              </p>
-              <p class="text-sm text-muted-foreground">
-                {{
-                  t("wild.level", { level: captureResult.elemental_caught.level })
-                }}
-              </p>
-            </div>
-
-            <button
-              @click="proceedToNext"
-              class="w-full mt-6 px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-            >
-              {{ t("wild.proceed") }}
-            </button>
-          </div>
+            :success="captureResult.success"
+            :message="captureResult.message"
+            :elemental-caught="captureResult.success ? captureResult.elemental_caught ?? null : null"
+            :success-title="t('wild.capture_success')"
+            :failure-title="t('wild.capture_failed')"
+            :proceed-label="t('wild.proceed')"
+            :level-label="(level) => t('wild.level', { level })"
+            @proceed="proceedToNext"
+          />
         </div>
       </div>
 
@@ -290,9 +186,9 @@ import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import BattleArena from "@/components/game/BattleArena.vue";
-import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
-import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
-import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
+import WildEncounterCaptureResult from "@/components/game/WildEncounterCaptureResult.vue";
+import WildEncounterRoundSummary from "@/components/game/WildEncounterRoundSummary.vue";
+import WildEncounterTurnPanel from "@/components/game/WildEncounterTurnPanel.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import { useI18n } from "@/i18n";
 

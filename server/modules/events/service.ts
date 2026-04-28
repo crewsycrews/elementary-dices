@@ -2403,7 +2403,7 @@ export class EventService {
 
     if (victory) {
       reward = calculatePvPReward(opponentPowerLevel);
-      message = `Victory! You defeated ${opponentName} and earned ${reward} currency.`;
+      message = `You defeated ${opponentName}!`;
 
       await db("users")
         .where({ id: playerId })

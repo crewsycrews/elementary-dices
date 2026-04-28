@@ -55,137 +55,83 @@
         <span class="w-14" aria-hidden="true"></span>
       </div>
 
-      <!-- ==================== PHASE 1: TARGETING ==================== -->
-      <template v-if="battle.battlePhase.value === 'targeting'">
-        <BattleArena
-          :player-party="battle.playerParty.value"
-          :opponent-party="battle.opponentParty.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
-          :phase-label="t('battle.phase1')"
-          :status-label="t('battle.targets_chosen')"
-          :center-title="t('battle.arena_center')"
-          :show-targets="true"
-          :target-lines="battle.targetLines.value"
-        >
-          <template #centerActions>
-            <div class="w-full rounded-lg border border-border/70 bg-card/60 p-3 text-center shadow-sm">
-              <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                {{ t("battle.phase1") }}
-              </p>
-              <p class="mt-1 text-sm text-muted-foreground">
-                {{ t("battle.targets_chosen") }}
-              </p>
-              <button
-                @click="handleStartBattle"
-                :disabled="isStarting"
-                class="mt-3 w-full rounded-lg bg-primary px-5 py-3 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
-              >
-                {{ isStarting ? t("battle.starting") : t("battle.start") }}
-              </button>
-            </div>
-          </template>
-        </BattleArena>
-      </template>
+      <BattleArena
+        v-if="showBattleArena"
+        :player-party="battle.playerParty.value"
+        :opponent-party="battle.opponentParty.value"
+        :opponent-name="opponentName"
+        :phase-label="battleArenaPhaseLabel"
+        :status-label="battleArenaStatusLabel"
+        :center-title="t('battle.arena_center')"
+        :show-targets="showArenaTargets"
+        :target-lines="arenaTargetLines"
+        :player-deployed-indices="arenaPlayerDeployedIndices"
+        :opponent-deployed-indices="arenaOpponentDeployedIndices"
+        :is-player-party-droppable="isArenaPlayerPartyDroppable"
+        :highlighted-player-indices="arenaHighlightedPlayerIndices"
+        :player-infusion-elements="arenaPlayerInfusionElements"
+        @player-party-drop="handleDropToParty"
+      >
+        <template #centerActions>
+          <div
+            v-if="isTargetingPhase"
+            class="w-full rounded-lg border border-border/70 bg-card/60 p-3 text-center shadow-sm"
+          >
+            <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+              {{ t("battle.phase1") }}
+            </p>
+            <p class="mt-1 text-sm text-muted-foreground">
+              {{ t("battle.targets_chosen") }}
+            </p>
+            <button
+              @click="handleStartBattle"
+              :disabled="isStarting"
+              class="mt-3 w-full rounded-lg bg-primary px-5 py-3 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+            >
+              {{ isStarting ? t("battle.starting") : t("battle.start") }}
+            </button>
+          </div>
+
+          <BattlePlayerTurnPanel
+            v-else-if="isPlayerTurnPhase"
+            :round="battle.currentTurn.value"
+            :instruction="battleTurnInstruction"
+            :dice="battle.farkleDice.value"
+            :combinations="battle.detectedCombinations.value"
+            :force-animate-indices="forcedAnimationIndices"
+            :force-animate-nonce="forceAnimationNonce"
+            :is-busted="battle.isBusted.value"
+            :is-busy="isBusy"
+            :can-roll-remaining="canRollRemaining"
+            :can-end-turn="canEndTurn"
+            :roll-button-label="battleRollButtonLabel"
+            :show-deploy-resolve="battle.canEndTurn.value || battle.farkleTurnState.value !== null"
+            @roll="handleFarkleRoll"
+            @end-turn="handleFarkleEndTurn"
+            @die-drag-start="handleDieDragStart"
+            @die-drag-end="handleDieDragEnd"
+            @rolling-start="isDiceAnimating = true"
+            @rolling-complete="isDiceAnimating = false"
+          />
+
+          <BattleResolvedSummary
+            v-else-if="isResolvedPhase"
+            :is-victory="isVictory"
+            :resolved-message="resolvedMessage"
+            :total-opponent-damage="totalOpponentDamage"
+            :total-opponent-units-destroyed="totalOpponentUnitsDestroyed"
+            :total-player-damage="totalPlayerDamage"
+            :total-player-units-destroyed="totalPlayerUnitsDestroyed"
+            :rounds-resolved="roundsResolved"
+            :reward="battleReward"
+            :downgraded-elemental="downgradedElemental"
+            @proceed="proceedToNext"
+          />
+        </template>
+      </BattleArena>
 
       <!-- ==================== PHASE: PLAYER TURN ==================== -->
-      <template v-if="battle.battlePhase.value === 'player_turn'">
-
-        <!-- Battle Arena -->
-        <BattleArena
-          :player-party="battle.playerParty.value"
-          :opponent-party="battle.opponentParty.value"
-          :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
-          :phase-label="t('battle.player_turn')"
-          :status-label="battleArenaStatusLabel"
-          :center-title="t('battle.arena_center')"
-          :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
-          :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
-          :is-player-party-droppable="!!battle.farkleTurnState.value && !battle.isBusted.value && !isBusy"
-          :highlighted-player-indices="highlightedDroppablePartyIndices"
-          :player-infusion-elements="playerInfusionElements"
-          @player-party-drop="handleDropToParty"
-        >
-          <template #centerActions>
-            <div class="w-full max-w-md space-y-3 rounded-xl border border-border/70 bg-card/65 p-3 shadow-sm">
-              <div class="rounded-lg border border-border/60 bg-background/45 px-3 py-2">
-                <div class="flex flex-wrap items-center justify-between gap-2">
-                  <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                    {{ t("common.round") }} {{ battle.currentTurn.value }}
-                  </p>
-                  <DiceCombinationsHint />
-                </div>
-                <p class="mt-1 text-sm font-semibold">
-                  {{ battleTurnInstruction }}
-                </p>
-              </div>
-
-              <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
-                <FarkleDiceRow
-                  :dice="battle.farkleDice.value"
-                  :force-animate-indices="forcedAnimationIndices"
-                  :force-animate-nonce="forceAnimationNonce"
-                  :interaction-disabled="battle.isBusted.value || isBusy"
-                  @die-drag-start="handleDieDragStart"
-                  @die-drag-end="handleDieDragEnd"
-                  @rolling-start="isDiceAnimating = true"
-                  @rolling-complete="isDiceAnimating = false"
-                />
-
-                <CombinationDisplay
-                  v-if="!isBusy"
-                  :combinations="battle.detectedCombinations.value"
-                  :selectable="false"
-                  :show-empty="true"
-                />
-              </div>
-
-              <div class="flex justify-center" v-if="canRollRemaining">
-                <button
-                  @click="handleFarkleRoll"
-                  :disabled="isBusy"
-                  class="w-full rounded-lg bg-primary px-6 py-2.5 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {{ isBusy ? t("battle.rolling") : battleRollButtonLabel }}
-                </button>
-              </div>
-
-              <div
-                v-if="
-                  battle.farkleDice.value.length > 0 &&
-                  !battle.isBusted.value &&
-                  !isBusy
-                "
-                class="flex flex-wrap justify-center gap-2"
-              >
-                <button
-                  v-if="
-                    battle.canEndTurn.value || battle.farkleTurnState.value !== null
-                  "
-                  @click="handleFarkleEndTurn"
-                  :disabled="isBusy || !canEndTurn"
-                  class="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-50"
-                >{{ t("battle.deploy_resolve") }}</button>
-              </div>
-
-              <div
-                v-if="battle.isBusted.value && !isBusy"
-                class="flex justify-center"
-              >
-                <button
-                  @click="handleFarkleEndTurn"
-                  :disabled="isBusy"
-                  class="w-full rounded-lg border border-red-500/70 bg-red-500/15 px-4 py-2 font-bold text-foreground hover:bg-red-500/20 disabled:opacity-50"
-                >{{ t("battle.deploy_resolve_no_bonus") }}</button>
-              </div>
-              <p
-                v-if="battle.farkleDice.value.length > 0 && !canEndTurn && !battle.isBusted.value"
-                class="text-center text-xs text-muted-foreground"
-              >
-                {{ t("battle.assign_all_to_commit") }}
-              </p>
-            </div>
-          </template>
-        </BattleArena>
+      <template v-if="isPlayerTurnPhase">
 
         <!-- DICE RUSH Banner -->
         <div
@@ -209,270 +155,56 @@
             {{ t("battle.deploy_now") }}
           </p>
         </div>
-        <div v-if="lastRoundSummary" class="rounded-xl border border-border bg-card/55 p-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
-            <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
-              {{ t("battle.round_resolved", { round: lastRoundSummary.round }) }}
-            </p>
-            <p class="text-xs text-muted-foreground">
-              {{ t("battle.first_attacker") }}
-              <span class="font-semibold text-foreground">
-                {{ lastRoundSummary.firstAttacker === "player" ? t("battle.you") : eventStore.pvpData?.opponent_name ?? t("battle.opponent_name") }}
-              </span>
-            </p>
-          </div>
-          <div class="mt-3 grid gap-2 text-sm md:grid-cols-4">
-            <div class="rounded-md bg-background/45 p-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.your_deployment") }}</p>
-              <p class="truncate font-semibold">{{ deployedPlayerNames }}</p>
-            </div>
-            <div class="rounded-md bg-background/45 p-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.opponent_deployment") }}</p>
-              <p class="truncate font-semibold">{{ deployedOpponentNames }}</p>
-            </div>
-            <div class="rounded-md bg-background/45 p-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.round_impact") }}</p>
-              <p><span class="text-red-300">{{ lastRoundSummary.playerDamageTaken }}</span> / <span class="text-blue-300">{{ lastRoundSummary.opponentDamageTaken }}</span></p>
-            </div>
-            <div class="rounded-md bg-background/45 p-2">
-              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.destroyed") }}</p>
-              <p>{{ lastRoundSummary.playerUnitsDestroyed }} / {{ lastRoundSummary.opponentUnitsDestroyed }}</p>
-            </div>
-          </div>
-        </div>
+        <BattleRoundSummary
+          v-if="lastRoundSummary"
+          :title="t('battle.round_resolved', { round: lastRoundSummary.round })"
+          :first-attacker-label="t('battle.first_attacker')"
+          :first-attacker-value="lastRoundSummary.firstAttacker === 'player' ? t('battle.you') : opponentName"
+          :your-deployment-label="t('battle.your_deployment')"
+          :opponent-deployment-label="t('battle.opponent_deployment')"
+          :impact-label="t('battle.round_impact')"
+          :destroyed-label="t('battle.destroyed')"
+          :player-deployment="deployedPlayerNames"
+          :opponent-deployment="deployedOpponentNames"
+          :player-damage-taken="lastRoundSummary.playerDamageTaken"
+          :opponent-damage-taken="lastRoundSummary.opponentDamageTaken"
+          :player-units-destroyed="lastRoundSummary.playerUnitsDestroyed"
+          :opponent-units-destroyed="lastRoundSummary.opponentUnitsDestroyed"
+        />
 
-        <div
+        <BattleOpponentTurnPanel
           v-if="battle.opponentTurnResult.value"
-          class="rounded-xl border border-border bg-card/40 p-4 space-y-3"
-        >
-          <div class="flex items-center justify-between">
-            <p class="text-sm font-bold text-red-400">{{ t("battle.opponent_private_roll") }}</p>
-            <button
-              @click="isCombatHistoryOpen = !isCombatHistoryOpen"
-              class="text-xs px-2 py-1 rounded border border-border hover:bg-card transition-colors"
-            >
-              {{ isCombatHistoryOpen ? t("battle.hide_combat_log") : t("battle.show_combat_log") }}
-            </button>
-          </div>
-          <div class="flex justify-center gap-2 flex-wrap">
-            <div
-              v-for="(die, i) in battle.opponentTurnResult.value.dice"
-              :key="i"
-              class="w-10 h-10 rounded-lg border border-border bg-card flex items-center justify-center text-xl"
-            >
-              {{ getElementEmoji(die.current_result) }}
-            </div>
-          </div>
-          <div class="text-center text-sm">
-            <span v-if="battle.opponentTurnResult.value.busted" class="text-red-400 font-semibold">
-              {{ t("battle.opponent_busted") }}
-            </span>
-            <span v-else-if="battle.opponentTurnResult.value.combination" class="font-semibold">
-              {{ t("battle.combination_activated", { label: getCombinationLabel(battle.opponentTurnResult.value.combination) }) }}
-            </span>
-          </div>
-          <div
-            v-if="isCombatHistoryOpen && groupedBattleLogEntries.length > 0"
-            class="space-y-3 max-h-80 overflow-y-auto rounded-lg border border-border/60 p-3"
-          >
-            <details
-              v-for="group in groupedBattleLogEntries"
-              :key="group.round"
-              open
-              class="group rounded-lg border border-border/60 bg-card/50"
-            >
-              <summary
-                class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <span>{{ t("common.round") }} {{ group.round }}</span>
-                <span class="transition-transform group-open:rotate-180">⌄</span>
-              </summary>
-              <div class="space-y-2 border-t border-border/60 p-2">
-                <div
-                  v-for="entry in group.entries"
-                  :key="`${entry.round}-${entry.sequence}-${entry.type}`"
-                  class="text-xs rounded-md border p-2 leading-relaxed"
-                  :class="battleLogEntryClass(entry)"
-                >
-                  <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
-                  {{ formatBattleLogEntry(entry) }}
-                </div>
-              </div>
-            </details>
-          </div>
-        </div>
+          :title="t('battle.opponent_private_roll')"
+          :show-history-label="t('battle.show_combat_log')"
+          :hide-history-label="t('battle.hide_combat_log')"
+          :busted-label="t('battle.opponent_busted')"
+          :history-groups="groupedBattleLogEntries"
+          :has-history="groupedBattleLogEntries.length > 0"
+          :is-history-open="isCombatHistoryOpen"
+          :dice="battle.opponentTurnResult.value.dice"
+          :is-busted="battle.opponentTurnResult.value.busted"
+          :combination-label="battle.opponentTurnResult.value.combination ? getCombinationLabel(battle.opponentTurnResult.value.combination) : null"
+          :get-element-emoji="getElementEmoji"
+          :activated-label="(label) => t('battle.combination_activated', { label })"
+          :format-entry="formatBattleLogEntry"
+          :entry-class="battleLogEntryClass"
+          @toggle-history="isCombatHistoryOpen = !isCombatHistoryOpen"
+        />
       </template>
 
       <!-- ==================== PHASE: RESOLVED ==================== -->
-      <template
-        v-if="
-          battle.battlePhase.value === 'resolved' || battle.battleResult.value
-        "
-      >
-        <div class="max-w-lg mx-auto text-center space-y-6">
-          <!-- Victory/Defeat Banner -->
-          <div
-            class="p-8 rounded-xl"
-            :class="
-              isVictory
-                ? 'bg-green-500/10 border-2 border-green-500'
-                : 'bg-red-500/10 border-2 border-red-500'
-            "
-          >
-            <div class="text-7xl mb-4">
-              {{
-                isVictory ? "&#x1F3C6;" : "&#x1F480;"
-              }}
-            </div>
-            <h2 class="text-3xl font-bold mb-2">
-              {{ isVictory ? t("battle.victory") : t("battle.defeat") }}
-            </h2>
-            <p class="text-lg text-muted-foreground">
-              {{ resolvedMessage }}
-            </p>
-
-            <!-- Core Summary -->
-            <div class="grid grid-cols-2 gap-4 mt-6">
-              <div class="p-4 bg-blue-500/10 rounded-lg space-y-1">
-                <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_opponent") }}</p>
-                <p class="text-3xl font-bold text-blue-400">{{ totalOpponentDamage }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ t("battle.opponent_units_destroyed", { count: totalOpponentUnitsDestroyed }) }}
-                </p>
-              </div>
-              <div class="p-4 bg-red-500/10 rounded-lg space-y-1">
-                <p class="text-sm text-muted-foreground">{{ t("battle.damage_to_you") }}</p>
-                <p class="text-3xl font-bold text-red-400">{{ totalPlayerDamage }}</p>
-                <p class="text-xs text-muted-foreground">
-                  {{ t("battle.your_units_destroyed", { count: totalPlayerUnitsDestroyed }) }}
-                </p>
-              </div>
-            </div>
-
-            <div class="p-4 bg-card/40 border border-border rounded-lg">
-              <p class="text-xs uppercase tracking-wide text-muted-foreground">{{ t("battle.battle_length") }}</p>
-              <p class="text-2xl font-bold">{{ t("battle.rounds", { count: roundsResolved }) }}</p>
-            </div>
-
-            <!-- Legacy Attack Snapshot -->
-            <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-              <div>
-                <p class="font-bold mb-1">{{ t("battle.remaining_attack_you") }}</p>
-                <p class="text-blue-300 font-semibold">
-                  {{ battle.battleResult.value?.player_total_attack?.toFixed(0) ?? "—" }}
-                </p>
-              </div>
-              <div>
-                <p class="font-bold mb-1">{{ t("battle.remaining_attack_opponent") }}</p>
-                <p class="text-red-300 font-semibold">
-                  {{ battle.battleResult.value?.opponent_total_attack?.toFixed(0) ?? "—" }}
-                </p>
-              </div>
-            </div>
-
-            <!-- Bonuses summary -->
-            <div
-              class="mt-4 grid grid-cols-2 gap-2 text-xs text-muted-foreground"
-            >
-              <div>
-                <p class="font-bold mb-1">{{ t("battle.your_bonuses") }}</p>
-                <div
-                  v-for="(pct, el) in battle.playerBonusesTotal.value"
-                  :key="el"
-                >
-                  <span v-if="Number(pct) > 0"
-                    >{{ getElementEmoji(el) }} +{{
-                      Math.round(Number(pct) * 100)
-                    }}%</span
-                  >
-                </div>
-              </div>
-              <div>
-                <p class="font-bold mb-1">{{ t("battle.opponent_bonuses") }}</p>
-                <div
-                  v-for="(pct, el) in battle.opponentBonusesTotal.value"
-                  :key="el"
-                >
-                  <span v-if="Number(pct) > 0"
-                    >{{ getElementEmoji(el) }} +{{
-                      Math.round(Number(pct) * 100)
-                    }}%</span
-                  >
-                </div>
-              </div>
-            </div>
-
-            <!-- Reward -->
-            <div
-              v-if="
-                isVictory &&
-                battle.battleResult.value?.reward
-              "
-              class="mt-4 p-3 bg-yellow-500/10 rounded-lg"
-            >
-              <p class="text-sm text-muted-foreground mb-1">{{ t("battle.reward_earned") }}</p>
-              <p class="font-bold text-xl text-yellow-500">
-                {{ t("battle.coins", { amount: battle.battleResult.value.reward }) }}
-              </p>
-            </div>
-
-            <!-- Penalty -->
-            <div
-              v-if="
-                !isVictory &&
-                battle.battleResult.value?.penalty?.downgraded_elemental
-              "
-              class="mt-4 p-3 bg-orange-500/10 rounded-lg"
-            >
-              <p class="text-sm text-orange-500">
-                {{
-                  t("battle.was_downgraded", {
-                    name: battle.battleResult.value.penalty.downgraded_elemental,
-                  })
-                }}
-              </p>
-            </div>
-          </div>
-
-          <!-- Proceed Button -->
-          <button
-            @click="proceedToNext"
-            class="w-full px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
-          >
-            {{ t("battle.proceed_next") }}
-          </button>
-        </div>
-
+      <template v-if="isResolvedPhase">
         <div
           v-if="groupedBattleLogEntries.length > 0"
           class="max-w-3xl mx-auto rounded-xl border border-border bg-card/40 p-4 space-y-3"
         >
           <p class="text-sm font-bold text-muted-foreground">{{ t("battle.full_combat_log") }}</p>
           <div class="space-y-3 max-h-96 overflow-y-auto rounded-lg border border-border/60 p-3">
-            <details
-              v-for="group in groupedBattleLogEntries"
-              :key="group.round"
-              open
-              class="group rounded-lg border border-border/60 bg-card/50"
-            >
-              <summary
-                class="flex cursor-pointer list-none items-center justify-between px-3 py-2 text-[11px] uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
-              >
-                <span>{{ t("common.round") }} {{ group.round }}</span>
-                <span class="transition-transform group-open:rotate-180">⌄</span>
-              </summary>
-              <div class="space-y-2 border-t border-border/60 p-2">
-                <div
-                  v-for="entry in group.entries"
-                  :key="`${entry.round}-${entry.sequence}-${entry.type}`"
-                  class="text-xs rounded-md border p-2 leading-relaxed"
-                  :class="battleLogEntryClass(entry)"
-                >
-                  <span class="font-mono text-muted-foreground mr-2">#{{ entry.sequence }}</span>
-                  {{ formatBattleLogEntry(entry) }}
-                </div>
-              </div>
-            </details>
+            <BattleCombatLogEntries
+              :groups="groupedBattleLogEntries"
+              :format-entry="formatBattleLogEntry"
+              :entry-class="battleLogEntryClass"
+            />
           </div>
         </div>
       </template>
@@ -488,14 +220,15 @@ import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
 import { useBattle } from "@/composables/useBattle";
+import { useBattleCombatLog } from "@/composables/useBattleCombatLog";
 import BattleArena from "@/components/game/BattleArena.vue";
-import FarkleDiceRow from "@/components/game/FarkleDiceRow.vue";
-import CombinationDisplay from "@/components/game/CombinationDisplay.vue";
-import FarkleBonusTracker from "@/components/game/FarkleBonusTracker.vue";
-import DiceCombinationsHint from "@/components/game/DiceCombinationsHint.vue";
+import BattleCombatLogEntries from "@/components/game/BattleCombatLogEntries.vue";
+import BattleOpponentTurnPanel from "@/components/game/BattleOpponentTurnPanel.vue";
+import BattlePlayerTurnPanel from "@/components/game/BattlePlayerTurnPanel.vue";
+import BattleRoundSummary from "@/components/game/BattleRoundSummary.vue";
+import BattleResolvedSummary from "@/components/game/BattleResolvedSummary.vue";
 import ViewOnboardingModal from "@/components/onboarding/ViewOnboardingModal.vue";
 import type { Combination } from "@/stores/event";
-import type { BattleLogEntry } from "@elementary-dices/shared";
 import { useI18n } from "@/i18n";
 
 const router = useRouter();
@@ -518,6 +251,13 @@ const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 const draggingDieIndex = ref<number | null>(null);
 const isDeploying = ref(false);
+const opponentName = computed(
+  () => eventStore.pvpData?.opponent_name ?? t("battle.opponent_name"),
+);
+const battleReward = computed(() => battle.battleResult.value?.reward ?? null);
+const downgradedElemental = computed(
+  () => battle.battleResult.value?.penalty?.downgraded_elemental ?? null,
+);
 
 const onboardingSubtitle = computed(() =>
   locale.value === "ru"
@@ -604,29 +344,6 @@ const dismissOnboarding = () => {
   showOnboarding.value = false;
 };
 
-type CombatLogEntry = {
-  round: number;
-  sequence?: number;
-  type?: string;
-  payload?: Record<string, unknown>;
-  step: number;
-  side: "player" | "opponent";
-  attacker_index: number;
-  attacker_name: string;
-  attacker_element: string;
-  target: "unit";
-  defender_index?: number;
-  defender_name?: string;
-  defender_element?: string;
-  damage: number;
-  defender_remaining_health?: number;
-};
-
-type BattleLogRoundGroup = {
-  round: number;
-  entries: BattleLogEntry[];
-};
-
 const ELEMENT_EMOJIS: Record<string, string> = {
   fire: "🔥",
   water: "💧",
@@ -652,340 +369,34 @@ function getCombinationLabel(combo: Combination): string {
   return labels[combo.type] ?? combo.type;
 }
 
-const battleLogEntries = computed<BattleLogEntry[]>(() => {
-  const raw = (battle.battleState.value?.combat_log ?? []) as Array<
-    Partial<BattleLogEntry & CombatLogEntry>
-  >;
-  return raw
-    .map((entry): BattleLogEntry | null => {
-      if (
-        typeof entry.round === "number" &&
-        typeof entry.sequence === "number" &&
-        typeof entry.type === "string" &&
-        typeof entry.payload === "object" &&
-        entry.payload !== null
-      ) {
-        return entry as BattleLogEntry;
-      }
-
-      if (
-        typeof entry.round === "number" &&
-        typeof entry.step === "number" &&
-        (entry.side === "player" || entry.side === "opponent") &&
-        typeof entry.attacker_name === "string" &&
-        typeof entry.attacker_element === "string" &&
-        entry.target === "unit" &&
-        typeof entry.damage === "number"
-      ) {
-        return {
-          ...(entry as CombatLogEntry),
-          sequence: entry.step,
-          type: "attack_resolved",
-          payload: {
-            attacker_name: entry.attacker_name,
-            defender_name: entry.defender_name,
-            damage: entry.damage,
-            defender_remaining_health: entry.defender_remaining_health,
-          },
-        } as BattleLogEntry;
-      }
-
-      return null;
-    })
-    .filter((entry): entry is BattleLogEntry => entry !== null)
-    .sort((a, b) => a.round - b.round || a.sequence - b.sequence);
+const {
+  groupedBattleLogEntries,
+  lastRoundSummary,
+  deployedPlayerNames,
+  deployedOpponentNames,
+  totalPlayerDamage,
+  totalOpponentDamage,
+  totalPlayerUnitsDestroyed,
+  totalOpponentUnitsDestroyed,
+  roundsResolved,
+  formatBattleLogEntry,
+  battleLogEntryClass,
+} = useBattleCombatLog({
+  combatLog: computed(() => battle.battleState.value?.combat_log ?? []),
+  battlePhase: battle.battlePhase,
+  currentTurn: battle.currentTurn,
+  playerParty: battle.playerParty,
+  opponentParty: battle.opponentParty,
+  playerDeployment: computed(
+    () => battle.battleState.value?.last_player_deployment ?? null,
+  ),
+  opponentDeployment: computed(
+    () => battle.battleState.value?.last_opponent_deployment ?? null,
+  ),
+  opponentName,
+  t,
+  getElementEmoji,
 });
-
-const combatLogEntries = computed<CombatLogEntry[]>(() => {
-  const raw = (battle.battleState.value?.combat_log ?? []) as Array<
-    Partial<CombatLogEntry>
-  >;
-  return raw
-    .filter(
-      (entry): entry is CombatLogEntry =>
-        typeof entry.round === "number" &&
-        typeof entry.step === "number" &&
-        (entry.side === "player" || entry.side === "opponent") &&
-        typeof entry.attacker_name === "string" &&
-        typeof entry.attacker_element === "string" &&
-        entry.target === "unit" &&
-        typeof entry.damage === "number" &&
-        (!entry.type || entry.type === "attack_resolved"),
-    )
-    .sort(
-      (a, b) =>
-        a.round - b.round ||
-        (a.sequence ?? a.step) - (b.sequence ?? b.step) ||
-        a.step - b.step,
-    );
-});
-
-const groupedBattleLogEntries = computed<BattleLogRoundGroup[]>(() => {
-  const groups = new Map<number, BattleLogEntry[]>();
-  for (const entry of battleLogEntries.value) {
-    groups.set(entry.round, [...(groups.get(entry.round) ?? []), entry]);
-  }
-  return [...groups.entries()].map(([round, entries]) => ({ round, entries }));
-});
-
-const lastResolvedRoundNumber = computed<number | null>(() => {
-  if (combatLogEntries.value.length === 0) return null;
-  const maxRound = Math.max(...combatLogEntries.value.map((entry) => entry.round));
-  if (battle.battlePhase.value === "resolved") return maxRound;
-  const cappedRound = battle.currentTurn.value - 1;
-  if (cappedRound < 1) return null;
-  const resolvedRounds = combatLogEntries.value
-    .map((entry) => entry.round)
-    .filter((round) => round <= cappedRound);
-  return resolvedRounds.length > 0 ? Math.max(...resolvedRounds) : null;
-});
-
-const lastRoundLogs = computed(() => {
-  if (!lastResolvedRoundNumber.value) return [] as CombatLogEntry[];
-  return combatLogEntries.value.filter(
-    (entry) => entry.round === lastResolvedRoundNumber.value,
-  );
-});
-
-const lastRoundSummary = computed(() => {
-  if (lastRoundLogs.value.length === 0 || !lastResolvedRoundNumber.value) {
-    return null;
-  }
-  const firstAttacker = lastRoundLogs.value[0].side;
-  const playerDamageTaken = lastRoundLogs.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0);
-  const opponentDamageTaken = lastRoundLogs.value
-    .filter((entry) => entry.side === "player" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0);
-  const playerUnitsDestroyed = lastRoundLogs.value.filter(
-    (entry) =>
-      entry.side === "opponent" &&
-      entry.target === "unit" &&
-      entry.defender_remaining_health === 0,
-  ).length;
-  const opponentUnitsDestroyed = lastRoundLogs.value.filter(
-    (entry) =>
-      entry.side === "player" &&
-      entry.target === "unit" &&
-      entry.defender_remaining_health === 0,
-  ).length;
-
-  return {
-    round: lastResolvedRoundNumber.value,
-    firstAttacker,
-    playerDamageTaken,
-    opponentDamageTaken,
-    playerUnitsDestroyed,
-    opponentUnitsDestroyed,
-  };
-});
-
-const deployedPlayerNames = computed(() => {
-  const indices = battle.battleState.value?.last_player_deployment ?? [];
-  if (indices.length === 0) return t("battle.none");
-  return indices
-    .map((idx) => battle.playerParty.value[idx]?.name)
-    .filter(Boolean)
-    .join(", ");
-});
-
-const deployedOpponentNames = computed(() => {
-  const indices = battle.battleState.value?.last_opponent_deployment ?? [];
-  if (indices.length === 0) return t("battle.none");
-  return indices
-    .map((idx) => battle.opponentParty.value[idx]?.name)
-    .filter(Boolean)
-    .join(", ");
-});
-
-const totalPlayerDamage = computed(() =>
-  combatLogEntries.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0),
-);
-
-const totalOpponentDamage = computed(() =>
-  combatLogEntries.value
-    .filter((entry) => entry.side === "player" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0),
-);
-
-const totalPlayerUnitsDestroyed = computed(
-  () =>
-    combatLogEntries.value.filter(
-      (entry) =>
-        entry.side === "opponent" &&
-        entry.target === "unit" &&
-        entry.defender_remaining_health === 0,
-    ).length,
-);
-
-const totalOpponentUnitsDestroyed = computed(
-  () =>
-    combatLogEntries.value.filter(
-      (entry) =>
-        entry.side === "player" &&
-        entry.target === "unit" &&
-        entry.defender_remaining_health === 0,
-    ).length,
-);
-
-const roundsResolved = computed(() => {
-  const rounds = new Set(combatLogEntries.value.map((entry) => entry.round));
-  return rounds.size;
-});
-
-function sideLabel(side?: "player" | "opponent"): string {
-  if (side === "player") return t("battle.you");
-  if (side === "opponent") {
-    return eventStore.pvpData?.opponent_name ?? t("battle.opponent_name");
-  }
-  return "";
-}
-
-function formatPercent(value: unknown): string {
-  return typeof value === "number" ? `${Math.round(value * 100)}%` : "0%";
-}
-
-function bonusEffectLabel(element: string): string {
-  const labels: Record<string, string> = {
-    fire: t("battle.bonus_effect_damage"),
-    earth: t("battle.bonus_effect_armor"),
-    air: t("battle.bonus_effect_dodge"),
-    lightning: t("battle.bonus_effect_double_attack"),
-    water: t("battle.bonus_effect_heal"),
-  };
-  return labels[element] ?? t("battle.bonus_effect_attack");
-}
-
-function payloadString(
-  payload: Record<string, unknown>,
-  key: string,
-  fallback: string,
-): string {
-  const value = payload[key];
-  return typeof value === "string" ? value : fallback;
-}
-
-function payloadNumber(
-  payload: Record<string, unknown>,
-  key: string,
-  fallback = 0,
-): number {
-  const value = payload[key];
-  return typeof value === "number" ? value : fallback;
-}
-
-function formatElementList(value: unknown): string {
-  if (!Array.isArray(value) || value.length === 0) return t("battle.none");
-  return value
-    .map((unit) => {
-      if (!unit || typeof unit !== "object") return null;
-      const candidate = unit as Record<string, unknown>;
-      const name = typeof candidate.name === "string" ? candidate.name : null;
-      const element = typeof candidate.element === "string" ? candidate.element : "";
-      if (!name) return null;
-      const appliedElements = Array.isArray(candidate.applied_elements)
-        ? candidate.applied_elements
-            .filter((applied): applied is string => typeof applied === "string")
-            .map((applied) => getElementEmoji(applied))
-        : [];
-      const appliedLabel =
-        appliedElements.length > 0 ? ` ← ${appliedElements.join(" ")}` : "";
-      return `${name} (${getElementEmoji(element)})${appliedLabel}`;
-    })
-    .filter(Boolean)
-    .join(", ");
-}
-
-function formatBattleLogEntry(entry: BattleLogEntry): string {
-  switch (entry.type) {
-    case "round_started":
-      return t("battle.log_round_started", { round: entry.round });
-    case "deployment_revealed":
-      return t("battle.log_deployment", {
-        side: sideLabel(entry.side),
-        units: formatElementList(entry.payload.units),
-      });
-    case "bonus_applied":
-      return t("battle.log_bonus_detail", {
-        side: sideLabel(entry.side),
-        element: getElementEmoji(String(entry.payload.element ?? "")),
-        amount: formatPercent(entry.payload.amount),
-        effect: bonusEffectLabel(String(entry.payload.element ?? "")),
-      });
-    case "unit_healed":
-      return t("battle.log_healed", {
-        side: sideLabel(entry.side),
-        unit: payloadString(entry.payload, "unit_name", t("battle.unknown_unit")),
-        element: getElementEmoji(payloadString(entry.payload, "unit_element", "")),
-        amount: payloadNumber(entry.payload, "amount"),
-        before: payloadNumber(entry.payload, "health_before"),
-        after: payloadNumber(entry.payload, "health_after"),
-        max: payloadNumber(entry.payload, "max_health"),
-      });
-    case "initiative_decided":
-      return t("battle.log_initiative", {
-        side: sideLabel(entry.side),
-      });
-    case "attack_resolved": {
-      if (entry.second_attack_lost) {
-        return t("battle.log_second_attack_lost", {
-          attacker: entry.attacker_name ?? t("battle.unknown_unit"),
-        });
-      }
-      if (entry.dodged) {
-        return t("battle.log_dodged", {
-          attacker: entry.attacker_name ?? t("battle.unknown_unit"),
-          defender: entry.defender_name ?? t("battle.unknown_unit"),
-        });
-      }
-      return t("battle.log_attack", {
-        attacker: entry.attacker_name ?? t("battle.unknown_unit"),
-        attackerElement: getElementEmoji(entry.attacker_element ?? ""),
-        defender: entry.defender_name ?? t("battle.unknown_unit"),
-        defenderElement: getElementEmoji(entry.defender_element ?? ""),
-        damage: entry.damage ?? 0,
-        hp: entry.defender_remaining_health ?? 0,
-        weakness: entry.weakness_bonus_applied ? t("battle.log_weakness") : "",
-        second: entry.second_attack ? t("battle.log_second_attack") : "",
-      });
-    }
-    case "unit_destroyed":
-      return t("battle.log_destroyed", {
-        unit: String(entry.payload.defender_name ?? t("battle.unknown_unit")),
-      });
-    case "round_ended":
-      return t("battle.log_round_ended", {
-        playerDamage: Number(entry.payload.player_damage_taken ?? 0),
-        opponentDamage: Number(entry.payload.opponent_damage_taken ?? 0),
-      });
-    case "battle_ended":
-      return t("battle.log_battle_ended", {
-        winner:
-          entry.payload.winner === "player"
-            ? t("battle.you")
-            : entry.payload.winner === "opponent"
-              ? eventStore.pvpData?.opponent_name ?? t("battle.opponent_name")
-              : t("battle.draw"),
-      });
-    default:
-      return t("battle.log_unknown");
-  }
-}
-
-function battleLogEntryClass(entry: BattleLogEntry): string {
-  if (entry.type === "attack_resolved") {
-    return entry.side === "player"
-      ? "border-blue-500/30 bg-blue-500/5"
-      : "border-red-500/30 bg-red-500/5";
-  }
-  if (entry.type === "unit_destroyed") return "border-orange-500/40 bg-orange-500/10";
-  if (entry.type === "unit_healed") return "border-cyan-500/40 bg-cyan-500/10";
-  if (entry.type === "battle_ended") return "border-primary/40 bg-primary/10";
-  return "border-border/60 bg-card/70";
-}
 
 const isVictory = computed(() => {
   if (battle.battleResult.value) {
@@ -995,6 +406,44 @@ const isVictory = computed(() => {
   if (!winner) return false;
   return winner === "player" || winner === "draw";
 });
+
+const isTargetingPhase = computed(() => battle.battlePhase.value === "targeting");
+const isPlayerTurnPhase = computed(() => battle.battlePhase.value === "player_turn");
+const isResolvedPhase = computed(
+  () => battle.battlePhase.value === "resolved" || !!battle.battleResult.value,
+);
+
+const showBattleArena = computed(
+  () => isTargetingPhase.value || isPlayerTurnPhase.value || isResolvedPhase.value,
+);
+
+const showArenaTargets = computed(() => isTargetingPhase.value);
+const arenaTargetLines = computed(() =>
+  isTargetingPhase.value ? battle.targetLines.value : undefined,
+);
+const arenaPlayerDeployedIndices = computed(() =>
+  isTargetingPhase.value
+    ? null
+    : (battle.battleState.value?.last_player_deployment ?? null),
+);
+const arenaOpponentDeployedIndices = computed(() =>
+  isTargetingPhase.value
+    ? null
+    : (battle.battleState.value?.last_opponent_deployment ?? null),
+);
+const isArenaPlayerPartyDroppable = computed(
+  () =>
+    isPlayerTurnPhase.value &&
+    !!battle.farkleTurnState.value &&
+    !battle.isBusted.value &&
+    !isBusy.value,
+);
+const arenaHighlightedPlayerIndices = computed(() =>
+  isPlayerTurnPhase.value ? highlightedDroppablePartyIndices.value : [],
+);
+const arenaPlayerInfusionElements = computed(() =>
+  isPlayerTurnPhase.value ? playerInfusionElements.value : undefined,
+);
 
 const resolvedMessage = computed(() => {
   if (battle.battleResult.value?.message) {
@@ -1075,8 +524,22 @@ const canRollRemaining = computed(() => {
   return rollableDice.value.length > 0;
 });
 
+const battleArenaPhaseLabel = computed(() => {
+  if (isTargetingPhase.value) return t("battle.phase1");
+  if (isPlayerTurnPhase.value) return t("battle.player_turn");
+  if (isResolvedPhase.value) return isVictory.value ? t("battle.victory") : t("battle.defeat");
+  return "";
+});
+
 const battleArenaStatusLabel = computed(() => {
-  return `${t("common.round")} ${battle.currentTurn.value} - ${roundsResolved.value} ${t("battle.rounds_resolved_short")}`;
+  if (isTargetingPhase.value) return t("battle.targets_chosen");
+  if (isPlayerTurnPhase.value) {
+    return `${t("common.round")} ${battle.currentTurn.value} - ${roundsResolved.value} ${t("battle.rounds_resolved_short")}`;
+  }
+  if (isResolvedPhase.value) {
+    return t("battle.rounds", { count: roundsResolved.value });
+  }
+  return "";
 });
 
 const battleTurnInstruction = computed(() => {
