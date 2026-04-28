@@ -102,18 +102,6 @@
                   result.first_elemental.current_stats.attack
                 }}</span>
               </div>
-              <div class="stat">
-                <span class="stat-label">🛡️ DEF</span>
-                <span class="stat-value">{{
-                  result.first_elemental.current_stats.defense
-                }}</span>
-              </div>
-              <div class="stat">
-                <span class="stat-label">⚡ SPD</span>
-                <span class="stat-value">{{
-                  result.first_elemental.current_stats.speed
-                }}</span>
-              </div>
             </div>
           </div>
         </div>
