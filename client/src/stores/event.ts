@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref, computed } from "vue";
 import { useApi } from "@/composables/useApi";
-import type { BattleLogEntry } from "@elementary-dices/shared";
+import type { BattleLogEntry, ElementTypeValue } from "@elementary-dices/shared";
 
 // Types based on backend schemas
 type EventType = "wild_encounter" | "pvp_battle" | "merchant";
@@ -63,7 +63,7 @@ export type FarkleDie = {
   player_dice_id: string;
   dice_type_id: string;
   dice_notation: string;
-  faces: string[];
+  faces: ElementTypeValue[];
   current_result: string;
   is_set_aside: boolean;
   is_assigned?: boolean;

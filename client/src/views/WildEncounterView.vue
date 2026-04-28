@@ -59,6 +59,13 @@
 
       <div class="flex flex-col gap-6 items-center">
         <div class="space-y-4 flex flex-col w-full max-w-md">
+          <div
+            v-if="hasReachedRosterCap && !captureResult"
+            class="rounded-lg border border-amber-500/50 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+          >
+            {{ t("wild.roster_limit_reached", { max: MAX_PLAYER_ELEMENTALS }) }}
+          </div>
+
           <ElementalCard
             v-if="wildElemental && canRoll && !captureResult && !wildBattleState"
             :elemental="wildElemental"
@@ -78,7 +85,7 @@
           <button
             v-if="canRoll && !captureResult && !wildBattleState"
             @click="handleRoll"
-            :disabled="isBusy"
+            :disabled="isBusy || hasReachedRosterCap"
             class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
           >
             {{ isBusy ? t("wild.rolling") : t("wild.start_round") }}
@@ -113,9 +120,9 @@
                 :force-animate-nonce="forceAnimationNonce"
                 :is-busted="!!farkleState?.busted"
                 :is-busy="isBusy"
-                :can-roll="canRoll"
-                :can-roll-remaining="canRollRemaining"
-                :can-end-turn="canEndTurn"
+                :can-roll="canRoll && !hasReachedRosterCap"
+                :can-roll-remaining="canRollRemaining && !hasReachedRosterCap"
+                :can-end-turn="canEndTurn && !hasReachedRosterCap"
                 :current-round-label="t('wild.current_round')"
                 :resolved-rounds-label="t('wild.resolved_rounds')"
                 :rolling-label="t('wild.rolling')"
@@ -184,6 +191,7 @@ import {
 import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
+import { useUIStore } from "@/stores/ui";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import BattleArena from "@/components/game/BattleArena.vue";
 import WildEncounterCaptureResult from "@/components/game/WildEncounterCaptureResult.vue";
@@ -197,7 +205,9 @@ const eventStore = useEventStore();
 const userStore = useUserStore();
 const elementalsStore = useElementalsStore();
 const inventoryStore = useInventoryStore();
+const uiStore = useUIStore();
 const { t, locale } = useI18n();
+const MAX_PLAYER_ELEMENTALS = 15;
 
 const loading = ref(false);
 const isActing = ref(false);
@@ -380,6 +390,9 @@ const canEndTurn = computed(() => {
   if (farkleState.value.busted) return true;
   return Boolean(farkleState.value.can_commit);
 });
+const hasReachedRosterCap = computed(
+  () => elementalsStore.playerElementals.length >= MAX_PLAYER_ELEMENTALS,
+);
 
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 
@@ -389,6 +402,9 @@ const wildArenaStatusLabel = computed(() => {
 });
 
 const wildTurnInstruction = computed(() => {
+  if (hasReachedRosterCap.value) {
+    return t("wild.roster_limit_reached", { max: MAX_PLAYER_ELEMENTALS });
+  }
   if (isBusy.value) return t("battle.instruction_wait");
   if (farkleState.value?.busted) return t("battle.instruction_bust");
   if (!farkleState.value || farkleState.value.dice.length === 0) {
@@ -437,8 +453,19 @@ const updateFromTurnResult = (result: any) => {
     []) as Combination[];
 };
 
+const notifyRosterCapReached = () => {
+  uiStore.showToast(
+    t("wild.roster_limit_reached", { max: MAX_PLAYER_ELEMENTALS }),
+    "error",
+  );
+};
+
 const handleRoll = async () => {
   if (!userStore.userId) return;
+  if (hasReachedRosterCap.value) {
+    notifyRosterCapReached();
+    return;
+  }
   isActing.value = true;
   roundStatusMessage.value = null;
   try {
@@ -515,6 +542,10 @@ const handleDropToParty = async (partyIndex: number) => {
 
 const handleEndTurn = async () => {
   if (!userStore.userId) return;
+  if (hasReachedRosterCap.value) {
+    notifyRosterCapReached();
+    return;
+  }
   isActing.value = true;
   try {
     const response = await eventStore.wildEncounterFarkleCommit(
