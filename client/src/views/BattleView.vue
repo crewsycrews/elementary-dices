@@ -440,6 +440,7 @@ const isArenaPlayerPartyDroppable = computed(
   () =>
     isPlayerTurnPhase.value &&
     !!battle.farkleTurnState.value &&
+    battle.farkleTurnState.value.phase !== "initial_roll" &&
     !battle.isBusted.value &&
     !isBusy.value,
 );
@@ -448,6 +449,15 @@ const arenaHighlightedPlayerIndices = computed(() =>
 );
 const arenaPlayerInfusionElements = computed(() =>
   isPlayerTurnPhase.value ? playerInfusionElements.value : undefined,
+);
+const isBattleDiceRush = computed(
+  () =>
+    isPlayerTurnPhase.value &&
+    !!battle.farkleTurnState.value &&
+    battle.isDiceRush.value &&
+    battle.farkleTurnState.value.dice.every(
+      (die: FarkleDie) => !die.is_set_aside && !die.is_assigned,
+    ),
 );
 
 const resolvedMessage = computed(() => {
@@ -522,7 +532,19 @@ const canRollRemaining = computed(() => {
   if (battle.battlePhase.value !== "player_turn") return false;
   if (isBusy.value) return false;
   if (!battle.farkleTurnState.value) return true;
-  if (battle.farkleTurnState.value.busted || battle.farkleTurnState.value.phase === "done") {
+  const hasFreshRushRoll =
+    battle.farkleTurnState.value.is_dice_rush &&
+    battle.farkleTurnState.value.dice.every(
+      (die: FarkleDie) => !die.is_set_aside && !die.is_assigned,
+    );
+  if (
+    battle.farkleTurnState.value.busted ||
+    battle.farkleTurnState.value.phase === "done" ||
+    battle.farkleTurnState.value.phase === "resolved"
+  ) {
+    return false;
+  }
+  if (hasFreshRushRoll) {
     return false;
   }
   return rollableDice.value.length > 0;
@@ -549,17 +571,26 @@ const battleArenaStatusLabel = computed(() => {
 const battleTurnInstruction = computed(() => {
   if (isBusy.value) return t("battle.instruction_wait");
   if (battle.isBusted.value) return t("battle.instruction_bust");
+  if (isBattleDiceRush.value) return t("battle.dice_rush");
   if (!battle.farkleTurnState.value || battle.farkleDice.value.length === 0) {
     return t("battle.instruction_roll");
   }
-  if (!canEndTurn.value) {
+  if (unassignedDice.value.length > 0 || !canEndTurn.value) {
     return t("battle.instruction_assign");
   }
   return t("battle.instruction_deploy");
 });
 
 const battleRollButtonLabel = computed(() => {
-  return battle.farkleTurnState.value ? t("battle.roll_undeployed") : t("battle.roll_all");
+  if (!battle.farkleTurnState.value) {
+    return t("battle.roll_all");
+  }
+  if (isBattleDiceRush.value) {
+    return t("battle.roll_all");
+  }
+  return battle.farkleTurnState.value.phase === "initial_roll"
+    ? t("battle.roll_all")
+    : t("battle.roll_undeployed");
 });
 
 // Phase 1: Start battle
@@ -622,6 +653,9 @@ const handleDropToParty = async (partyIndex: number) => {
     const response = await eventStore.farkleAssign(userStore.userId, dieIndex, partyIndex);
     if (response?.result) {
       battle.updateFromTurnResult(response.result as any);
+      if (response.result.is_dice_rush) {
+        scheduleForcedDiceAnimation([0, 1, 2, 3, 4]);
+      }
     }
   } catch (error) {
     console.error("Failed to assign die:", error);

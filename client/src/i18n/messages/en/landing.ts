@@ -27,4 +27,12 @@ export const landing: Messages = {
   "landing.panel_step_3_body": "Use combinations, set-aside bonuses, and timing to win battles before your roster breaks down.",
   "landing.quote_label": "Game Loop",
   "landing.quote_body": "Short decisions compound quickly: one capture, one merchant stop, or one risky battle can define the whole run.",
+  "landing.logo_alt": "Elementary Dice logo with elemental die",
+  "landing.branding_caption":
+    "An elemental crest marks the rhythm of each run: recruit, roll, react, and push deeper.",
+  "landing.seo_title": "Elementary Dice | Elemental Dice Strategy RPG",
+  "landing.seo_description":
+    "Play Elementary Dice, a browser strategy RPG where you collect elementals, tune your dice loadout, and survive fast tactical runs.",
+  "landing.seo_keywords":
+    "Elementary Dice, browser RPG, strategy game, dice battler, elemental tactics, tactical run-based game",
 };

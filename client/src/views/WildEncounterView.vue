@@ -93,23 +93,33 @@
         </div>
 
         <div
-          v-if="wildBattleState && !captureResult"
+          v-if="showBattleArena"
           class="w-full max-w-6xl space-y-3"
         >
           <BattleArena
             :player-party="wildBattleState.player_party"
             :opponent-party="wildBattleState.enemy_party"
             :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
-            :phase-label="t('wild.title')"
+            :phase-label="wildArenaPhaseLabel"
             :status-label="wildArenaStatusLabel"
             :center-title="t('battle.arena_center')"
-            :is-player-party-droppable="!!farkleState && !farkleState?.busted && !isBusy"
-            :highlighted-player-indices="highlightedDroppablePartyIndices"
-            :player-infusion-elements="playerInfusionElements"
+            :is-player-party-droppable="!captureResult && canAssignDice"
+            :highlighted-player-indices="captureResult ? [] : highlightedDroppablePartyIndices"
+            :player-infusion-elements="captureResult ? undefined : playerInfusionElements"
             @player-party-drop="handleDropToParty"
           >
             <template #centerActions>
+              <div
+                v-if="isWildDiceRush && !captureResult"
+                class="mb-3 rounded-xl border border-purple-500 bg-purple-500/20 px-4 py-3 text-center animate-pulse"
+              >
+                <p class="text-lg font-bold text-purple-300">
+                  {{ t("battle.dice_rush") }}
+                </p>
+              </div>
+
               <WildEncounterTurnPanel
+                v-if="!captureResult"
                 :round="wildBattleState.round"
                 :rounds-resolved="roundsResolved"
                 :instruction="wildTurnInstruction"
@@ -126,7 +136,7 @@
                 :current-round-label="t('wild.current_round')"
                 :resolved-rounds-label="t('wild.resolved_rounds')"
                 :rolling-label="t('wild.rolling')"
-                :start-round-label="t('wild.start_round')"
+                :start-round-label="wildRollButtonLabel"
                 :roll-remaining-label="t('wild.roll_remaining')"
                 :deploy-resolve-label="t('wild.deploy_resolve')"
                 @roll="handleRoll"
@@ -136,11 +146,28 @@
                 @rolling-start="isDiceAnimating = true"
                 @rolling-complete="isDiceAnimating = false"
               />
+
+              <WildEncounterCaptureResult
+                v-else
+                :success="captureResult.success"
+                :message="resolvedMessage"
+                :elemental-caught="captureResult.success ? captureResult.elemental_caught ?? null : null"
+                :success-title="t('wild.capture_success')"
+                :failure-title="t('wild.capture_failed')"
+                :proceed-label="t('wild.proceed')"
+                :level-label="(level) => t('wild.level', { level })"
+                :total-opponent-damage="totalOpponentDamage"
+                :total-opponent-units-destroyed="totalOpponentUnitsDestroyed"
+                :total-player-damage="totalPlayerDamage"
+                :total-player-units-destroyed="totalPlayerUnitsDestroyed"
+                :rounds-resolved="roundsResolved"
+                @proceed="proceedToNext"
+              />
             </template>
           </BattleArena>
 
           <WildEncounterRoundSummary
-            v-if="lastRoundSummary"
+            v-if="lastRoundSummary && !captureResult"
             :title="t('wild.round_summary', { round: lastRoundSummary.round })"
             :first-attacker-label="t('wild.first_attacker')"
             :first-attacker-value="lastRoundSummary.firstAttacker === 'player' ? t('wild.attacker_you') : t('wild.attacker_wild')"
@@ -152,18 +179,18 @@
           />
         </div>
 
-        <div class="space-y-4 w-full max-w-2xl">
-          <WildEncounterCaptureResult
-            v-if="captureResult"
-            :success="captureResult.success"
-            :message="captureResult.message"
-            :elemental-caught="captureResult.success ? captureResult.elemental_caught ?? null : null"
-            :success-title="t('wild.capture_success')"
-            :failure-title="t('wild.capture_failed')"
-            :proceed-label="t('wild.proceed')"
-            :level-label="(level) => t('wild.level', { level })"
-            @proceed="proceedToNext"
-          />
+        <div
+          v-if="captureResult && groupedBattleLogEntries.length > 0"
+          class="w-full max-w-3xl rounded-xl border border-border bg-card/40 p-4 space-y-3"
+        >
+          <p class="text-sm font-bold text-muted-foreground">{{ t("battle.full_combat_log") }}</p>
+          <div class="space-y-3 max-h-96 overflow-y-auto rounded-lg border border-border/60 p-3">
+            <BattleCombatLogEntries
+              :groups="groupedBattleLogEntries"
+              :format-entry="formatBattleLogEntry"
+              :entry-class="battleLogEntryClass"
+            />
+          </div>
         </div>
       </div>
 
@@ -187,8 +214,10 @@ import { useUserStore } from "@/stores/user";
 import { useElementalsStore } from "@/stores/elementals";
 import { useInventoryStore } from "@/stores/inventory";
 import { useUIStore } from "@/stores/ui";
+import { useBattleCombatLog } from "@/composables/useBattleCombatLog";
 import ElementalCard from "@/components/game/ElementalCard.vue";
 import BattleArena from "@/components/game/BattleArena.vue";
+import BattleCombatLogEntries from "@/components/game/BattleCombatLogEntries.vue";
 import WildEncounterCaptureResult from "@/components/game/WildEncounterCaptureResult.vue";
 import WildEncounterRoundSummary from "@/components/game/WildEncounterRoundSummary.vue";
 import WildEncounterTurnPanel from "@/components/game/WildEncounterTurnPanel.vue";
@@ -288,18 +317,10 @@ const dismissOnboarding = () => {
   showOnboarding.value = false;
 };
 
-type WildBattleCombatLogEntry = {
-  round: number;
-  step: number;
-  side: "player" | "opponent";
-  target: "unit";
-  damage: number;
-};
-
 type WildBattleState = {
   player_party: BattlePartyMember[];
   enemy_party: BattlePartyMember[];
-  combat_log: WildBattleCombatLogEntry[];
+  combat_log: Array<Record<string, unknown>>;
   round: number;
 };
 
@@ -317,56 +338,44 @@ const wildBattleState = computed<WildBattleState | null>(() => {
   return data?.wild_battle_state ?? null;
 });
 
-const combatLogEntries = computed<WildBattleCombatLogEntry[]>(() => {
-  const raw = (wildBattleState.value?.combat_log ?? []) as Array<
-    Partial<WildBattleCombatLogEntry>
-  >;
-  return raw
-    .filter(
-      (entry): entry is WildBattleCombatLogEntry =>
-        typeof entry.round === "number" &&
-        typeof entry.step === "number" &&
-        (entry.side === "player" || entry.side === "opponent") &&
-        entry.target === "unit" &&
-        typeof entry.damage === "number",
-    )
-    .sort((a, b) => a.round - b.round || a.step - b.step);
-});
+const ELEMENT_EMOJIS: Record<string, string> = {
+  fire: "🔥",
+  water: "💧",
+  earth: "🏔️",
+  air: "💨",
+  lightning: "⚡",
+};
 
-const roundsResolved = computed(() => {
-  return new Set(combatLogEntries.value.map((entry) => entry.round)).size;
-});
+function getElementEmoji(element: string): string {
+  return ELEMENT_EMOJIS[element] ?? "❓";
+}
 
-const lastResolvedRoundNumber = computed<number | null>(() => {
-  if (combatLogEntries.value.length === 0) return null;
-  return Math.max(...combatLogEntries.value.map((entry) => entry.round));
-});
+const battlePhase = computed(() => (captureResult.value ? "resolved" : "player_turn"));
+const opponentName = computed(
+  () => wildElemental.value?.name ?? t("wild.opponent_name"),
+);
 
-const lastRoundLogs = computed(() => {
-  if (!lastResolvedRoundNumber.value) return [] as WildBattleCombatLogEntry[];
-  return combatLogEntries.value.filter(
-    (entry) => entry.round === lastResolvedRoundNumber.value,
-  );
-});
-
-const lastRoundSummary = computed(() => {
-  if (lastRoundLogs.value.length === 0 || !lastResolvedRoundNumber.value) {
-    return null;
-  }
-  const firstAttacker = lastRoundLogs.value[0].side;
-  const playerDamageTaken = lastRoundLogs.value
-    .filter((entry) => entry.side === "opponent" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0);
-  const opponentDamageTaken = lastRoundLogs.value
-    .filter((entry) => entry.side === "player" && entry.target === "unit")
-    .reduce((sum, entry) => sum + entry.damage, 0);
-
-  return {
-    round: lastResolvedRoundNumber.value,
-    firstAttacker,
-    playerDamageTaken,
-    opponentDamageTaken,
-  };
+const {
+  groupedBattleLogEntries,
+  lastRoundSummary,
+  totalPlayerDamage,
+  totalOpponentDamage,
+  totalPlayerUnitsDestroyed,
+  totalOpponentUnitsDestroyed,
+  roundsResolved,
+  formatBattleLogEntry,
+  battleLogEntryClass,
+} = useBattleCombatLog({
+  combatLog: computed(() => wildBattleState.value?.combat_log ?? []),
+  battlePhase,
+  currentTurn: computed(() => wildBattleState.value?.round ?? 1),
+  playerParty: computed(() => wildBattleState.value?.player_party ?? []),
+  opponentParty: computed(() => wildBattleState.value?.enemy_party ?? []),
+  playerDeployment: computed(() => null),
+  opponentDeployment: computed(() => null),
+  opponentName,
+  t,
+  getElementEmoji,
 });
 
 const encounterElement = computed(
@@ -379,12 +388,52 @@ const encounterElement = computed(
 const canRoll = computed(
   () => !farkleState.value || farkleState.value.phase === "initial_roll",
 );
-const canRollRemaining = computed(
+const isWildDiceRush = computed(
   () =>
     !!farkleState.value &&
+    farkleState.value.is_dice_rush &&
+    farkleState.value.dice.every(
+      (die: FarkleDie) => !die.is_set_aside && !die.is_assigned,
+    ),
+);
+const unassignedDice = computed(() =>
+  (farkleState.value?.dice ?? [])
+    .map((die: FarkleDie, index: number) => ({ die, index }))
+    .filter(
+      ({ die }: { die: FarkleDie }) =>
+        !die.is_assigned && die.assigned_to_party_index == null,
+    ),
+);
+const rollableDice = computed(() =>
+  unassignedDice.value.filter(({ die }: { die: FarkleDie }) => !die.is_set_aside),
+);
+const canAssignDice = computed(
+  () =>
+    !!wildBattleState.value &&
+    !!farkleState.value &&
+    farkleState.value.phase !== "initial_roll" &&
     !farkleState.value.busted &&
-    farkleState.value.phase !== "done" &&
-    farkleState.value.dice.some((die: FarkleDie) => !die.is_set_aside),
+    !isBusy.value &&
+    unassignedDice.value.length > 0,
+);
+const canRollRemaining = computed(
+  () => {
+    if (!farkleState.value) return false;
+    const hasFreshRushRoll =
+      farkleState.value.is_dice_rush &&
+      farkleState.value.dice.every(
+        (die: FarkleDie) => !die.is_set_aside && !die.is_assigned,
+      );
+    if (
+      farkleState.value.busted ||
+      farkleState.value.phase === "initial_roll" ||
+      farkleState.value.phase === "done" ||
+      hasFreshRushRoll
+    ) {
+      return false;
+    }
+    return rollableDice.value.length > 0;
+  }
 );
 const canEndTurn = computed(() => {
   if (!farkleState.value) return false;
@@ -396,10 +445,36 @@ const hasReachedRosterCap = computed(
 );
 
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+const showBattleArena = computed(() => !!wildBattleState.value);
+const isResolvedPhase = computed(() => !!captureResult.value);
+
+const wildArenaPhaseLabel = computed(() => {
+  if (isResolvedPhase.value) {
+    return captureResult.value?.success
+      ? t("wild.capture_success")
+      : t("wild.capture_failed");
+  }
+  return t("wild.title");
+});
 
 const wildArenaStatusLabel = computed(() => {
   if (!wildBattleState.value) return "";
+  if (isResolvedPhase.value) {
+    return t("battle.rounds", { count: roundsResolved.value });
+  }
   return `${t("common.round")} ${wildBattleState.value.round} - ${roundsResolved.value} ${t("battle.rounds_resolved_short")}`;
+});
+const wildRollButtonLabel = computed(() =>
+  isWildDiceRush.value ? t("wild.roll_dice_rush") : t("wild.start_round"),
+);
+
+const resolvedMessage = computed(() => {
+  if (captureResult.value?.message) {
+    return captureResult.value.message;
+  }
+  return captureResult.value?.success
+    ? t("wild.capture_success")
+    : t("wild.capture_failed");
 });
 
 const wildTurnInstruction = computed(() => {
@@ -408,25 +483,15 @@ const wildTurnInstruction = computed(() => {
   }
   if (isBusy.value) return t("battle.instruction_wait");
   if (farkleState.value?.busted) return t("battle.instruction_bust");
+  if (isWildDiceRush.value) return t("battle.dice_rush");
   if (!farkleState.value || farkleState.value.dice.length === 0) {
     return t("battle.instruction_roll");
   }
-  if (!canEndTurn.value) {
+  if (canAssignDice.value || !canEndTurn.value) {
     return t("battle.instruction_assign");
   }
   return t("battle.instruction_deploy");
 });
-
-const ELEMENT_EMOJIS: Record<string, string> = {
-  fire: "🔥",
-  water: "💧",
-  earth: "🏔️",
-  air: "💨",
-  lightning: "⚡",
-};
-
-const getElementEmoji = (element: string): string =>
-  ELEMENT_EMOJIS[element] ?? "❓";
 
 const getDifficultyClass = (difficulty?: string) => {
   switch (difficulty) {
@@ -502,7 +567,13 @@ const playerInfusionElements = computed<Record<number, ElementTypeValue[]>>(() =
 });
 
 const highlightedDroppablePartyIndices = computed(() => {
-  if (draggingDieIndex.value === null || !wildBattleState.value) return [] as number[];
+  if (
+    draggingDieIndex.value === null ||
+    !wildBattleState.value ||
+    !canAssignDice.value
+  ) {
+    return [] as number[];
+  }
   return wildBattleState.value.player_party
     .map((member, index) => ({ member, index }))
     .filter(
@@ -525,6 +596,8 @@ const handleDropToParty = async (partyIndex: number) => {
   const dieIndex = draggingDieIndex.value;
   draggingDieIndex.value = null;
   if (dieIndex === null) return;
+  const member = wildBattleState.value?.player_party[partyIndex];
+  if (!member || member.is_destroyed) return;
   isActing.value = true;
   try {
     const response = await eventStore.wildEncounterFarkleAssign(
@@ -532,6 +605,9 @@ const handleDropToParty = async (partyIndex: number) => {
       dieIndex,
       partyIndex,
     );
+    if (response?.result?.is_dice_rush) {
+      scheduleForcedDiceAnimation([0, 1, 2, 3, 4]);
+    }
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter assign:", error);

@@ -25,6 +25,7 @@ export const events: Messages = {
   "wild.pick_set_aside": "Выберите один элемент из группы для бонусов от отложенных костей.",
   "wild.rolling": "БРОСОК...",
   "wild.start_round": "Начать раунд",
+  "wild.roll_dice_rush": "Бросить Dice Rush",
   "wild.opponent_name": "Дикий элементаль",
   "wild.current_round": "Текущий раунд:",
   "wild.resolved_rounds": "Завершено раундов:",

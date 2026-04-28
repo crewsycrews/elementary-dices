@@ -141,7 +141,7 @@ export const authModule = new Elysia({ prefix: "/api/auth" })
       cookie.refresh_token.set(getRefreshTokenCookieOptions(refreshToken));
 
       // Redirect to frontend with success
-      return Response.redirect(`${process.env.CLIENT_URL}/?auth=success`);
+      return Response.redirect(`${process.env.CLIENT_URL}/menu/?auth=success`);
     } catch (error) {
       console.error("OAuth callback error:", error);
       // Redirect to frontend with error

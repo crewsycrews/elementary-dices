@@ -25,6 +25,7 @@ export const events: Messages = {
   "wild.pick_set_aside": "Pick one element from your party for set-aside bonuses.",
   "wild.rolling": "ROLLING...",
   "wild.start_round": "Start round",
+  "wild.roll_dice_rush": "Roll Dice Rush",
   "wild.opponent_name": "Wild Elemental",
   "wild.current_round": "Current round:",
   "wild.resolved_rounds": "Resolved rounds:",

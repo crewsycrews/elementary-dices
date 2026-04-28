@@ -1414,6 +1414,15 @@ export class EventService {
     };
   }
 
+  private finishV4DiceRushCycle(turn: FarkleV4TurnState): Combination[] {
+    turn.dice = rollRemainingDice(turn.dice);
+    turn.active_combinations = [];
+    turn.busted = false;
+    turn.can_commit = false;
+    turn.phase = "set_aside";
+    return this.toUiCombinations(detectV4AvailableCombinations(turn.dice));
+  }
+
   async farkleV4InitBattle(
     playerId: string,
     eventId: string,
@@ -1574,6 +1583,17 @@ export class EventService {
     }
 
     const turn = this.ensureV4TurnState(battleState);
+    if (turn.is_dice_rush) {
+      turn.is_dice_rush = false;
+    }
+    if (
+      turn.phase !== "can_reroll" &&
+      turn.phase !== "set_aside" &&
+      turn.phase !== "rolling_remaining" &&
+      turn.phase !== "ready_to_commit"
+    ) {
+      throw new BadRequestError("Cannot assign dice before rolling");
+    }
     const die = turn.dice[dieIndex];
     if (!die) {
       throw new BadRequestError("Invalid die index");
@@ -1605,6 +1625,7 @@ export class EventService {
     this.updateV4TurnPhase(turn);
 
     const diceRush = this.isV4DiceRush(turn);
+    let detectedCombinations = this.getV4DetectedCombinationsForResponse(turn);
     if (diceRush) {
       const rushResult = this.consumeV4DiceRush(battleState.player_party, turn);
       battleState.player_party = rushResult.updated_party;
@@ -1612,6 +1633,7 @@ export class EventService {
         battleState.player_bonuses_total ?? {},
         rushResult.applied_bonuses,
       );
+      detectedCombinations = this.finishV4DiceRushCycle(turn);
     }
 
     await this.farkleSessionRepo.updateState(sessionId, {
@@ -1620,7 +1642,7 @@ export class EventService {
 
     return {
       battle_state: battleState,
-      detected_combinations: diceRush ? [] : this.getV4DetectedCombinationsForResponse(turn),
+      detected_combinations: detectedCombinations,
       is_busted: false,
       is_dice_rush: diceRush,
     };
@@ -3064,6 +3086,9 @@ export class EventService {
     }
 
     const turn = farkleState as unknown as FarkleV4TurnState;
+    if (turn.is_dice_rush) {
+      turn.is_dice_rush = false;
+    }
     if (turn.dice.length === 0) {
       Object.assign(turn, buildInitialV4TurnState(await this.getEquippedV4Dice(playerId)));
     } else {
@@ -3136,6 +3161,14 @@ export class EventService {
     }
 
     const turn = farkleState as unknown as FarkleV4TurnState;
+    if (
+      turn.phase !== "can_reroll" &&
+      turn.phase !== "set_aside" &&
+      turn.phase !== "rolling_remaining" &&
+      turn.phase !== "ready_to_commit"
+    ) {
+      throw new BadRequestError("Cannot assign dice before rolling");
+    }
     const die = turn.dice[dieIndex];
     if (!die) {
       throw new BadRequestError("Invalid die index");
@@ -3167,9 +3200,11 @@ export class EventService {
     this.updateV4TurnPhase(turn);
 
     const diceRush = this.isV4DiceRush(turn);
+    let detectedCombinations = this.getV4DetectedCombinationsForResponse(turn);
     if (diceRush) {
       const rushResult = this.consumeV4DiceRush(wildBattleState.player_party, turn);
       wildBattleState.player_party = rushResult.updated_party;
+      detectedCombinations = this.finishV4DiceRushCycle(turn);
     }
 
     await this.saveWildFarkleState(sessionId, farkleState, {
@@ -3179,7 +3214,7 @@ export class EventService {
     return {
       farkle_state: farkleState,
       wild_battle_state: wildBattleState,
-      detected_combinations: diceRush ? [] : this.getV4DetectedCombinationsForResponse(turn),
+      detected_combinations: detectedCombinations,
       is_busted: false,
       is_dice_rush: diceRush,
       is_resolved: false,

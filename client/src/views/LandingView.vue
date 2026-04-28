@@ -11,11 +11,6 @@
     <div class="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-10">
       <header class="flex items-center justify-between">
         <div class="flex items-center gap-4">
-          <img
-            :src="logoImage"
-            :alt="t('landing.logo_alt')"
-            class="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900/80 object-cover p-1 shadow-lg shadow-slate-950/40"
-          />
           <div>
             <p class="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/80">
               {{ t("landing.eyebrow") }}
@@ -78,17 +73,6 @@
           </section>
 
           <section class="mx-auto w-full max-w-md space-y-5">
-            <div class="overflow-hidden rounded-[2rem] border border-white/12 bg-white/6 p-4 shadow-2xl shadow-slate-950/40 backdrop-blur-md">
-              <img
-                :src="logoImage"
-                :alt="t('landing.logo_alt')"
-                class="mx-auto w-full max-w-sm drop-shadow-[0_16px_32px_rgba(2,6,23,0.8)]"
-              />
-              <p class="mt-4 text-center text-sm leading-6 text-slate-300">
-                {{ t("landing.branding_caption") }}
-              </p>
-            </div>
-
             <div class="rounded-[2rem] border border-white/12 bg-slate-900/70 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-md sm:p-8">
               <div class="flex items-center justify-between">
                 <div>
@@ -99,9 +83,11 @@
                     {{ t("landing.panel_title") }}
                   </h3>
                 </div>
-                <div class="grid h-16 w-16 place-items-center rounded-2xl border border-amber-300/30 bg-amber-300/10 text-3xl">
-                  🎯
-                </div>
+                <img
+                  :src="logoImage"
+                  :alt="t('landing.logo_alt')"
+                  class="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900/80 object-cover p-1 shadow-lg shadow-slate-950/40"
+                />
               </div>
 
               <div class="mt-6 space-y-4">
