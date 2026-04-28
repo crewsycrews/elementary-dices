@@ -406,10 +406,6 @@ export const useEventStore = defineStore(
           { silent: false },
         );
 
-        if (response.data?.result.can_continue) {
-          clearEvent();
-        }
-
         return response.data;
       } catch (error) {
         console.error("Failed to resolve wild encounter:", error);
@@ -692,10 +688,6 @@ export const useEventStore = defineStore(
           data.wild_battle_state = response.data.result.wild_battle_state;
         }
 
-        if (response.data?.result?.result?.can_continue) {
-          clearEvent();
-        }
-
         return response.data;
       } catch (error) {
         console.error("Failed wild encounter Farkle end turn:", error);
@@ -726,10 +718,6 @@ export const useEventStore = defineStore(
           data.farkle_state = response.data.result
             .farkle_state as WildEncounterFarkleState;
           data.wild_battle_state = response.data.result.wild_battle_state;
-        }
-
-        if (response.data?.result?.result?.can_continue) {
-          clearEvent();
         }
 
         return response.data;
