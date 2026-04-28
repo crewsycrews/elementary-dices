@@ -20,7 +20,7 @@ const DEFAULTS = {
 };
 
 function getSiteOrigin() {
-  const configuredOrigin = import.meta.env.VITE_SITE_URL?.trim();
+  const configuredOrigin = import.meta.env.VITE_CLIENT_URL?.trim();
   if (configuredOrigin) {
     return configuredOrigin.replace(/\/+$/, "");
   }
