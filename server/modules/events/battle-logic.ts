@@ -16,6 +16,7 @@ export interface BattlePartyMember {
   player_elemental_id?: string; // only for player's party
   elemental_id: string;
   name: string;
+  image_url?: string | null;
   element: ElementType;
   elements: ElementType[];
   level: number;
@@ -359,6 +360,7 @@ export function buildPartyMember(
     name: string;
     element_types: string[];
     level: number;
+    image_url?: string | null;
     base_stats?: {
       attack?: number;
       health?: number;
@@ -374,6 +376,7 @@ export function buildPartyMember(
     player_elemental_id: playerElementalId,
     elemental_id: elemental.id,
     name: elemental.name,
+    image_url: elemental.image_url ?? null,
     element: primaryElement,
     elements,
     level: elemental.level,

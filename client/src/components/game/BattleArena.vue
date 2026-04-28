@@ -1,18 +1,52 @@
 <template>
   <div class="battle-arena w-full">
+    <div
+      class="mb-3 grid gap-2 rounded-lg border border-border/70 bg-card/55 px-3 py-2 md:grid-cols-[1fr_auto_1fr] md:items-center"
+    >
+      <div class="min-w-0">
+        <p v-if="phaseLabel" class="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+          {{ phaseLabel }}
+        </p>
+        <p class="truncate text-sm font-semibold text-blue-500">
+          {{ t("battle_arena.your_party") }}
+          <span class="font-normal text-muted-foreground">
+            {{ playerAliveCount }}/{{ playerParty.length }} {{ t("battle_arena.alive") }}
+          </span>
+        </p>
+      </div>
+
+      <div class="text-left md:text-center">
+        <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+          {{ centerTitle || "VS" }}
+        </p>
+        <p v-if="statusLabel" class="text-sm font-semibold">
+          {{ statusLabel }}
+        </p>
+      </div>
+
+      <div class="min-w-0 md:text-right">
+        <p class="truncate text-sm font-semibold text-red-500">
+          {{ opponentName }}
+          <span class="font-normal text-muted-foreground">
+            {{ opponentAliveCount }}/{{ opponentParty.length }} {{ t("battle_arena.alive") }}
+          </span>
+        </p>
+      </div>
+    </div>
+
     <!-- Battle Grid: Player vs Opponent -->
-    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,18rem)_auto_minmax(0,18rem)] gap-3 md:gap-4 items-start justify-center">
-      <!-- Player Party (Left) -->
-      <div class="w-full md:max-w-[18rem] md:justify-self-end space-y-1.5">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-bold text-blue-400">{{ t("battle_arena.your_party") }}</h3>
-          <div class="text-right">
-            <p class="text-[11px] text-muted-foreground">
-              {{ playerAliveCount }}/{{ playerParty.length }} {{ t("battle_arena.alive") }}
-            </p>
-          </div>
+    <div
+      class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,18rem)_minmax(20rem,27rem)_minmax(0,18rem)] md:gap-4 md:items-start md:justify-center"
+    >
+      <!-- Player Party (Left on desktop, after actions on mobile) -->
+      <div class="order-3 w-full space-y-1.5 md:order-1 md:max-w-[18rem] md:justify-self-end">
+        <div class="flex items-center justify-between rounded-md border border-blue-500/20 bg-blue-500/5 px-2 py-1.5">
+          <h3 class="text-sm font-bold text-blue-500">{{ t("battle_arena.your_party") }}</h3>
+          <p class="text-[11px] text-muted-foreground">
+            {{ playerAliveCount }}/{{ playerParty.length }} {{ t("battle_arena.alive") }}
+          </p>
         </div>
-        <div class="space-y-1.5">
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2">
           <div
             v-for="(member, index) in playerParty"
             :key="member.elemental_id + '-' + index"
@@ -28,39 +62,38 @@
               :deployment-state="getDeploymentState(index, 'player')"
               :drop-highlight="isPlayerDropHighlighted(index)"
               :infusion-element="getInfusionElement(index)"
+              :infusion-label="getInfusionLabel(index)"
             />
           </div>
         </div>
       </div>
 
-      <!-- VS / Center -->
-      <div class="flex flex-col items-center justify-center py-8 px-4">
-        <div class="text-4xl md:text-6xl font-black text-primary opacity-80">
-          VS
-        </div>
-        <div v-if="showTargets" class="mt-4 text-xs text-muted-foreground text-center">
-          <div v-for="line in targetLines" :key="line.fromIndex" class="flex items-center gap-1 mb-1">
+      <!-- Center Actions -->
+      <div class="order-2 flex min-w-0 flex-col items-center justify-start">
+        <div v-if="showTargets && targetLines?.length" class="mb-3 w-full rounded-lg border border-border/70 bg-card/45 p-3 text-xs text-muted-foreground">
+          <p class="mb-2 text-[11px] font-bold uppercase tracking-wide text-foreground">
+            {{ t("battle_arena.target_plan") }}
+          </p>
+          <div v-for="line in targetLines" :key="line.fromIndex" class="flex items-center justify-between gap-2 border-t border-border/50 py-1.5 first:border-t-0">
             <span>{{ playerParty[line.fromIndex]?.name }}</span>
             <span class="text-muted-foreground">&#8594;</span>
             <span>{{ opponentParty[line.toIndex]?.name }}</span>
           </div>
         </div>
-        <div v-if="slots.centerActions" class="mt-4 flex justify-center">
+        <div v-if="slots.centerActions" class="flex w-full justify-center">
           <slot name="centerActions" />
         </div>
       </div>
 
-      <!-- Opponent Party (Right) -->
-      <div class="w-full md:max-w-[18rem] md:justify-self-start space-y-1.5">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-base font-bold text-red-400">{{ opponentName }}</h3>
-          <div class="text-right">
-            <p class="text-[11px] text-muted-foreground">
-              {{ opponentAliveCount }}/{{ opponentParty.length }} {{ t("battle_arena.alive") }}
-            </p>
-          </div>
+      <!-- Opponent Party (Right on desktop, first on mobile) -->
+      <div class="order-1 w-full space-y-1.5 md:order-3 md:max-w-[18rem] md:justify-self-start">
+        <div class="flex items-center justify-between rounded-md border border-red-500/20 bg-red-500/5 px-2 py-1.5">
+          <h3 class="truncate text-sm font-bold text-red-500">{{ opponentName }}</h3>
+          <p class="shrink-0 text-[11px] text-muted-foreground">
+            {{ opponentAliveCount }}/{{ opponentParty.length }} {{ t("battle_arena.alive") }}
+          </p>
         </div>
-        <div class="space-y-1.5">
+        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-2">
           <BattleElementalCard
             v-for="(member, index) in opponentParty"
             :key="member.elemental_id + '-' + index"
@@ -86,6 +119,9 @@ const props = defineProps<{
   playerParty: BattlePartyMember[]
   opponentParty: BattlePartyMember[]
   opponentName: string
+  phaseLabel?: string
+  statusLabel?: string
+  centerTitle?: string
   showTargets?: boolean
   buffedElement?: string | null
   playerDeployedIndices?: number[] | null
@@ -152,5 +188,11 @@ function isPlayerDropHighlighted(index: number): boolean {
 
 function getInfusionElement(index: number): string | null {
   return props.playerInfusionElements?.[index] ?? null
+}
+
+function getInfusionLabel(index: number): string {
+  const element = getInfusionElement(index)
+  if (!element) return ""
+  return `${t("battle_arena.assigned_die")}: ${element}`
 }
 </script>

@@ -57,32 +57,32 @@
 
       <!-- ==================== PHASE 1: TARGETING ==================== -->
       <template v-if="battle.battlePhase.value === 'targeting'">
-        <div class="text-center mb-4">
-          <div class="inline-block px-4 py-2 bg-primary/10 rounded-lg">
-            <span class="text-sm font-bold text-primary"
-              >{{ t("battle.phase1") }}</span
-            >
-          </div>
-          <p class="text-sm text-muted-foreground mt-2">
-            {{ t("battle.targets_chosen") }}
-          </p>
-        </div>
-
         <BattleArena
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
+          :phase-label="t('battle.phase1')"
+          :status-label="t('battle.targets_chosen')"
+          :center-title="t('battle.arena_center')"
           :show-targets="true"
           :target-lines="battle.targetLines.value"
         >
           <template #centerActions>
-            <button
-              @click="handleStartBattle"
-              :disabled="isStarting"
-              class="px-8 py-4 bg-primary text-primary-foreground rounded-lg font-bold text-lg hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
-            >
-              {{ isStarting ? t("battle.starting") : t("battle.start") }}
-            </button>
+            <div class="w-full rounded-lg border border-border/70 bg-card/60 p-3 text-center shadow-sm">
+              <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {{ t("battle.phase1") }}
+              </p>
+              <p class="mt-1 text-sm text-muted-foreground">
+                {{ t("battle.targets_chosen") }}
+              </p>
+              <button
+                @click="handleStartBattle"
+                :disabled="isStarting"
+                class="mt-3 w-full rounded-lg bg-primary px-5 py-3 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
+              >
+                {{ isStarting ? t("battle.starting") : t("battle.start") }}
+              </button>
+            </div>
           </template>
         </BattleArena>
       </template>
@@ -100,6 +100,9 @@
           :player-party="battle.playerParty.value"
           :opponent-party="battle.opponentParty.value"
           :opponent-name="eventStore.pvpData?.opponent_name ?? t('battle.opponent_name')"
+          :phase-label="t('battle.player_turn')"
+          :status-label="battleArenaStatusLabel"
+          :center-title="t('battle.arena_center')"
           :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
           :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
           :is-player-party-droppable="!!battle.farkleTurnState.value && !isBusy"
@@ -108,12 +111,20 @@
           @player-party-drop="handleDropToParty"
         >
           <template #centerActions>
-            <div class="w-full max-w-md rounded-xl border border-border/60 bg-card/40 p-3 space-y-3">
-              <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
-                <div class="flex justify-end">
+            <div class="w-full max-w-md space-y-3 rounded-xl border border-border/70 bg-card/65 p-3 shadow-sm">
+              <div class="rounded-lg border border-border/60 bg-background/45 px-3 py-2">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    {{ t("common.round") }} {{ battle.currentTurn.value }}
+                  </p>
                   <DiceCombinationsHint />
                 </div>
+                <p class="mt-1 text-sm font-semibold">
+                  {{ battleTurnInstruction }}
+                </p>
+              </div>
 
+              <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
                 <FarkleDiceRow
                   :dice="battle.farkleDice.value"
                   :selected-indices="selectedDiceIndices"
@@ -138,9 +149,9 @@
                 <button
                   @click="handleFarkleRoll"
                   :disabled="isBusy"
-                  class="px-6 py-2.5 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
+                  class="w-full rounded-lg bg-primary px-6 py-2.5 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
                 >
-                  {{ isBusy ? t("battle.rolling") : t("battle.roll_all") }}
+                  {{ isBusy ? t("battle.rolling") : battleRollButtonLabel }}
                 </button>
               </div>
 
@@ -151,9 +162,9 @@
                 <button
                   @click="handleSetAside"
                   :disabled="isBusy || selectedDiceIndices.length === 0"
-                  class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-semibold hover:bg-green-500/30 transition-all disabled:opacity-50"
+                  class="w-full rounded-lg border border-green-500 bg-green-500/20 px-4 py-2 font-semibold text-foreground hover:bg-green-500/30 disabled:opacity-50"
                 >
-                  Set aside selected
+                  {{ t("battle.set_aside_selected") }}
                 </button>
               </div>
 
@@ -171,7 +182,7 @@
                   "
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy || !canEndTurn"
-                  class="px-3 py-1.5 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50 text-sm"
+                  class="w-full rounded-lg border border-border bg-background px-4 py-2 text-sm font-semibold text-foreground hover:bg-card disabled:opacity-50"
                 >{{ t("battle.deploy_resolve") }}</button>
               </div>
 
@@ -182,11 +193,14 @@
                 <button
                   @click="handleFarkleEndTurn"
                   :disabled="isBusy"
-                  class="px-4 py-2 bg-card border border-border rounded-lg font-bold text-foreground hover:bg-card/80 transition-all disabled:opacity-50"
+                  class="w-full rounded-lg border border-red-500/70 bg-red-500/15 px-4 py-2 font-bold text-foreground hover:bg-red-500/20 disabled:opacity-50"
                 >{{ t("battle.deploy_resolve_no_bonus") }}</button>
               </div>
-              <p v-if="!canEndTurn && !battle.isBusted.value" class="text-center text-xs text-muted-foreground">
-                Assign dice to all deployable alive elementals to commit.
+              <p
+                v-if="battle.farkleDice.value.length > 0 && !canEndTurn && !battle.isBusted.value"
+                class="text-center text-xs text-muted-foreground"
+              >
+                {{ t("battle.assign_all_to_commit") }}
               </p>
             </div>
           </template>
@@ -214,42 +228,35 @@
             {{ t("battle.deploy_now") }}
           </p>
         </div>
-        <div v-if="lastRoundSummary" class="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">
+        <div v-if="lastRoundSummary" class="rounded-xl border border-border bg-card/55 p-3">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
               {{ t("battle.round_resolved", { round: lastRoundSummary.round }) }}
             </p>
-            <p class="text-sm">
+            <p class="text-xs text-muted-foreground">
               {{ t("battle.first_attacker") }}
-              <span class="font-semibold">
+              <span class="font-semibold text-foreground">
                 {{ lastRoundSummary.firstAttacker === "player" ? t("battle.you") : eventStore.pvpData?.opponent_name ?? t("battle.opponent_name") }}
               </span>
             </p>
-            <p class="text-sm">
-              {{ t("battle.your_deployment") }}
-              <span class="font-semibold">{{ deployedPlayerNames }}</span>
-            </p>
-            <p class="text-sm">
-              {{ t("battle.opponent_deployment") }}
-              <span class="font-semibold">{{ deployedOpponentNames }}</span>
-            </p>
           </div>
-          <div class="rounded-xl border border-border bg-card/40 p-4 space-y-2">
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">{{ t("battle.round_impact") }}</p>
-            <p class="text-sm text-red-300">
-              {{ t("battle.you_took_damage", { damage: lastRoundSummary.playerDamageTaken }) }}
-            </p>
-            <p class="text-sm text-blue-300">
-              {{ t("battle.opponent_took_damage", { damage: lastRoundSummary.opponentDamageTaken }) }}
-            </p>
-            <p class="text-sm">
-              {{
-                t("battle.units_destroyed", {
-                  player: lastRoundSummary.playerUnitsDestroyed,
-                  opponent: lastRoundSummary.opponentUnitsDestroyed,
-                })
-              }}
-            </p>
+          <div class="mt-3 grid gap-2 text-sm md:grid-cols-4">
+            <div class="rounded-md bg-background/45 p-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.your_deployment") }}</p>
+              <p class="truncate font-semibold">{{ deployedPlayerNames }}</p>
+            </div>
+            <div class="rounded-md bg-background/45 p-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.opponent_deployment") }}</p>
+              <p class="truncate font-semibold">{{ deployedOpponentNames }}</p>
+            </div>
+            <div class="rounded-md bg-background/45 p-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.round_impact") }}</p>
+              <p><span class="text-red-300">{{ lastRoundSummary.playerDamageTaken }}</span> / <span class="text-blue-300">{{ lastRoundSummary.opponentDamageTaken }}</span></p>
+            </div>
+            <div class="rounded-md bg-background/45 p-2">
+              <p class="text-[11px] uppercase tracking-wide text-muted-foreground">{{ t("battle.destroyed") }}</p>
+              <p>{{ lastRoundSummary.playerUnitsDestroyed }} / {{ lastRoundSummary.opponentUnitsDestroyed }}</p>
+            </div>
           </div>
         </div>
 
@@ -1097,6 +1104,29 @@ const canRollRemaining = computed(() => {
 const canSetAside = computed(() => {
   if (!battle.farkleTurnState.value || isBusy.value) return false;
   return selectedDiceIndices.value.length > 0;
+});
+
+const battleArenaStatusLabel = computed(() => {
+  return `${t("common.round")} ${battle.currentTurn.value} - ${roundsResolved.value} ${t("battle.rounds_resolved_short")}`;
+});
+
+const battleTurnInstruction = computed(() => {
+  if (isBusy.value) return t("battle.instruction_wait");
+  if (battle.isBusted.value) return t("battle.instruction_bust");
+  if (!battle.farkleTurnState.value || battle.farkleDice.value.length === 0) {
+    return t("battle.instruction_roll");
+  }
+  if (selectedDiceIndices.value.length > 0) {
+    return t("battle.instruction_set_aside");
+  }
+  if (!canEndTurn.value) {
+    return t("battle.instruction_assign");
+  }
+  return t("battle.instruction_deploy");
+});
+
+const battleRollButtonLabel = computed(() => {
+  return battle.farkleTurnState.value ? t("battle.roll_undeployed") : t("battle.roll_all");
 });
 
 // Phase 1: Start battle

@@ -350,6 +350,7 @@ export const BattlePartyMemberSchema = t.Object({
   player_elemental_id: t.Optional(t.String({ format: "uuid" })),
   elemental_id: t.String({ format: "uuid" }),
   name: t.String(),
+  image_url: t.Optional(t.Nullable(t.String())),
   element: ElementType,
   elements: t.Array(ElementType),
   level: t.Integer({ minimum: 1, maximum: 4 }),

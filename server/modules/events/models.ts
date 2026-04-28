@@ -87,6 +87,7 @@ export const BattlePartyMemberDTO = t.Object({
   player_elemental_id: t.Optional(t.String()),
   elemental_id: t.String(),
   name: t.String(),
+  image_url: t.Optional(t.Nullable(t.String())),
   element: t.String(),
   elements: t.Array(t.String()),
   level: t.Number(),

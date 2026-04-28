@@ -93,21 +93,29 @@
             :player-party="wildBattleState.player_party"
             :opponent-party="wildBattleState.enemy_party"
             :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
+            :phase-label="t('wild.title')"
+            :status-label="wildArenaStatusLabel"
+            :center-title="t('battle.arena_center')"
             :is-player-party-droppable="!!farkleState && !isBusy"
             :highlighted-player-indices="highlightedDroppablePartyIndices"
             :player-infusion-elements="playerInfusionElements"
             @player-party-drop="handleDropToParty"
           >
             <template #centerActions>
-              <div class="w-full min-w-[18rem] max-w-md rounded-xl border border-border/60 bg-card/50 p-3 space-y-3">
-                <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <p>
-                    {{ t("wild.current_round") }}
-                    <span class="font-semibold">{{ wildBattleState.round }}</span>
-                  </p>
-                  <p>
-                    {{ t("wild.resolved_rounds") }}
-                    <span class="font-semibold">{{ roundsResolved }}</span>
+              <div class="w-full min-w-[18rem] max-w-md space-y-3 rounded-xl border border-border/70 bg-card/65 p-3 shadow-sm">
+                <div class="rounded-lg border border-border/60 bg-background/45 px-3 py-2">
+                  <div class="flex flex-wrap items-center justify-between gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    <p>
+                      {{ t("wild.current_round") }}
+                      <span class="text-foreground">{{ wildBattleState.round }}</span>
+                    </p>
+                    <p>
+                      {{ t("wild.resolved_rounds") }}
+                      <span class="text-foreground">{{ roundsResolved }}</span>
+                    </p>
+                  </div>
+                  <p class="mt-1 text-sm font-semibold">
+                    {{ wildTurnInstruction }}
                   </p>
                 </div>
 
@@ -157,16 +165,16 @@
                     v-if="canSetAside"
                     @click="handleSetAside"
                     :disabled="isBusy || selectedDiceIndices.length === 0"
-                    class="px-4 py-2 bg-green-500/20 text-foreground border border-green-500 rounded-lg font-bold hover:bg-green-500/30 transition-all disabled:opacity-50"
+                    class="rounded-lg border border-green-500 bg-green-500/20 px-4 py-2 font-bold text-foreground hover:bg-green-500/30 disabled:opacity-50"
                   >
-                    Set aside selected
+                    {{ t("battle.set_aside_selected") }}
                   </button>
 
                   <button
                     v-if="canRollRemaining"
                     @click="handleRoll"
                     :disabled="isBusy"
-                    class="px-4 py-2 bg-sky-500/20 text-foreground border border-sky-500 rounded-lg font-bold hover:bg-sky-500/30 transition-all disabled:opacity-50"
+                    class="rounded-lg border border-sky-500 bg-sky-500/20 px-4 py-2 font-bold text-foreground hover:bg-sky-500/30 disabled:opacity-50"
                   >
                     {{ t("wild.roll_remaining") }}
                   </button>
@@ -176,7 +184,7 @@
                   <button
                     @click="handleEndTurn"
                     :disabled="isBusy"
-                    class="px-6 py-3 bg-card border border-border rounded-lg font-semibold text-foreground hover:bg-card/80 transition-all disabled:opacity-50"
+                    class="w-full rounded-lg border border-border bg-background px-6 py-3 font-semibold text-foreground hover:bg-card disabled:opacity-50"
                   >
                     {{ t("wild.deploy_resolve") }}
                   </button>
@@ -187,33 +195,39 @@
 
           <div
             v-if="lastRoundSummary"
-            class="rounded-xl border border-border bg-card/40 p-4 space-y-1.5 text-sm"
+            class="rounded-xl border border-border bg-card/55 p-3 text-sm"
           >
-            <p class="text-xs uppercase tracking-wide text-muted-foreground">
-              {{ t("wild.round_summary", { round: lastRoundSummary.round }) }}
-            </p>
-            <p>
-              {{ t("wild.first_attacker") }}
-              <span class="font-semibold">{{
-                lastRoundSummary.firstAttacker === "player"
-                  ? t("wild.attacker_you")
-                  : t("wild.attacker_wild")
-              }}</span>
-            </p>
-            <p>
-              {{ t("wild.you_took") }}
-              <span class="font-semibold text-red-300">{{
-                lastRoundSummary.playerDamageTaken
-              }}</span>
-              {{ t("wild.damage") }}
-            </p>
-            <p>
-              {{ t("wild.wild_took") }}
-              <span class="font-semibold text-blue-300">{{
-                lastRoundSummary.opponentDamageTaken
-              }}</span>
-              {{ t("wild.damage") }}
-            </p>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                {{ t("wild.round_summary", { round: lastRoundSummary.round }) }}
+              </p>
+              <p class="text-xs text-muted-foreground">
+                {{ t("wild.first_attacker") }}
+                <span class="font-semibold text-foreground">{{
+                  lastRoundSummary.firstAttacker === "player"
+                    ? t("wild.attacker_you")
+                    : t("wild.attacker_wild")
+                }}</span>
+              </p>
+            </div>
+            <div class="mt-3 grid gap-2 sm:grid-cols-2">
+              <div class="rounded-md bg-background/45 p-2">
+                <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {{ t("wild.you_took") }}
+                </p>
+                <p class="font-semibold text-red-300">
+                  {{ lastRoundSummary.playerDamageTaken }} {{ t("wild.damage") }}
+                </p>
+              </div>
+              <div class="rounded-md bg-background/45 p-2">
+                <p class="text-[11px] uppercase tracking-wide text-muted-foreground">
+                  {{ t("wild.wild_took") }}
+                </p>
+                <p class="font-semibold text-blue-300">
+                  {{ lastRoundSummary.opponentDamageTaken }} {{ t("wild.damage") }}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -486,6 +500,26 @@ const canEndTurn = computed(() => {
 });
 
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
+
+const wildArenaStatusLabel = computed(() => {
+  if (!wildBattleState.value) return "";
+  return `${t("common.round")} ${wildBattleState.value.round} - ${roundsResolved.value} ${t("battle.rounds_resolved_short")}`;
+});
+
+const wildTurnInstruction = computed(() => {
+  if (isBusy.value) return t("battle.instruction_wait");
+  if (farkleState.value?.busted) return t("battle.instruction_bust");
+  if (!farkleState.value || farkleState.value.dice.length === 0) {
+    return t("battle.instruction_roll");
+  }
+  if (selectedDiceIndices.value.length > 0) {
+    return t("battle.instruction_set_aside");
+  }
+  if (!canEndTurn.value) {
+    return t("battle.instruction_assign");
+  }
+  return t("battle.instruction_deploy");
+});
 
 const ELEMENT_EMOJIS: Record<string, string> = {
   fire: "🔥",
