@@ -9,7 +9,7 @@
       @complete="handleOnboardingComplete"
     />
 
-    <UserBalanceHeader />
+    <GameHeader />
 
     <!-- Main Menu Grid - Rhombus Layout -->
     <div class="w-full max-w-4xl mx-auto main-menu-grid">
@@ -88,7 +88,7 @@ import { useEventStore } from "@/stores/event";
 import MainMenuButton from "@/components/game/MainMenuButton.vue";
 import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
 import StartGameModal from "@/components/onboarding/StartGameModal.vue";
-import UserBalanceHeader from "@/components/layout/UserBalanceHeader.vue";
+import GameHeader from "@/components/layout/GameHeader.vue";
 import { useI18n } from "@/i18n";
 
 const router = useRouter();

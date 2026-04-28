@@ -2,7 +2,7 @@
   <div
     class="event-choice-view min-h-screen bg-background flex flex-col items-center justify-center p-4 md:p-8"
   >
-    <UserBalanceHeader />
+    <GameHeader />
 
     <div class="w-full max-w-4xl mx-auto main-menu-grid">
       <div class="area-event flex justify-center items-center">
@@ -74,7 +74,7 @@ import { useInventoryStore } from "@/stores/inventory";
 import { useUserStore } from "@/stores/user";
 import MainMenuButton from "@/components/game/MainMenuButton.vue";
 import CentralDiceDisplay from "@/components/game/CentralDiceDisplay.vue";
-import UserBalanceHeader from "@/components/layout/UserBalanceHeader.vue";
+import GameHeader from "@/components/layout/GameHeader.vue";
 import { useI18n } from "@/i18n";
 
 type EventType = "wild_encounter" | "pvp_battle" | "merchant";
