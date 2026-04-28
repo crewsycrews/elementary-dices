@@ -93,14 +93,11 @@ import { useI18n } from "@/i18n";
 import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
 
 const ELEMENT_FACE_STYLES: Record<string, string> = {
-  fire: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.26), transparent 24%), linear-gradient(135deg, #f97316 0%, #dc2626 52%, #7f1d1d 100%)",
-  water:
-    "radial-gradient(circle at 35% 28%, rgba(255,255,255,0.3), transparent 26%), linear-gradient(135deg, #38bdf8 0%, #2563eb 54%, #1e3a8a 100%)",
-  earth:
-    "radial-gradient(circle at 32% 28%, rgba(255,255,255,0.18), transparent 24%), linear-gradient(135deg, #84cc16 0%, #78716c 48%, #3f3f46 100%)",
-  air: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.82), transparent 28%), linear-gradient(135deg, #e0f2fe 0%, #67e8f9 48%, #0e7490 100%)",
-  lightning:
-    "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.72), transparent 22%), linear-gradient(135deg, #fde047 0%, #f59e0b 42%, #7c3aed 100%)",
+  fire: "#E53935",
+  water: "#1E5BB8",
+  earth: "#8D6E63",
+  air: "#2FAF9B",
+  lightning: "#D4A800",
 };
 
 const ELEMENT_ICONS: Record<string, Component> = {
@@ -535,7 +532,7 @@ defineExpose({
   backface-visibility: visible;
   border: 2px solid rgba(0, 0, 0, 0.3);
   box-shadow:
-    inset 0 0 20px rgba(255, 255, 255, 0.1),
+    inset 0 0 20px rgba(255, 255, 255, 0.2),
     0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
@@ -582,7 +579,7 @@ defineExpose({
 .face-icon {
   width: 40%;
   height: 40%;
-  color: #ffffff;
+  color: #F5F5F5;
   filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.72))
     drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
   pointer-events: none;
