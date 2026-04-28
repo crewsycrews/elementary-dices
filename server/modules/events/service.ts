@@ -53,6 +53,7 @@ import {
 import {
   rollRemainingDice,
   detectV4Combinations,
+  detectV4AvailableCombinations,
   buildInitialV4TurnState,
   collectAssignedPartyIndices,
   applyV4CommitBonuses,
@@ -644,8 +645,8 @@ export class EventService {
   ) {
     await this.farkleSessionRepo.updateState(sessionId, {
       phase: state.phase,
-      has_used_reroll: false,
-      set_aside_element_bonus: null,
+      has_used_reroll: state.has_used_reroll ?? false,
+      set_aside_element_bonus: state.set_aside_element_bonus ?? null,
       is_dice_rush: state.is_dice_rush,
       busted: state.busted,
       dice_state: state.dice,
@@ -1324,11 +1325,25 @@ export class EventService {
   }
 
   private getV4DetectedCombinationsForResponse(turn: FarkleV4TurnState): Combination[] {
-    const reservedDiceCount = turn.dice.filter((die) => die.is_set_aside).length;
-    if (reservedDiceCount === 0) {
-      return this.getV4CandidateCombinationsForUi(turn.dice);
+    const availableDice = turn.dice.filter((die) => !die.is_set_aside);
+    if (availableDice.length > 0) {
+      return this.toUiCombinations(detectV4AvailableCombinations(turn.dice));
     }
     return this.toUiCombinations(detectV4Combinations(turn.dice));
+  }
+
+  private rollV4Turn(turn: FarkleV4TurnState): Combination[] {
+    turn.dice = rollRemainingDice(turn.dice);
+    return this.toUiCombinations(detectV4AvailableCombinations(turn.dice));
+  }
+
+  private updateV4TurnPhase(turn: FarkleV4TurnState) {
+    const hasRollableDice = turn.dice.some((die) => !die.is_set_aside);
+    if (hasRollableDice) {
+      turn.phase = "rolling_remaining";
+      return;
+    }
+    turn.phase = turn.can_commit ? "ready_to_commit" : "set_aside";
   }
 
   async farkleV4InitBattle(
@@ -1433,7 +1448,13 @@ export class EventService {
       throw new BadRequestError("No remaining dice to roll");
     }
 
-    turn.dice = rollRemainingDice(turn.dice);
+    const isFirstRoll = turn.phase === "initial_roll";
+    const isFreeFirstReroll = turn.phase === "can_reroll" && !turn.has_used_reroll;
+    if (!isFirstRoll && !isFreeFirstReroll && turn.phase !== "rolling_remaining") {
+      throw new BadRequestError("Cannot roll at this stage");
+    }
+
+    const detected = this.rollV4Turn(turn);
     for (const die of turn.dice) {
       if (!die.is_set_aside) {
         await this.diceRollService.performRoll({
@@ -1444,7 +1465,10 @@ export class EventService {
       }
     }
 
-    turn.phase = "set_aside";
+    const busted = !isFirstRoll && !isFreeFirstReroll && detected.length === 0;
+    turn.phase = busted ? "done" : isFirstRoll ? "can_reroll" : "set_aside";
+    turn.has_used_reroll = isFreeFirstReroll ? true : (turn.has_used_reroll ?? false);
+    turn.busted = busted;
     turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(battleState.player_party, turn);
 
@@ -1454,63 +1478,8 @@ export class EventService {
 
     return {
       battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
-      is_busted: false,
-      is_dice_rush: false,
-    };
-  }
-
-  async farkleV4SetAside(
-    playerId: string,
-    farkleSessionId: string,
-    diceIndices: number[],
-  ): Promise<{
-    battle_state: FarkleBattleState;
-    detected_combinations: Combination[];
-    is_busted: boolean;
-    is_dice_rush: boolean;
-  }> {
-    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
-    if (eventType !== "pvp_battle") {
-      throw new BadRequestError("V4 set-aside is only available for battles");
-    }
-
-    const { sessionId, battleState } = await this.getFarkleBattle(playerId);
-    if (sessionId !== farkleSessionId) {
-      throw new BadRequestError("Invalid session id for active battle");
-    }
-
-    const turn = this.ensureV4TurnState(battleState);
-    if (diceIndices.length === 0) {
-      throw new BadRequestError("Must select at least one die");
-    }
-
-    for (const dieIndex of diceIndices) {
-      const die = turn.dice[dieIndex];
-      if (!die) {
-        throw new BadRequestError("Invalid die index");
-      }
-      if (die.is_set_aside) {
-        throw new BadRequestError("Die is already set aside");
-      }
-      turn.dice[dieIndex] = {
-        ...die,
-        is_set_aside: true,
-      };
-    }
-
-    turn.active_combinations = detectV4Combinations(turn.dice) as any;
-    validateDeployAllPossible(battleState.player_party, turn);
-    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
-
-    await this.farkleSessionRepo.updateState(sessionId, {
-      meta: { battle_state: battleState },
-    });
-
-    return {
-      battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
-      is_busted: false,
+      detected_combinations: detected,
+      is_busted: busted,
       is_dice_rush: false,
     };
   }
@@ -1553,11 +1522,6 @@ export class EventService {
       throw new BadRequestError("Cannot assign to destroyed elemental");
     }
 
-    const alreadyAssigned = turn.dice.some((d) => d.assigned_to_party_index === partyIndex);
-    if (alreadyAssigned) {
-      throw new BadRequestError("Elemental already has an assigned die this turn");
-    }
-
     turn.dice[dieIndex] = {
       ...die,
       is_set_aside: true,
@@ -1565,9 +1529,12 @@ export class EventService {
       assigned_to_party_index: partyIndex,
     };
 
+    if (turn.phase === "can_reroll" && !turn.has_used_reroll) {
+      turn.has_used_reroll = true;
+    }
     turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(battleState.player_party, turn);
-    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
+    this.updateV4TurnPhase(turn);
 
     await this.farkleSessionRepo.updateState(sessionId, {
       meta: { battle_state: battleState },
@@ -1627,8 +1594,8 @@ export class EventService {
 
     const turn = this.ensureV4TurnState(battleState);
     const deployValidation = validateDeployAllPossible(battleState.player_party, turn);
-    if (!deployValidation.can_commit) {
-      throw new BadRequestError("You must deploy all possible alive elementals before commit");
+    if (!turn.busted && !deployValidation.can_commit) {
+      throw new BadRequestError("Assign at least one die before commit");
     }
 
     const playerApplied = applyV4CommitBonuses(
@@ -3018,7 +2985,13 @@ export class EventService {
       }
     }
 
-    turn.dice = rollRemainingDice(turn.dice);
+    const isFirstRoll = turn.phase === "initial_roll";
+    const isFreeFirstReroll = turn.phase === "can_reroll" && !turn.has_used_reroll;
+    if (!isFirstRoll && !isFreeFirstReroll && turn.phase !== "rolling_remaining") {
+      throw new BadRequestError("Cannot roll at this stage");
+    }
+
+    const detected = this.rollV4Turn(turn);
     for (const die of turn.dice) {
       if (!die.is_set_aside) {
         await this.diceRollService.performRoll({
@@ -3029,7 +3002,10 @@ export class EventService {
       }
     }
 
-    turn.phase = "set_aside";
+    const busted = !isFirstRoll && !isFreeFirstReroll && detected.length === 0;
+    turn.phase = busted ? "done" : isFirstRoll ? "can_reroll" : "set_aside";
+    turn.has_used_reroll = isFreeFirstReroll ? true : (turn.has_used_reroll ?? false);
+    turn.busted = busted;
     turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(wildBattleState.player_party, turn);
 
@@ -3040,68 +3016,8 @@ export class EventService {
     return {
       farkle_state: farkleState,
       wild_battle_state: wildBattleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
-      is_busted: false,
-      is_dice_rush: false,
-      is_resolved: false,
-    };
-  }
-
-  async farkleV4SetAsideWildEncounter(
-    playerId: string,
-    farkleSessionId: string,
-    diceIndices: number[],
-  ): Promise<{
-    farkle_state: WildEncounterFarkleState;
-    wild_battle_state: WildBattleState;
-    detected_combinations: Combination[];
-    is_busted: boolean;
-    is_dice_rush: boolean;
-    is_resolved: boolean;
-  }> {
-    const { eventType } = await this.validateSessionOwnership(playerId, farkleSessionId);
-    if (eventType !== "wild_encounter") {
-      throw new BadRequestError("V4 set-aside is only available for wild encounters");
-    }
-
-    const { sessionId, farkleState, wildBattleState } =
-      await this.getWildEncounterForFarkle(playerId);
-    if (sessionId !== farkleSessionId) {
-      throw new BadRequestError("Invalid session id for active encounter");
-    }
-
-    const turn = farkleState as unknown as FarkleV4TurnState;
-    if (diceIndices.length === 0) {
-      throw new BadRequestError("Must select at least one die");
-    }
-
-    for (const dieIndex of diceIndices) {
-      const die = turn.dice[dieIndex];
-      if (!die) {
-        throw new BadRequestError("Invalid die index");
-      }
-      if (die.is_set_aside) {
-        throw new BadRequestError("Die is already set aside");
-      }
-      turn.dice[dieIndex] = {
-        ...die,
-        is_set_aside: true,
-      };
-    }
-
-    turn.active_combinations = detectV4Combinations(turn.dice) as any;
-    validateDeployAllPossible(wildBattleState.player_party, turn);
-    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
-
-    await this.saveWildFarkleState(sessionId, farkleState, {
-      wild_battle_state: wildBattleState,
-    });
-
-    return {
-      farkle_state: farkleState,
-      wild_battle_state: wildBattleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
-      is_busted: false,
+      detected_combinations: detected,
+      is_busted: busted,
       is_dice_rush: false,
       is_resolved: false,
     };
@@ -3148,11 +3064,6 @@ export class EventService {
       throw new BadRequestError("Cannot assign to destroyed elemental");
     }
 
-    const alreadyAssigned = turn.dice.some((d) => d.assigned_to_party_index === partyIndex);
-    if (alreadyAssigned) {
-      throw new BadRequestError("Elemental already has an assigned die this turn");
-    }
-
     turn.dice[dieIndex] = {
       ...die,
       is_set_aside: true,
@@ -3160,9 +3071,12 @@ export class EventService {
       assigned_to_party_index: partyIndex,
     };
 
+    if (turn.phase === "can_reroll" && !turn.has_used_reroll) {
+      turn.has_used_reroll = true;
+    }
     turn.active_combinations = detectV4Combinations(turn.dice) as any;
     validateDeployAllPossible(wildBattleState.player_party, turn);
-    turn.phase = turn.can_commit ? "ready_to_commit" : "rolling_remaining";
+    this.updateV4TurnPhase(turn);
 
     await this.saveWildFarkleState(sessionId, farkleState, {
       wild_battle_state: wildBattleState,
@@ -3205,8 +3119,8 @@ export class EventService {
 
     const turn = farkleState as unknown as FarkleV4TurnState;
     const deployValidation = validateDeployAllPossible(wildBattleState.player_party, turn);
-    if (!deployValidation.can_commit) {
-      throw new BadRequestError("You must deploy all possible alive elementals before commit");
+    if (!turn.busted && !deployValidation.can_commit) {
+      throw new BadRequestError("Assign at least one die before commit");
     }
 
     const playerApplied = applyV4CommitBonuses(wildBattleState.player_party, turn);

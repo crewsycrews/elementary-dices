@@ -8,7 +8,6 @@
       <div
         v-for="entry in row"
         :key="entry.index"
-        @click="!entry.die.is_set_aside && !entry.die.is_assigned && $emit('toggle-select', entry.index)"
         :draggable="isDieDraggable(entry.die)"
         @dragstart="handleDieDragStart($event, entry.index, entry.die)"
         @dragend="handleDieDragEnd"
@@ -54,10 +53,10 @@ import { useI18n } from "@/i18n";
 
 const props = defineProps<{
   dice: FarkleDie[];
-  selectedIndices?: number[];
   highlightIndices?: number[];
   forceAnimateIndices?: number[];
   forceAnimateNonce?: number;
+  interactionDisabled?: boolean;
 }>();
 
 const { t } = useI18n();
@@ -141,9 +140,6 @@ function getDieFaceClasses(index: number, die: FarkleDie): string {
   if (die.is_set_aside) {
     return "border-green-500/80 bg-green-500/10";
   }
-  if (props.selectedIndices?.includes(index)) {
-    return "border-yellow-400 bg-yellow-400/10 scale-105 shadow-[0_0_16px_rgba(250,204,21,0.22)]";
-  }
   if (props.highlightIndices?.includes(index)) {
     return "border-cyan-400 bg-cyan-400/15";
   }
@@ -153,27 +149,23 @@ function getDieFaceClasses(index: number, die: FarkleDie): string {
 function getDieBadge(index: number, die: FarkleDie): string {
   if (die.is_assigned) return t("dice_state.assigned");
   if (die.is_set_aside) return t("dice_state.aside");
-  if (props.selectedIndices?.includes(index)) return t("dice_state.selected");
   return "";
 }
 
 function getDieBadgeClasses(index: number, die: FarkleDie): string {
   if (die.is_assigned) return "border-blue-400/60 bg-blue-500 text-white";
   if (die.is_set_aside) return "border-green-400/60 bg-green-500 text-white";
-  if (props.selectedIndices?.includes(index)) {
-    return "border-yellow-300/70 bg-yellow-400 text-black";
-  }
   return "border-border bg-card text-foreground";
 }
 
 function getDieTitle(die: FarkleDie): string {
   if (die.is_assigned) return t("dice_state.assigned_hint");
   if (die.is_set_aside) return t("dice_state.aside_hint");
+  if (props.interactionDisabled) return "";
   return t("dice_state.ready_hint");
 }
 
 const emit = defineEmits<{
-  "toggle-select": [index: number];
   "rolling-start": [];
   "rolling-complete": [];
   "die-drag-start": [index: number];
@@ -181,6 +173,7 @@ const emit = defineEmits<{
 }>();
 
 function isDieDraggable(die: FarkleDie): boolean {
+  if (props.interactionDisabled) return false;
   return !die.is_assigned && !die.is_set_aside && die.assigned_to_party_index === null;
 }
 

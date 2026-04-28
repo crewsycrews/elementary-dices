@@ -6,7 +6,6 @@ import {
   BattleStartDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
-  GenericFarkleSetAsideDTO,
   GenericFarkleEndTurnDTO,
   GenericFarkleAssignDTO,
 } from "../events/models/battle";
@@ -56,21 +55,6 @@ export const battlesModule = new Elysia({ prefix: "/api/battles" })
       return { result };
     },
     { body: GenericFarkleRollDTO },
-  )
-  .post(
-    "/farkle/set-aside",
-    async ({ body, user, battleService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only set aside in your own battles");
-      }
-      const result = await battleService.farkleSetAside(
-        body.player_id,
-        body.farkle_session_id,
-        body.dice_indices,
-      );
-      return { result };
-    },
-    { body: GenericFarkleSetAsideDTO },
   )
   .post(
     "/farkle/assign",

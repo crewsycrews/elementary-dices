@@ -23,14 +23,6 @@ export class WildEncounterService {
     return this.eventService.farkleV4RollWildEncounter(playerId, farkleSessionId);
   }
 
-  farkleSetAside(playerId: string, farkleSessionId: string, diceIndices: number[]) {
-    return this.eventService.farkleV4SetAsideWildEncounter(
-      playerId,
-      farkleSessionId,
-      diceIndices,
-    );
-  }
-
   farkleAssign(
     playerId: string,
     farkleSessionId: string,

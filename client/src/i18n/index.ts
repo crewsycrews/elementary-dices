@@ -89,11 +89,11 @@ const messages: Record<Locale, Record<string, string>> = {
     "battle.set_aside_element": "Set aside element",
     "battle.roll_undeployed": "🎲 Roll undeployed dice",
     "battle.deploy_resolve": "Deploy & Resolve Round",
-    "battle.deploy_resolve_no_bonus": "Deploy & Resolve Round (no bonuses)",
+    "battle.deploy_resolve_no_bonus": "Deploy & Resolve Round",
     "battle.need_set_aside":
       "Set aside a valid combination or chosen element before deploying.",
     "battle.dice_rush": "🎲 DICE RUSH! All 5 dice used - roll again or end turn.",
-    "battle.bust": "💥 BUST! No combinations - all turn bonuses lost.",
+    "battle.bust": "💥 BUST! No additional combinations - least di(c)e is discarded.",
     "battle.deploy_now": "Deploy now to resolve this round.",
     "battle.round_resolved": "Round {round} resolved",
     "battle.first_attacker": "First attacker:",

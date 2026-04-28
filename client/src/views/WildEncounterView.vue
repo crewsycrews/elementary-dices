@@ -96,7 +96,7 @@
             :phase-label="t('wild.title')"
             :status-label="wildArenaStatusLabel"
             :center-title="t('battle.arena_center')"
-            :is-player-party-droppable="!!farkleState && !isBusy"
+            :is-player-party-droppable="!!farkleState && !farkleState?.busted && !isBusy"
             :highlighted-player-indices="highlightedDroppablePartyIndices"
             :player-infusion-elements="playerInfusionElements"
             @player-party-drop="handleDropToParty"
@@ -133,10 +133,9 @@
 
                   <FarkleDiceRow
                     :dice="farkleState.dice"
-                    :selected-indices="selectedDiceIndices"
                     :force-animate-indices="forcedAnimationIndices"
                     :force-animate-nonce="forceAnimationNonce"
-                    @toggle-select="toggleDiceSelection"
+                    :interaction-disabled="!!farkleState?.busted || isBusy"
                     @die-drag-start="handleDieDragStart"
                     @die-drag-end="handleDieDragEnd"
                     @rolling-start="isDiceAnimating = true"
@@ -159,15 +158,6 @@
                     class="px-7 py-3 bg-primary text-primary-foreground rounded-full font-extrabold tracking-wide hover:bg-primary/90 transition-all disabled:opacity-50 shadow-xl"
                   >
                     {{ isBusy ? t("wild.rolling") : t("wild.start_round") }}
-                  </button>
-
-                  <button
-                    v-if="canSetAside"
-                    @click="handleSetAside"
-                    :disabled="isBusy || selectedDiceIndices.length === 0"
-                    class="rounded-lg border border-green-500 bg-green-500/20 px-4 py-2 font-bold text-foreground hover:bg-green-500/30 disabled:opacity-50"
-                  >
-                    {{ t("battle.set_aside_selected") }}
                   </button>
 
                   <button
@@ -316,7 +306,6 @@ const { t, locale } = useI18n();
 const loading = ref(false);
 const isActing = ref(false);
 const isDiceAnimating = ref(false);
-const selectedDiceIndices = ref<number[]>([]);
 const draggingDieIndex = ref<number | null>(null);
 const forceAnimationNonce = ref(0);
 const forcedAnimationIndices = ref<number[]>([]);
@@ -349,9 +338,9 @@ const onboardingSteps = computed(() =>
         {
           title: "Решения в ходе встречи",
           description:
-            "Используйте перебросы и откладывание костей, чтобы направлять бонусы под текущую цель и продержаться достаточно долго для завершения боя.",
+            "Используйте перебросы и назначения костей, чтобы направлять бонусы под текущую цель и продержаться достаточно долго для завершения боя.",
           bullets: [
-            "Откладывайте лучшие комбинации или возможности выбранного отложенного элемента.",
+            "Перетаскивайте нераспределенные кости на живых элементалей, чтобы сразу закреплять их эффекты.",
             "Bust сбрасывает бонусы хода, поэтому выставляйтесь в подходящий момент.",
             "Смотрите сводки раундов, чтобы скорректировать следующий ход.",
           ],
@@ -371,7 +360,7 @@ const onboardingSteps = computed(() =>
         {
           title: "Encounter turn decisions",
           description:
-            "Assign dice directly onto alive elementals or set them aside to shape combinations and survive long enough to close the fight.",
+            "Assign dice directly onto alive elementals to shape combinations and survive long enough to close the fight.",
           bullets: [
             "Drag any unassigned die onto an alive elemental to assign and deploy it immediately.",
             "Bust removes turn bonuses, so commit deployment at the right time.",
@@ -483,14 +472,11 @@ const encounterElement = computed(
 const canRoll = computed(
   () => !farkleState.value || farkleState.value.phase === "initial_roll",
 );
-const canSetAside = computed(
-  () =>
-    !!farkleState.value &&
-    selectedDiceIndices.value.length > 0,
-);
 const canRollRemaining = computed(
   () =>
     !!farkleState.value &&
+    !farkleState.value.busted &&
+    farkleState.value.phase !== "done" &&
     farkleState.value.dice.some((die) => !die.is_set_aside),
 );
 const canEndTurn = computed(() => {
@@ -511,9 +497,6 @@ const wildTurnInstruction = computed(() => {
   if (farkleState.value?.busted) return t("battle.instruction_bust");
   if (!farkleState.value || farkleState.value.dice.length === 0) {
     return t("battle.instruction_roll");
-  }
-  if (selectedDiceIndices.value.length > 0) {
-    return t("battle.instruction_set_aside");
   }
   if (!canEndTurn.value) {
     return t("battle.instruction_assign");
@@ -545,12 +528,6 @@ const getDifficultyClass = (difficulty?: string) => {
   }
 };
 
-const toggleDiceSelection = (index: number) => {
-  const existing = selectedDiceIndices.value.indexOf(index);
-  if (existing >= 0) selectedDiceIndices.value.splice(existing, 1);
-  else selectedDiceIndices.value.push(index);
-};
-
 const scheduleForcedDiceAnimation = (indices: number[]) => {
   if (indices.length > 0) {
     isDiceAnimating.value = true;
@@ -562,7 +539,6 @@ const scheduleForcedDiceAnimation = (indices: number[]) => {
 const updateFromTurnResult = (result: any) => {
   detectedCombinations.value = (result?.detected_combinations ??
     []) as Combination[];
-  selectedDiceIndices.value = [];
 };
 
 const handleRoll = async () => {
@@ -587,42 +563,16 @@ const handleRoll = async () => {
   }
 };
 
-const handleSetAside = async () => {
-  if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
-  isActing.value = true;
-  try {
-    const response = await eventStore.wildEncounterFarkleSetAside(
-      userStore.userId,
-      [...selectedDiceIndices.value],
-    );
-    selectedDiceIndices.value = [];
-    updateFromTurnResult(response?.result);
-  } catch (error) {
-    console.error("Failed wild encounter set aside:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
-const assignedPartyIndexSet = computed(() => {
-  const assigned = new Set<number>();
-  farkleState.value?.dice.forEach((die) => {
-    if (die.is_assigned && typeof die.assigned_to_party_index === "number") {
-      assigned.add(die.assigned_to_party_index);
-    }
-  });
-  return assigned;
-});
-
-const playerInfusionElements = computed<Record<number, string>>(() => {
-  const infused: Record<number, string> = {};
+const playerInfusionElements = computed<Record<number, string[]>>(() => {
+  const infused: Record<number, string[]> = {};
   farkleState.value?.dice.forEach((die) => {
     if (
       die.is_assigned &&
       typeof die.assigned_to_party_index === "number" &&
       typeof die.current_result === "string"
     ) {
-      infused[die.assigned_to_party_index] = die.current_result;
+      infused[die.assigned_to_party_index] ??= [];
+      infused[die.assigned_to_party_index].push(die.current_result);
     }
   });
   return infused;
@@ -633,8 +583,8 @@ const highlightedDroppablePartyIndices = computed(() => {
   return wildBattleState.value.player_party
     .map((member, index) => ({ member, index }))
     .filter(
-      ({ member, index }) =>
-        !member.is_destroyed && !assignedPartyIndexSet.value.has(index),
+      ({ member }) =>
+        !member.is_destroyed,
     )
     .map(({ index }) => index);
 });
@@ -659,7 +609,6 @@ const handleDropToParty = async (partyIndex: number) => {
       dieIndex,
       partyIndex,
     );
-    selectedDiceIndices.value = selectedDiceIndices.value.filter((index) => index !== dieIndex);
     updateFromTurnResult(response?.result);
   } catch (error) {
     console.error("Failed wild encounter assign:", error);

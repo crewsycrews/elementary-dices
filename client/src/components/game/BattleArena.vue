@@ -128,7 +128,7 @@ const props = defineProps<{
   opponentDeployedIndices?: number[] | null
   isPlayerPartyDroppable?: boolean
   highlightedPlayerIndices?: number[]
-  playerInfusionElements?: Record<number, string>
+  playerInfusionElements?: Record<number, string[]>
   targetLines?: Array<{
     fromIndex: number
     toIndex: number
@@ -187,12 +187,13 @@ function isPlayerDropHighlighted(index: number): boolean {
 }
 
 function getInfusionElement(index: number): string | null {
-  return props.playerInfusionElements?.[index] ?? null
+  const assigned = props.playerInfusionElements?.[index] ?? []
+  return assigned[assigned.length - 1] ?? null
 }
 
 function getInfusionLabel(index: number): string {
-  const element = getInfusionElement(index)
-  if (!element) return ""
-  return `${t("battle_arena.assigned_die")}: ${element}`
+  const assigned = props.playerInfusionElements?.[index] ?? []
+  if (assigned.length === 0) return ""
+  return `${t("battle_arena.assigned_die")}: ${assigned.join(", ")}`
 }
 </script>

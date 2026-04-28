@@ -7,7 +7,6 @@ import {
   SkipWildEncounterDTO,
   FarkleInitDTO,
   GenericFarkleRollDTO,
-  GenericFarkleSetAsideDTO,
   GenericFarkleAssignDTO,
   GenericFarkleEndTurnDTO,
 } from "../events/models/wild-encounter";
@@ -68,21 +67,6 @@ export const wildEncountersModule = new Elysia({ prefix: "/api/wild-encounters" 
       return { result };
     },
     { body: GenericFarkleRollDTO },
-  )
-  .post(
-    "/farkle/set-aside",
-    async ({ body, user, wildEncounterService }) => {
-      if (user.id !== body.player_id) {
-        throw new UnauthorizedError("You can only set aside in your own encounters");
-      }
-      const result = await wildEncounterService.farkleSetAside(
-        body.player_id,
-        body.farkle_session_id,
-        body.dice_indices,
-      );
-      return { result };
-    },
-    { body: GenericFarkleSetAsideDTO },
   )
   .post(
     "/farkle/assign",

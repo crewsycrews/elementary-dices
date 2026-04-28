@@ -27,14 +27,17 @@ export interface FarkleV4Die {
 
 export type FarkleV4TurnPhase =
   | "initial_roll"
+  | "can_reroll"
   | "set_aside"
   | "rolling_remaining"
   | "ready_to_commit"
-  | "done";
+  | "done"
+  | "resolved";
 
 export interface FarkleV4TurnState {
   phase: FarkleV4TurnPhase;
   dice: FarkleV4Die[];
+  has_used_reroll?: boolean;
   active_combinations: V4Combination[];
   is_dice_rush: boolean;
   busted: boolean;
@@ -131,10 +134,63 @@ export function detectV4Combinations(dice: FarkleV4Die[]): V4Combination[] {
   return combos;
 }
 
+export function detectV4AvailableCombinations(dice: FarkleV4Die[]): V4Combination[] {
+  const availableDice = dice
+    .map((die, index) => ({ die, index }))
+    .filter(({ die }) => !die.is_set_aside);
+
+  const combos: V4Combination[] = [];
+  if (availableDice.length < 2) return combos;
+
+  const byElement = new Map<ElementType, number[]>();
+  for (const { die, index } of availableDice) {
+    const current = byElement.get(die.current_result) ?? [];
+    current.push(index);
+    byElement.set(die.current_result, current);
+  }
+
+  for (const [element, indices] of byElement.entries()) {
+    if (indices.length < 2) continue;
+    const type: V4CombinationType =
+      indices.length >= 5
+        ? "quintet"
+        : indices.length === 4
+          ? "quartet"
+          : indices.length === 3
+            ? "triplet"
+            : "doublet";
+    combos.push({ type, elements: [element], dice_indices: [...indices] });
+  }
+
+  if (availableDice.length === 5 && byElement.size === 5) {
+    combos.push({
+      type: "one_for_all",
+      elements: [...byElement.keys()],
+      dice_indices: availableDice.map(({ index }) => index),
+    });
+  }
+
+  if (byElement.size === 2) {
+    const groups = [...byElement.entries()].map(([el, indices]) => ({ el, n: indices.length }));
+    const hasTriplet = groups.some((g) => g.n === 3);
+    const hasPair = groups.some((g) => g.n === 2);
+    if (hasTriplet && hasPair) {
+      combos.push({
+        type: "full_house",
+        elements: groups.map((g) => g.el),
+        dice_indices: availableDice.map(({ index }) => index),
+      });
+    }
+  }
+
+  return combos;
+}
+
 export function buildInitialV4TurnState(dice: FarkleV4Die[]): FarkleV4TurnState {
   return {
     phase: "initial_roll",
     dice,
+    has_used_reroll: false,
     active_combinations: [],
     is_dice_rush: false,
     busted: false,
@@ -422,10 +478,10 @@ export function validateDeployAllPossible(
 
   turn.assignment_required_party_indices = alive;
   turn.assigned_party_indices = [...assigned];
-  turn.can_commit = missing.length === 0;
+  turn.can_commit = assigned.size > 0;
 
   return {
-    can_commit: missing.length === 0,
+    can_commit: assigned.size > 0,
     missing_party_indices: missing,
   };
 }

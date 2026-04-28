@@ -18,10 +18,6 @@ export class BattleService {
     return this.eventService.farkleV4Roll(playerId, farkleSessionId);
   }
 
-  farkleSetAside(playerId: string, farkleSessionId: string, diceIndices: number[]) {
-    return this.eventService.farkleV4SetAside(playerId, farkleSessionId, diceIndices);
-  }
-
   farkleAssign(
     playerId: string,
     farkleSessionId: string,

@@ -89,11 +89,6 @@
 
       <!-- ==================== PHASE: PLAYER TURN ==================== -->
       <template v-if="battle.battlePhase.value === 'player_turn'">
-        <!-- Bonus Tracker -->
-        <FarkleBonusTracker
-          :current-turn="battle.currentTurn.value"
-          :bonuses-total="battle.playerBonusesTotal.value"
-        />
 
         <!-- Battle Arena -->
         <BattleArena
@@ -105,7 +100,7 @@
           :center-title="t('battle.arena_center')"
           :player-deployed-indices="battle.battleState.value?.last_player_deployment ?? null"
           :opponent-deployed-indices="battle.battleState.value?.last_opponent_deployment ?? null"
-          :is-player-party-droppable="!!battle.farkleTurnState.value && !isBusy"
+          :is-player-party-droppable="!!battle.farkleTurnState.value && !battle.isBusted.value && !isBusy"
           :highlighted-player-indices="highlightedDroppablePartyIndices"
           :player-infusion-elements="playerInfusionElements"
           @player-party-drop="handleDropToParty"
@@ -127,10 +122,9 @@
               <div v-if="battle.farkleDice.value.length > 0" class="space-y-3">
                 <FarkleDiceRow
                   :dice="battle.farkleDice.value"
-                  :selected-indices="selectedDiceIndices"
                   :force-animate-indices="forcedAnimationIndices"
                   :force-animate-nonce="forceAnimationNonce"
-                  @toggle-select="toggleDiceSelection"
+                  :interaction-disabled="battle.isBusted.value || isBusy"
                   @die-drag-start="handleDieDragStart"
                   @die-drag-end="handleDieDragEnd"
                   @rolling-start="isDiceAnimating = true"
@@ -152,19 +146,6 @@
                   class="w-full rounded-lg bg-primary px-6 py-2.5 font-bold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-50"
                 >
                   {{ isBusy ? t("battle.rolling") : battleRollButtonLabel }}
-                </button>
-              </div>
-
-              <div
-                v-if="canSetAside"
-                class="flex justify-center"
-              >
-                <button
-                  @click="handleSetAside"
-                  :disabled="isBusy || selectedDiceIndices.length === 0"
-                  class="w-full rounded-lg border border-green-500 bg-green-500/20 px-4 py-2 font-semibold text-foreground hover:bg-green-500/30 disabled:opacity-50"
-                >
-                  {{ t("battle.set_aside_selected") }}
                 </button>
               </div>
 
@@ -537,7 +518,6 @@ const onboardingStorageScope = "battle-v1";
 const isBusy = computed(() => isActing.value || isDiceAnimating.value);
 const draggingDieIndex = ref<number | null>(null);
 const isDeploying = ref(false);
-const selectedDiceIndices = ref<number[]>([]);
 
 const onboardingSubtitle = computed(() =>
   locale.value === "ru"
@@ -1049,26 +1029,17 @@ const rollableDice = computed(() =>
   unassignedDice.value.filter(({ die }) => !die.is_set_aside),
 );
 
-const assignedPartyIndexSet = computed(() => {
-  const assigned = new Set<number>();
-  battle.farkleDice.value.forEach((die) => {
-    if (die.is_assigned && typeof die.assigned_to_party_index === "number") {
-      assigned.add(die.assigned_to_party_index);
-    }
-  });
-  return assigned;
-});
-
-const playerInfusionElements = computed<Record<number, string>>(() => {
+const playerInfusionElements = computed<Record<number, string[]>>(() => {
   if (isDeploying.value) return {};
-  const infused: Record<number, string> = {};
+  const infused: Record<number, string[]> = {};
   battle.farkleDice.value.forEach((die) => {
     if (
       die.is_assigned &&
       typeof die.assigned_to_party_index === "number" &&
       typeof die.current_result === "string"
     ) {
-      infused[die.assigned_to_party_index] = die.current_result;
+      infused[die.assigned_to_party_index] ??= [];
+      infused[die.assigned_to_party_index].push(die.current_result);
     }
   });
   return infused;
@@ -1079,8 +1050,8 @@ const highlightedDroppablePartyIndices = computed(() => {
   return battle.playerParty.value
     .map((member, index) => ({ member, index }))
     .filter(
-      ({ member, index }) =>
-        !member.is_destroyed && !assignedPartyIndexSet.value.has(index),
+      ({ member }) =>
+        !member.is_destroyed,
     )
     .map(({ index }) => index);
 });
@@ -1098,12 +1069,10 @@ const canRollRemaining = computed(() => {
   if (battle.battlePhase.value !== "player_turn") return false;
   if (isBusy.value) return false;
   if (!battle.farkleTurnState.value) return true;
+  if (battle.farkleTurnState.value.busted || battle.farkleTurnState.value.phase === "done") {
+    return false;
+  }
   return rollableDice.value.length > 0;
-});
-
-const canSetAside = computed(() => {
-  if (!battle.farkleTurnState.value || isBusy.value) return false;
-  return selectedDiceIndices.value.length > 0;
 });
 
 const battleArenaStatusLabel = computed(() => {
@@ -1115,9 +1084,6 @@ const battleTurnInstruction = computed(() => {
   if (battle.isBusted.value) return t("battle.instruction_bust");
   if (!battle.farkleTurnState.value || battle.farkleDice.value.length === 0) {
     return t("battle.instruction_roll");
-  }
-  if (selectedDiceIndices.value.length > 0) {
-    return t("battle.instruction_set_aside");
   }
   if (!canEndTurn.value) {
     return t("battle.instruction_assign");
@@ -1169,34 +1135,6 @@ const handleFarkleRoll = async () => {
   }
 };
 
-const toggleDiceSelection = (index: number) => {
-  const existing = selectedDiceIndices.value.indexOf(index);
-  if (existing >= 0) {
-    selectedDiceIndices.value.splice(existing, 1);
-  } else {
-    selectedDiceIndices.value.push(index);
-  }
-};
-
-const handleSetAside = async () => {
-  if (!userStore.userId || selectedDiceIndices.value.length === 0) return;
-  isActing.value = true;
-  try {
-    const response = await eventStore.farkleSetAside(
-      userStore.userId,
-      [...selectedDiceIndices.value],
-    );
-    selectedDiceIndices.value = [];
-    if (response?.result) {
-      battle.updateFromTurnResult(response.result as any);
-    }
-  } catch (error) {
-    console.error("Failed to set aside dice:", error);
-  } finally {
-    isActing.value = false;
-  }
-};
-
 const handleDieDragStart = (dieIndex: number) => {
   draggingDieIndex.value = dieIndex;
 };
@@ -1215,7 +1153,6 @@ const handleDropToParty = async (partyIndex: number) => {
   isActing.value = true;
   try {
     const response = await eventStore.farkleAssign(userStore.userId, dieIndex, partyIndex);
-    selectedDiceIndices.value = selectedDiceIndices.value.filter((index) => index !== dieIndex);
     if (response?.result) {
       battle.updateFromTurnResult(response.result as any);
     }

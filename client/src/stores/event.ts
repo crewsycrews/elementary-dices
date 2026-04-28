@@ -87,12 +87,16 @@ export type Combination = {
 export type FarkleTurnState = {
   phase:
     | "initial_roll"
+    | "can_reroll"
     | "set_aside"
     | "rolling_remaining"
     | "ready_to_commit"
-    | "done";
+    | "done"
+    | "resolved";
   dice: FarkleDie[];
+  has_used_reroll?: boolean;
   active_combinations: Combination[];
+  set_aside_element_bonus?: string | null;
   accumulated_dice_rush_bonuses?: Record<string, number>;
   accumulated_combination_elements?: string[];
   accumulated_set_aside_elements?: string[];
@@ -104,13 +108,6 @@ export type FarkleTurnState = {
 };
 
 export type WildEncounterFarkleState = FarkleTurnState & {
-  phase:
-    | "initial_roll"
-    | "set_aside"
-    | "rolling_remaining"
-    | "ready_to_commit"
-    | "done"
-    | "resolved";
   detected_combinations: Combination[];
 };
 
@@ -249,14 +246,6 @@ type GameApiRoutes = {
         { player_id: string; farkle_session_id: string },
         { result?: FarkleTurnResult }
       >;
-      ["set-aside"]: PostRoute<
-        {
-          player_id: string;
-          farkle_session_id: string;
-          dice_indices: number[];
-        },
-        { result?: FarkleTurnResult }
-      >;
       assign: PostRoute<
         {
           player_id: string;
@@ -298,14 +287,6 @@ type GameApiRoutes = {
       >;
       roll: PostRoute<
         { player_id: string; farkle_session_id: string },
-        { result?: WildEncounterFarkleTurnResult }
-      >;
-      ["set-aside"]: PostRoute<
-        {
-          player_id: string;
-          farkle_session_id: string;
-          dice_indices: number[];
-        },
         { result?: WildEncounterFarkleTurnResult }
       >;
       assign: PostRoute<
@@ -624,43 +605,6 @@ export const useEventStore = defineStore(
       }
     }
 
-    async function farkleSetAside(playerId: string, diceIndices: number[]) {
-      const { api, apiCall } = useApi();
-
-      try {
-        let sessionId: string;
-        try {
-          sessionId = getFarkleSessionId();
-        } catch {
-          const initResult = await initFarkleSession(playerId);
-          if (!initResult?.farkle_session_id) {
-            throw new Error("Failed to initialize battle session");
-          }
-          sessionId = initResult.farkle_session_id;
-        }
-        const response = await apiCall(
-          () =>
-            getApiRoutes(api).battles.farkle["set-aside"].post({
-              player_id: playerId,
-              farkle_session_id: sessionId,
-              dice_indices: diceIndices,
-            }),
-          { silent: true },
-        );
-
-        if (response.data?.result?.battle_state && currentEvent.value) {
-          const data = currentEvent.value.data as PvPData;
-          data.battle_state = response.data.result
-            .battle_state as FarkleBattleState;
-        }
-
-        return response.data;
-      } catch (error) {
-        console.error("Failed to set aside dice:", error);
-        throw error;
-      }
-    }
-
     async function farkleEndTurn(playerId: string) {
       const { api, apiCall } = useApi();
 
@@ -786,38 +730,6 @@ export const useEventStore = defineStore(
         return response.data;
       } catch (error) {
         console.error("Failed wild encounter Farkle roll:", error);
-        throw error;
-      }
-    }
-
-    async function wildEncounterFarkleSetAside(
-      playerId: string,
-      diceIndices: number[],
-    ) {
-      const { api, apiCall } = useApi();
-
-      try {
-        const sessionId = getFarkleSessionId();
-        const response = await apiCall(
-          () =>
-            getApiRoutes(api)["wild-encounters"].farkle["set-aside"].post({
-              player_id: playerId,
-              farkle_session_id: sessionId,
-              dice_indices: diceIndices,
-            }),
-          { silent: true },
-        );
-
-        if (response.data?.result?.farkle_state && currentEvent.value) {
-          const data = currentEvent.value.data as WildEncounterData;
-          data.farkle_state = response.data.result
-            .farkle_state as WildEncounterFarkleState;
-          data.wild_battle_state = response.data.result.wild_battle_state;
-        }
-
-        return response.data;
-      } catch (error) {
-        console.error("Failed wild encounter Farkle set aside:", error);
         throw error;
       }
     }
@@ -1030,12 +942,10 @@ export const useEventStore = defineStore(
       startBattle,
       chooseWildSetAsideElement,
       farkleRoll,
-      farkleSetAside,
       farkleAssign,
       farkleEndTurn,
       skipWildEncounter,
       wildEncounterFarkleRoll,
-      wildEncounterFarkleSetAside,
       wildEncounterFarkleAssign,
       wildEncounterFarkleCommit,
       wildEncounterFarkleEndTurn,

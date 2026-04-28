@@ -87,8 +87,23 @@ export function simulateV4CombatRound(
   const opponentParty = state.opponent_party.map((member) => ({ ...member }));
   const log: V4CombatLogEntry[] = [];
 
-  const playerOrder = [...deployment.player_deployed_indices];
-  const opponentOrder = [...deployment.opponent_deployed_indices];
+  const buildAttackOrder = (
+    party: BattlePartyMember[],
+    deployedIndices: number[],
+  ): number[] => {
+    const deployedSet = new Set(deployedIndices);
+    const benchIndices = party
+      .map((member, index) => ({ member, index }))
+      .filter(
+        ({ member, index }) =>
+          !deployedSet.has(index) && !member.is_destroyed && member.current_health > 0,
+      )
+      .map(({ index }) => index);
+    return [...deployedIndices, ...benchIndices];
+  };
+
+  const playerOrder = buildAttackOrder(playerParty, deployment.player_deployed_indices);
+  const opponentOrder = buildAttackOrder(opponentParty, deployment.opponent_deployed_indices);
 
   const firstAttacker: "player" | "opponent" =
     playerOrder.length === opponentOrder.length
