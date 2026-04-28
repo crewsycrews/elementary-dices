@@ -2,8 +2,8 @@
   <div class="container mx-auto p-6 space-y-6">
     <ViewOnboardingModal
       v-if="showOnboarding"
-      :title="t('dices.onboarding_title')"
-      :subtitle="t('dices.onboarding_subtitle')"
+      :title="t('dice.onboarding_title')"
+      :subtitle="t('dice.onboarding_subtitle')"
       :steps="onboardingSteps"
       @close="dismissOnboarding"
       @complete="dismissOnboarding"
@@ -20,9 +20,9 @@
     </button>
 
     <div class="text-center">
-      <h1 class="text-3xl font-bold mb-2">🎲 {{ t("dices.title") }}</h1>
+      <h1 class="text-3xl font-bold mb-2">🎲 {{ t("dice.title") }}</h1>
       <p class="text-muted-foreground">
-        {{ t("dices.subtitle") }}
+        {{ t("dice.subtitle") }}
       </p>
     </div>
       <span class="w-14" aria-hidden="true"></span>
@@ -37,7 +37,7 @@
     <!-- Instructions -->
     <div class="text-center text-sm text-muted-foreground max-w-2xl mx-auto">
       <p>
-        💡 {{ t("dices.tip") }}
+        💡 {{ t("dice.tip") }}
       </p>
     </div>
   </div>
@@ -55,7 +55,7 @@ const userStore = useUserStore();
 const inventoryStore = useInventoryStore();
 const { t, locale } = useI18n();
 const showOnboarding = ref(false);
-const onboardingStorageScope = "dices-v1";
+const onboardingStorageScope = "dice-v1";
 
 const onboardingSteps = computed(() =>
   locale.value === "ru"

@@ -103,7 +103,7 @@ export const app = new Elysia()
   })
   // Root endpoint
   .get("/api", () => ({
-    name: "🎮 Elementary Dices API",
+    name: "🎮 Elementary Dice API",
     version: "1.0.0",
     description: "A dice rolling collectible game with elementals",
   }))

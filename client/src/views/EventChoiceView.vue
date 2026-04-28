@@ -52,7 +52,7 @@
         />
       </div>
 
-      <div class="area-dices flex justify-center items-center">
+      <div class="area-collection flex justify-center items-center">
         <MainMenuButton
           :title="t('common.back')"
           icon="↩️"
@@ -171,7 +171,7 @@ onMounted(async () => {
     "party"
     "dice"
     "inventory"
-    "dices";
+    "collection";
   grid-template-columns: 1fr;
   grid-template-rows: auto auto auto auto auto;
 }
@@ -181,7 +181,7 @@ onMounted(async () => {
     grid-template-areas:
       ". . event . ."
       ". party dice inventory ."
-      ". . dices . .";
+      ". . collection . .";
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     grid-template-rows: auto auto auto;
     min-height: 600px;
@@ -205,7 +205,7 @@ onMounted(async () => {
   grid-area: inventory;
 }
 
-.area-dices {
-  grid-area: dices;
+.area-collection {
+  grid-area: collection;
 }
 </style>

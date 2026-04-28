@@ -1,6 +1,6 @@
-# Elementary Dices
+# Elementary Dice
 
-Elementary Dices is a full-stack monster-collection game prototype where players collect elementals, roll elemental dice, trigger random events, and evolve their party over time.
+Elementary Dice is a full-stack monster-collection game prototype where players collect elementals, roll elemental dice, trigger random events, and evolve their party over time.
 
 This repository is a Bun workspace monorepo with:
 - `client`: Vue 3 + Vite frontend

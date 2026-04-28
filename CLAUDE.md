@@ -1,8 +1,8 @@
-# Elementary Dices - Project Guide
+# Elementary Dice - Project Guide
 
 ## Project Overview
 
-**Elementary Dices** is a dice rolling game built with:
+**Elementary Dice** is a dice rolling game built with:
 - **Backend**: ElysiaJS (Bun runtime) with PostgreSQL
 - **Frontend**: Vue (client workspace)
 - **Database**: PostgreSQL with Knex migrations

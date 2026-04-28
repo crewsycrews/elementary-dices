@@ -12,4 +12,4 @@ app.use(router)
 
 app.mount('#app')
 
-console.log('🎮 Elementary Dices - Vue 3 app started!')
+console.log('🎮 Elementary Dice - Vue 3 app started!')

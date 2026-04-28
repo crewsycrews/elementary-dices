@@ -13,21 +13,21 @@ I want battle to consist of several things: phases and turns.
 ### Phase 1
 Elementals automatically choosing the best target to attack from opponent team. Example: WWFFA vs EEFWW(each letter is the elemental of the element 1 lvl). I'll go one by one letter W->F, W->W, F->E, F->W, A->E. So the idea is that primarily the first elementals to choose targets is the one who can exploit weaknesses on the opposite team. Each attacking elemental is effected by the chosen target. Initially all elementals from the example are power 10. Once W->F it becomes 11 since we attack an opposite element. Same for A->E. The state of elemental attacks setup should be represented in the UI for both parties.
 ### Phase 2
-Players took turns throwing dices one by one until every player had thrown 3 dices. This is the main part of a gameplay. The gamehook of the game. Player should choose an appropriate dice to straighten he's elementals based on the dices affinity. Example: let's continue with the same parties I mentioned on phase 1. I'm the first player, I see that my F elementals are weak in this stack so I'm deciding to throw dice with fire affinity(it's d4 right now). Results that I could get is the next: 
+Players took turns throwing dice one by one until every player had thrown 3 dice. This is the main part of a gameplay. The gamehook of the game. Player should choose an appropriate dice to straighten he's elementals based on the dice affinity. Example: let's continue with the same parties I mentioned on phase 1. I'm the first player, I see that my F elementals are weak in this stack so I'm deciding to throw dice with fire affinity(it's d4 right now). Results that I could get is the next: 
   1. Critical success: Add maximum bonus multiplier from dice stats to all **fire** elementals power in the battle
   2. Success: Add half of bonus multiplier from dice stats to all **fire** elementals power in the battle
   3. Fail: Add half of bonus multiplier from dice stats to all **water** elementals power in the battle
   4. Critical fail: Add maximum bonus multiplier from dice stats to all **water** elementals power in the battle
 The only tricky dice is the lightning one. When there's any "success" throw - we simply amplify lightning elementals on the battlefield following the same rules above. But once it's fail - we start to amplify ALL other elements in the battle by quarter of bonus multiplier. Crit fail - half of the bonus multiplier. 
-Again these power changes as well as thrown dices should be reflected in the UI after each turn. 
+Again these power changes as well as thrown dice should be reflected in the UI after each turn. 
 
 ### Phase 3
 Battle resolution. Once all the multipliers are applied we sum up power of each elemental and calculate Total party power number. Which one is bigger is the winner party.
 
 
 # Battles implementation V2.0
-## Dices
-We are changing dices to a new faces. Instead of numbers we'll start to use elemental signs on them - 🌊, 🔥, 💨, ⛰️, ⚡.
+## Dice
+We are changing dice to a new faces. Instead of numbers we'll start to use elemental signs on them - 🌊, 🔥, 💨, ⛰️, ⚡.
 We still want to have same notations maintained so the distribution will be like this:
 - d20 - basically flat 5 + 5 + 5 + 5. So we simply repeat each element 4 times. The better quality dice will be the 1 that is including 1 and then 2 elements repeated more then 4 times(5-6). 
 - d12 - Again it's 5 + 5 and then 11 and 12 can be any other element. This dice will always be of 1 rarity since the advantage will be varying depending on the player's setup
@@ -36,25 +36,25 @@ We still want to have same notations maintained so the distribution will be like
 - d4 - All 4 is a different combination of 5 elements. Rarity is always the same. 
 
 ## Battle rules
-These rules are highly developed on top of Farkle - classic dice game where you throw 6 dices and trying to achieve as high score as possible. Here we are doing the same, but player is trying to roll for a specific element as well.
+These rules are highly developed on top of Farkle - classic dice game where you throw 6 dice and trying to achieve as high score as possible. Here we are doing the same, but player is trying to roll for a specific element as well.
 Battle turn:
 0. Choose 1 element that can be "set aside"(see 3.) no matter if it was in the combination or not. This element's dice will solely give elementals 10% bonus.
 1. At the beginning of each turn, the player throws all **five** dice at once.
-2. After first throw, player can choose to reroll **ONCE** from 1 to 5 dices to achieve some combination
+2. After first throw, player can choose to reroll **ONCE** from 1 to 5 dice to achieve some combination
 3. One or more dice combination should be set aside. 
-4. The player may then either end their turn or roll again the least dices(only after "set aside" action).
+4. The player may then either end their turn or roll again the least dice(only after "set aside" action).
 5. Combinations that already set aside can be regrouped with rethrown ones.
-6. If all 5 dices are participating in a combination - it's a DICE RASH - The player can throw all 5 dices again to accumulate even more bonuses. (start from 1 step saving current bonuses)
+6. If all 5 dice are participating in a combination - it's a DICE RASH - The player can throw all 5 dice again to accumulate even more bonuses. (start from 1 step saving current bonuses)
 7. If no combination in the roll - and you already rerolled once(2 step) - you lose all the bonuses.
 
 Bonuses are applied only to your elementals!
 
-## Dices combinations
-- Triplet - 3 dices are showing the same element. +30% to power
-- Quartet - 4 dices are showing the same element. +40%
-- All-For-One - 5 dices are showing the same element. +50%
-- One-For-All - All 5 dices are different from each other - +30% to a chosen element. 
-- Full House - Triplet + 2 dices of the same but different from triplet element. +25% for 2 and + 35% for 3 to a respective element.
+## Dice combinations
+- Triplet - 3 dice are showing the same element. +30% to power
+- Quartet - 4 dice are showing the same element. +40%
+- All-For-One - 5 dice are showing the same element. +50%
+- One-For-All - All 5 dice are different from each other - +30% to a chosen element. 
+- Full House - Triplet + 2 dice of the same but different from triplet element. +25% for 2 and + 35% for 3 to a respective element.
 
 # Battles implementation V3.0
 
@@ -62,11 +62,11 @@ In this iteration we are trying to add some mechanics from Hearthstone battlegro
 ## Battle updated rules:
 1. Choose 1 element that can be set aside no matter if it was in the combination or not. This element element's die will solely give elementals 10% bonus.
 2. At the beginning of each turn, the player throws all five dice at once.
-3. After the very first throw, player can choose to re-roll from 1 to 5 dices to achieve some combination
+3. After the very first throw, player can choose to re-roll from 1 to 5 dice to achieve some combination
 4. One or more dice combination can be set aside. 
-5. The player may then either end their turn or roll again the least dices(only after "set aside" action).
+5. The player may then either end their turn or roll again the least dice(only after "set aside" action).
 6. Combinations that already set aside can be regrouped with re-throwned ones.
-7. If all 5 dices are participating in a combination - it's a DICE RASH - The player can throw all 5 dices again to accumulate even more bonuses. (start from 1 step saving current bonuses)
+7. If all 5 dice are participating in a combination - it's a DICE RASH - The player can throw all 5 dice again to accumulate even more bonuses. (start from 1 step saving current bonuses)
 8. If no combination in the roll - and you already re-rolled once(2 step) - you lose all the bonuses.
 9. At any point after set-aside action player can choose to stop rolling committing he's current bonuses and Deploying the elementals into battle.
 10. Deploy into battle means - any set aside die with it's rolled element considered as the elemental that should be deployed into battle(if player have any of such). 
@@ -114,7 +114,7 @@ Wild encounters should also become battle-based:
 Previous version is really stupid in practice. 
 EVOLVING AGAIN!
 
-No choosing an element in the beginning of the battle. We are now capable of set aside any dice after the roll. Reroll capability should be removed. And we are not only setting them aside, but also we assign the dices to some of our elementals.(Drag-n-Drop) Once assigned - elemental is deployed to the battle. We are still rolling for results the remaining dice trying to get the combinations. Targeting is the same. The only difference is that combinations will now add different bonuses based on the element thrown with the combination and we also want to introduce a 2-die combination(Doublet). 
+No choosing an element in the beginning of the battle. We are now capable of set aside any dice after the roll. Reroll capability should be removed. And we are not only setting them aside, but also we assign the dice to some of our elementals.(Drag-n-Drop) Once assigned - elemental is deployed to the battle. We are still rolling for results the remaining dice trying to get the combinations. Targeting is the same. The only difference is that combinations will now add different bonuses based on the element thrown with the combination and we also want to introduce a 2-die combination(Doublet). 
 
 Water based combinations: heal the assigned elementals for the amount of their attack. 
   - Doublet - attack x1, 

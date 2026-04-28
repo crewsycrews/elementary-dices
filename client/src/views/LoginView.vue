@@ -5,7 +5,7 @@
     <div class="w-full max-w-md space-y-6">
       <!-- Header -->
       <div class="text-center space-y-2">
-        <h1 class="text-4xl font-bold">🎲 Elementary Dices</h1>
+        <h1 class="text-4xl font-bold">🎲 Elementary Dice</h1>
         <p class="text-muted-foreground">
           {{
             isRegistering

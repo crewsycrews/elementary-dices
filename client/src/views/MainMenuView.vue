@@ -64,14 +64,14 @@
         />
       </div>
 
-      <!-- Dices Section (bottom) -->
-      <div class="area-dices flex justify-center items-center">
+      <!-- Dice Section (bottom) -->
+      <div class="area-dice-collection flex justify-center items-center">
         <MainMenuButton
-          :title="t('menu.dices')"
+          :title="t('menu.dice')"
           icon="🎲"
           :badge="inventoryStore.playerDice.length"
           icon-color="text-purple-500"
-          @click="navigateTo('dices')"
+          @click="navigateTo('dice')"
         />
       </div>
     </div>
@@ -193,7 +193,7 @@ onMounted(async () => {
     "party"
     "dice"
     "inventory"
-    "dices";
+    "collection";
   grid-template-rows: auto auto auto auto auto;
   grid-template-columns: 1fr;
 }
@@ -203,7 +203,7 @@ onMounted(async () => {
     grid-template-areas:
       ". . event . ."
       ". party dice inventory ."
-      ". . dices . .";
+      ". . collection . .";
     grid-template-rows: auto auto auto;
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
     min-height: 600px;
@@ -227,7 +227,7 @@ onMounted(async () => {
   grid-area: inventory;
 }
 
-.area-dices {
-  grid-area: dices;
+.area-dice-collection {
+  grid-area: collection;
 }
 </style>

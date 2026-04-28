@@ -46,7 +46,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
       "You decided to skip the encounter with {name}. The elemental wandered away.",
     "event.result.leave_merchant": "You left the merchant and continue your journey.",
     "start_game.welcome":
-      "Welcome to Elementary Dices! You rolled {element} and received {name}!",
+      "Welcome to Elementary Dice! You rolled {element} and received {name}!",
     "evolution.no_recipe":
       "No evolution recipe found for these elementals. Try different combinations!",
     "evolution.success": "Successfully evolved into {name}!",
@@ -78,7 +78,7 @@ const messages: Record<Locale, Record<TranslationKey, string>> = {
       "Вы решили пропустить встречу с {name}. Элементаль ушел.",
     "event.result.leave_merchant": "Вы покинули торговца и продолжили путь.",
     "start_game.welcome":
-      "Добро пожаловать в Elementary Dices! Вы выбросили {element} и получили {name}!",
+      "Добро пожаловать в Elementary Dice! Вы выбросили {element} и получили {name}!",
     "evolution.no_recipe":
       "Для этих элементалей не найден рецепт эволюции. Попробуйте другую комбинацию!",
     "evolution.success": "Эволюция прошла успешно: {name}!",

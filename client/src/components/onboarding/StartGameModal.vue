@@ -24,9 +24,6 @@
                 {{ getElementIcon(elemental.element_types) }}
               </div>
               <div class="elemental-name">{{ elemental.name }}</div>
-              <div class="elemental-element">
-                {{ formatElementTypes(elemental.element_types) }}
-              </div>
             </div>
           </div>
         </div>
