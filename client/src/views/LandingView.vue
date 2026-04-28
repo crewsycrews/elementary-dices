@@ -10,13 +10,20 @@
 
     <div class="relative z-10 mx-auto flex min-h-screen w-full max-w-7xl flex-col px-6 py-8 sm:px-8 lg:px-10">
       <header class="flex items-center justify-between">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/80">
-            {{ t("landing.eyebrow") }}
-          </p>
-          <h1 class="mt-2 text-2xl font-black tracking-[0.08em] text-white sm:text-3xl">
-            {{ t("landing.title") }}
-          </h1>
+        <div class="flex items-center gap-4">
+          <img
+            :src="logoImage"
+            :alt="t('landing.logo_alt')"
+            class="h-14 w-14 rounded-2xl border border-white/10 bg-slate-900/80 object-cover p-1 shadow-lg shadow-slate-950/40"
+          />
+          <div>
+            <p class="text-xs font-semibold uppercase tracking-[0.35em] text-amber-300/80">
+              {{ t("landing.eyebrow") }}
+            </p>
+            <h1 class="mt-2 text-2xl font-black tracking-[0.08em] text-white sm:text-3xl">
+              {{ t("landing.title") }}
+            </h1>
+          </div>
         </div>
         <LocaleSwitcher />
       </header>
@@ -70,7 +77,18 @@
             </div>
           </section>
 
-          <section class="mx-auto w-full max-w-md">
+          <section class="mx-auto w-full max-w-md space-y-5">
+            <div class="overflow-hidden rounded-[2rem] border border-white/12 bg-white/6 p-4 shadow-2xl shadow-slate-950/40 backdrop-blur-md">
+              <img
+                :src="logoImage"
+                :alt="t('landing.logo_alt')"
+                class="mx-auto w-full max-w-sm drop-shadow-[0_16px_32px_rgba(2,6,23,0.8)]"
+              />
+              <p class="mt-4 text-center text-sm leading-6 text-slate-300">
+                {{ t("landing.branding_caption") }}
+              </p>
+            </div>
+
             <div class="rounded-[2rem] border border-white/12 bg-slate-900/70 p-6 shadow-2xl shadow-slate-950/40 backdrop-blur-md sm:p-8">
               <div class="flex items-center justify-between">
                 <div>
@@ -138,7 +156,17 @@ import { RouterLink } from "vue-router";
 import LocaleSwitcher from "@/components/layout/LocaleSwitcher.vue";
 import PublicLegalLinks from "@/components/layout/PublicLegalLinks.vue";
 import { useI18n } from "@/i18n";
+import { useSeoMeta } from "@/composables/useSeoMeta";
+import logoImage from "../../assets/logo.png";
 
 const { t } = useI18n();
 const featureKeys = ["collect", "combine", "challenge"] as const;
+
+useSeoMeta({
+  title: () => t("landing.seo_title"),
+  description: () => t("landing.seo_description"),
+  canonicalPath: "/",
+  image: logoImage,
+  keywords: () => t("landing.seo_keywords"),
+});
 </script>
