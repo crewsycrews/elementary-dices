@@ -1,8 +1,13 @@
 import { createRouter, createWebHistory } from "vue-router";
 import { useUserStore } from "@/stores/user";
-import path from "path";
 
 const routes = [
+  {
+    path: "/",
+    name: "Landing",
+    component: () => import("@/views/LandingView.vue"),
+    meta: { requiresAuth: false },
+  },
   {
     path: "/login",
     name: "Login",
@@ -10,7 +15,19 @@ const routes = [
     meta: { requiresAuth: false },
   },
   {
-    path: "/",
+    path: "/terms",
+    name: "Terms",
+    component: () => import("@/views/TermsView.vue"),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/privacy",
+    name: "Privacy",
+    component: () => import("@/views/PrivacyView.vue"),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: "/menu",
     name: "MainMenu",
     component: () => import("@/views/MainMenuView.vue"),
     meta: { requiresAuth: true },
@@ -60,7 +77,7 @@ const routes = [
   {
     path: "/inventory",
     name: "Inventory",
-    redirect: "/",
+    redirect: "/menu",
     meta: { requiresAuth: true },
   },
   {
@@ -104,6 +121,8 @@ router.beforeEach(async (to, from, next) => {
   } else if (to.name === "Login" && to.fullPath.includes("auth=success")) {
     // After successful OAuth login, redirect to main menu
     await userStore.getCurrentUser();
+    next({ name: "MainMenu" });
+  } else if (to.name === "Landing" && userStore.isAuthenticated) {
     next({ name: "MainMenu" });
   } else if (to.name === "Login" && userStore.isAuthenticated) {
     // Redirect to main menu if already authenticated

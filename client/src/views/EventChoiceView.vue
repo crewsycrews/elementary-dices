@@ -107,7 +107,7 @@ const getEventRoute = () => {
 };
 
 const isAvailable = (type: EventType) => availableTypes.value.includes(type);
-const goBack = () => router.push("/");
+const goBack = () => router.push("/menu");
 
 const selectEvent = async (type: EventType) => {
   if (!userStore.userId || isSubmitting.value || !isAvailable(type)) return;

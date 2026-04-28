@@ -184,6 +184,42 @@ const messages: Record<Locale, Record<string, string>> = {
     "battle.instruction_deploy": "Deployment is ready. Resolve the round when you are done.",
     "battle.instruction_bust": "Bust removed turn bonuses. Deploy now to resolve.",
     "battle.destroyed": "Destroyed",
+    "landing.eyebrow": "Browser Strategy RPG",
+    "landing.title": "Elementary Dice",
+    "landing.badge": "Elemental squads, dice-driven battles, quick runs",
+    "landing.hero": "Build a party. Roll for advantage. Hunt the next elemental.",
+    "landing.description":
+      "Elementary Dice is a fast tactical loop where your team composition, dice loadout, and event choices shape each run. Start with a fresh account, assemble your squad, and push through wild encounters, merchants, and PvP battles.",
+    "landing.cta_login": "Log In",
+    "landing.cta_register": "Create Account",
+    "landing.feature_collect_icon": "🧪",
+    "landing.feature_collect_title": "Collect",
+    "landing.feature_collect_body":
+      "Capture elementals, manage your party, and build a roster that can survive the next streak of encounters.",
+    "landing.feature_combine_icon": "⚗️",
+    "landing.feature_combine_title": "Combine",
+    "landing.feature_combine_body":
+      "Mix element types, evolve units, and equip the right dice to unlock stronger combat turns.",
+    "landing.feature_challenge_icon": "⚔️",
+    "landing.feature_challenge_title": "Challenge",
+    "landing.feature_challenge_body":
+      "Push into wild fights, duel rival trainers, and route around risk when the event deck turns hostile.",
+    "landing.panel_eyebrow": "First Session",
+    "landing.panel_title": "How A Run Starts",
+    "landing.panel_step_1_label": "Step 1",
+    "landing.panel_step_1_body":
+      "Register or log in, then claim your opening elemental and first dice loadout.",
+    "landing.panel_step_2_label": "Step 2",
+    "landing.panel_step_2_body":
+      "Choose events from the hub, react to encounters, and keep your active party ready for the next round.",
+    "landing.panel_step_3_label": "Step 3",
+    "landing.panel_step_3_body":
+      "Use combinations, set-aside bonuses, and timing to win battles before your roster breaks down.",
+    "landing.quote_label": "Game Loop",
+    "landing.quote_body":
+      "Short decisions compound quickly: one capture, one merchant stop, or one risky battle can define the whole run.",
+    "legal.terms_link": "Terms of Service",
+    "legal.privacy_link": "Privacy Policy",
     "login.subtitle_register": "Create an account to start your adventure",
     "login.subtitle_login": "Welcome back, adventurer!",
     "login.tab_login": "Login",
@@ -205,6 +241,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "login.have_account": "Already have an account?",
     "login.login_here": "Login here",
     "login.quick_start": "Quick Start with Demo Account",
+    "login.back_home": "Back to Landing",
     "login.toast_google_success": "Successfully logged in with Google! 🎉",
     "login.error_google_complete": "Failed to complete Google login. Please try again.",
     "login.error_google_failed": "Google login failed. Please try again or use password login.",
@@ -600,6 +637,42 @@ const messages: Record<Locale, Record<string, string>> = {
     "battle.instruction_deploy": "Выставление готово. Завершите раунд, когда будете готовы.",
     "battle.instruction_bust": "Bust убрал бонусы хода. Выставьте сейчас, чтобы завершить.",
     "battle.destroyed": "Уничтожено",
+    "landing.eyebrow": "Браузерная тактическая RPG",
+    "landing.title": "Elementary Dice",
+    "landing.badge": "Стихийные отряды, бои на костях, короткие забеги",
+    "landing.hero": "Соберите группу. Бросайте кости. Охотьтесь за новым элементалем.",
+    "landing.description":
+      "Elementary Dice - это быстрая тактическая петля, где состав группы, набор костей и выбор событий формируют каждый забег. Создайте аккаунт, соберите команду и проходите через дикие встречи, торговцев и PvP-битвы.",
+    "landing.cta_login": "Войти",
+    "landing.cta_register": "Создать аккаунт",
+    "landing.feature_collect_icon": "🧪",
+    "landing.feature_collect_title": "Собирайте",
+    "landing.feature_collect_body":
+      "Ловите элементалей, управляйте группой и собирайте состав, который переживет следующую цепочку событий.",
+    "landing.feature_combine_icon": "⚗️",
+    "landing.feature_combine_title": "Комбинируйте",
+    "landing.feature_combine_body":
+      "Смешивайте стихии, развивайте юнитов и экипируйте нужные кости, чтобы усиливать боевые ходы.",
+    "landing.feature_challenge_icon": "⚔️",
+    "landing.feature_challenge_title": "Испытывайте",
+    "landing.feature_challenge_body":
+      "Идите в дикие схватки, деритесь с соперниками и обходите риск, когда события становятся опасными.",
+    "landing.panel_eyebrow": "Первый забег",
+    "landing.panel_title": "Как начинается игра",
+    "landing.panel_step_1_label": "Шаг 1",
+    "landing.panel_step_1_body":
+      "Зарегистрируйтесь или войдите, затем получите первого элементаля и стартовый набор костей.",
+    "landing.panel_step_2_label": "Шаг 2",
+    "landing.panel_step_2_body":
+      "Выбирайте события в хабе, реагируйте на встречи и держите активную группу готовой к следующему раунду.",
+    "landing.panel_step_3_label": "Шаг 3",
+    "landing.panel_step_3_body":
+      "Используйте комбинации, бонусы отложенных костей и тайминг, чтобы выигрывать бои до распада группы.",
+    "landing.quote_label": "Игровой цикл",
+    "landing.quote_body":
+      "Короткие решения быстро накапливаются: одна поимка, один торговец или одна рискованная битва могут определить весь забег.",
+    "legal.terms_link": "Условия использования",
+    "legal.privacy_link": "Политика конфиденциальности",
     "login.subtitle_register": "Создайте аккаунт и начните приключение",
     "login.subtitle_login": "С возвращением, искатель приключений!",
     "login.tab_login": "Вход",
@@ -621,6 +694,7 @@ const messages: Record<Locale, Record<string, string>> = {
     "login.have_account": "Уже есть аккаунт?",
     "login.login_here": "Войдите",
     "login.quick_start": "Быстрый старт с демо-аккаунтом",
+    "login.back_home": "На главную",
     "login.toast_google_success": "Успешный вход через Google! 🎉",
     "login.error_google_complete": "Не удалось завершить вход через Google. Попробуйте снова.",
     "login.error_google_failed": "Вход через Google не удался. Попробуйте снова или используйте пароль.",

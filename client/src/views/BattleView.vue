@@ -23,7 +23,7 @@
         {{ t("wild.trigger_event_hint") }}
       </p>
       <button
-        @click="router.push('/')"
+        @click="router.push('/menu')"
         class="px-6 py-3 bg-primary text-primary-foreground rounded-lg font-bold hover:bg-primary/90 transition-all"
       >
         {{ t("common.back_to_dashboard") }}
@@ -35,7 +35,7 @@
       <!-- Header -->
       <div class="grid grid-cols-[auto_1fr_auto] items-start gap-3">
         <button
-          @click="router.push('/')"
+          @click="router.push('/menu')"
           class="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
         >
           <span class="text-xl">&larr;</span>
@@ -648,7 +648,7 @@ const handleFarkleEndTurn = async () => {
 const proceedToNext = async () => {
   if (!userStore.userId) {
     eventStore.clearEvent();
-    router.push("/");
+    router.push("/menu");
     return;
   }
   try {
@@ -659,7 +659,7 @@ const proceedToNext = async () => {
   } finally {
     battle.reset();
     eventStore.clearEvent();
-    router.push("/");
+    router.push("/menu");
   }
 };
 
