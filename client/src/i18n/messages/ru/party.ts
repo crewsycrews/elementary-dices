@@ -1,0 +1,28 @@
+import type { Messages } from "../../locales";
+
+export const party: Messages = {
+  "party.onboarding_title": "Основы управления элементалями",
+  "party.onboarding_subtitle": "Показывается один раз при первом открытии Группы.",
+  "party.title": "Группа",
+  "party.subtitle": "Управляйте активной группой и рюкзаком элементалей",
+  "party.active": "Активная группа ({count}/5)",
+  "party.drag_reorder": "Перетаскивайте для изменения порядка",
+  "party.total_power": "Общая сила",
+  "party.evolutions_title": "Эволюции элементалей",
+  "party.evolutions_desc": "Комбинируйте элементалей для мощных эволюций",
+  "party.backpack": "Рюкзак ({count}/{max})",
+  "party.select_to_add": "Выберите элементаля, чтобы добавить в группу",
+  "party.empty_backpack": "Рюкзак пуст",
+  "party.empty_backpack_hint": "Ловите элементалей в событиях, чтобы заполнить рюкзак",
+  "party.toast_positions_swapped": "Позиции в группе поменяны!",
+  "party.error_positions_swapped": "Не удалось поменять позиции",
+  "party.error_swap_elementals": "Не удалось поменять элементалей",
+  "party.error_party_full": "Группа заполнена! Сначала уберите элементаля.",
+  "party.toast_swapped_with": "{member} обменян с {target}!",
+  "party.toast_added": "{member} добавлен в группу!",
+  "party.error_add": "Не удалось добавить элементаля в группу",
+  "party.toast_moved_backpack": "{member} перемещен в рюкзак",
+  "party.error_remove": "Не удалось убрать из группы",
+  "party.confirm_remove": "Убрать {member} из группы?",
+  "party_slot.level": "Ур {level}",
+};

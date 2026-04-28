@@ -1,0 +1,28 @@
+import type { Messages } from "../../locales";
+
+export const party: Messages = {
+  "party.onboarding_title": "Elementals Management Basics",
+  "party.onboarding_subtitle": "Shown once when you first open Party.",
+  "party.title": "Party",
+  "party.subtitle": "Manage your active party and backpack elementals",
+  "party.active": "Active Party ({count}/5)",
+  "party.drag_reorder": "Drag & drop to reorder",
+  "party.total_power": "Total Power",
+  "party.evolutions_title": "Elemental Evolutions",
+  "party.evolutions_desc": "Combine elementals to create powerful evolutions",
+  "party.backpack": "Backpack ({count}/{max})",
+  "party.select_to_add": "Select an elemental to add to party",
+  "party.empty_backpack": "Empty Backpack",
+  "party.empty_backpack_hint": "Capture elementals through events to fill your backpack",
+  "party.toast_positions_swapped": "Party positions swapped!",
+  "party.error_positions_swapped": "Failed to swap positions",
+  "party.error_swap_elementals": "Failed to swap elementals",
+  "party.error_party_full": "Party is full! Remove an elemental first.",
+  "party.toast_swapped_with": "{member} swapped with {target}!",
+  "party.toast_added": "{member} added to party!",
+  "party.error_add": "Failed to add elemental to party",
+  "party.toast_moved_backpack": "{member} moved to backpack",
+  "party.error_remove": "Failed to remove from party",
+  "party.confirm_remove": "Remove {member} from party?",
+  "party_slot.level": "Lvl {level}",
+};
