@@ -25,7 +25,7 @@ export const battle: Messages = {
   "battle.deploy_resolve": "Выставить и завершить раунд",
   "battle.deploy_resolve_no_bonus": "Выставить и завершить раунд (без бонусов)",
   "battle.need_set_aside": "Отложите валидную комбинацию или выбранный элемент перед выставлением.",
-  "battle.dice_rush": "🎲 DICE RUSH! Все 5 костей использованы - бросьте снова или завершите ход.",
+  "battle.dice_rush": "🎲 DICE RUSH! Все 5 костей вошли в комбинацию - бросьте 5 костей снова.",
   "battle.bust": "💥 BUST! Нет комбинаций - все бонусы хода потеряны.",
   "battle.deploy_now": "Выставьте сейчас, чтобы завершить раунд.",
   "battle.round_resolved": "Раунд {round} завершен",

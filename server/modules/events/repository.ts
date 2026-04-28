@@ -140,8 +140,10 @@ export interface WildEncounterFarkleState {
     bonuses: Partial<Record<ElementTypeValue, number>>;
   }>;
   set_aside_element_bonus: ElementTypeValue | null;
+  accumulated_dice_rush_bonuses?: Partial<Record<ElementTypeValue, number>>;
   accumulated_combination_elements?: ElementTypeValue[];
   accumulated_set_aside_elements?: ElementTypeValue[];
+  accumulated_assigned_party_indices?: number[];
   is_dice_rush: boolean;
   busted: boolean;
   assignment_required_party_indices?: number[];

@@ -609,8 +609,10 @@ export class EventService {
       has_used_reroll: false,
       active_combinations: [],
       set_aside_element_bonus: null,
+      accumulated_dice_rush_bonuses: {},
       accumulated_combination_elements: [],
       accumulated_set_aside_elements: [],
+      accumulated_assigned_party_indices: [],
       is_dice_rush: false,
       busted: false,
       detected_combinations: [],
@@ -627,8 +629,14 @@ export class EventService {
       has_used_reroll: state.has_used_reroll,
       active_combinations: (state.active_combinations ?? []) as any,
       set_aside_element_bonus: state.set_aside_element_bonus ?? null,
-      accumulated_combination_elements: [],
-      accumulated_set_aside_elements: [],
+      accumulated_dice_rush_bonuses:
+        (state.meta?.accumulated_dice_rush_bonuses ?? {}) as Partial<Record<ElementType, number>>,
+      accumulated_combination_elements:
+        (state.meta?.accumulated_combination_elements ?? []) as ElementType[],
+      accumulated_set_aside_elements:
+        (state.meta?.accumulated_set_aside_elements ?? []) as ElementType[],
+      accumulated_assigned_party_indices:
+        (state.meta?.accumulated_assigned_party_indices ?? []) as number[],
       is_dice_rush: state.is_dice_rush,
       busted: state.busted,
       detected_combinations: (state.detected_combinations ?? []) as any,
@@ -658,6 +666,10 @@ export class EventService {
               ...meta,
               assignment_required_party_indices: state.assignment_required_party_indices ?? [],
               assigned_party_indices: state.assigned_party_indices ?? [],
+              accumulated_dice_rush_bonuses: state.accumulated_dice_rush_bonuses ?? {},
+              accumulated_combination_elements: state.accumulated_combination_elements ?? [],
+              accumulated_set_aside_elements: state.accumulated_set_aside_elements ?? [],
+              accumulated_assigned_party_indices: state.accumulated_assigned_party_indices ?? [],
               can_commit: state.can_commit ?? false,
             },
           }
@@ -665,6 +677,10 @@ export class EventService {
             meta: {
               assignment_required_party_indices: state.assignment_required_party_indices ?? [],
               assigned_party_indices: state.assigned_party_indices ?? [],
+              accumulated_dice_rush_bonuses: state.accumulated_dice_rush_bonuses ?? {},
+              accumulated_combination_elements: state.accumulated_combination_elements ?? [],
+              accumulated_set_aside_elements: state.accumulated_set_aside_elements ?? [],
+              accumulated_assigned_party_indices: state.accumulated_assigned_party_indices ?? [],
               can_commit: state.can_commit ?? false,
             },
           }),
@@ -1333,6 +1349,7 @@ export class EventService {
   }
 
   private rollV4Turn(turn: FarkleV4TurnState): Combination[] {
+    turn.is_dice_rush = false;
     turn.dice = rollRemainingDice(turn.dice);
     return this.toUiCombinations(detectV4AvailableCombinations(turn.dice));
   }
@@ -1344,6 +1361,57 @@ export class EventService {
       return;
     }
     turn.phase = turn.can_commit ? "ready_to_commit" : "set_aside";
+  }
+
+  private isV4DiceRush(turn: FarkleV4TurnState): boolean {
+    if (turn.dice.length === 0) return false;
+    if (!turn.dice.every((die) => die.is_set_aside && die.is_assigned)) {
+      return false;
+    }
+
+    const coveredDice = new Set<number>();
+    for (const combo of detectV4Combinations(turn.dice)) {
+      for (const index of combo.dice_indices) {
+        coveredDice.add(index);
+      }
+    }
+    return coveredDice.size === turn.dice.length;
+  }
+
+  private consumeV4DiceRush(
+    party: BattlePartyMember[],
+    turn: FarkleV4TurnState,
+  ): {
+    updated_party: BattlePartyMember[];
+    applied_bonuses: Partial<Record<ElementType, number>>;
+  } {
+    const applied = applyV4CommitBonuses(party, turn);
+    turn.accumulated_dice_rush_bonuses = mergeBonuses(
+      turn.accumulated_dice_rush_bonuses ?? {},
+      applied.applied_bonuses,
+    );
+    turn.accumulated_assigned_party_indices = [
+      ...new Set([
+        ...(turn.accumulated_assigned_party_indices ?? []),
+        ...applied.deployed_indices,
+      ]),
+    ];
+    turn.dice = turn.dice.map((die) => ({
+      ...die,
+      is_set_aside: false,
+      is_assigned: false,
+      assigned_to_party_index: null,
+    }));
+    turn.active_combinations = [];
+    turn.assignment_required_party_indices = [];
+    turn.assigned_party_indices = [];
+    turn.can_commit = false;
+    turn.is_dice_rush = true;
+    turn.phase = "initial_roll";
+    return {
+      updated_party: applied.updated_party,
+      applied_bonuses: applied.applied_bonuses,
+    };
   }
 
   async farkleV4InitBattle(
@@ -1536,15 +1604,25 @@ export class EventService {
     validateDeployAllPossible(battleState.player_party, turn);
     this.updateV4TurnPhase(turn);
 
+    const diceRush = this.isV4DiceRush(turn);
+    if (diceRush) {
+      const rushResult = this.consumeV4DiceRush(battleState.player_party, turn);
+      battleState.player_party = rushResult.updated_party;
+      battleState.player_bonuses_total = mergeBonuses(
+        battleState.player_bonuses_total ?? {},
+        rushResult.applied_bonuses,
+      );
+    }
+
     await this.farkleSessionRepo.updateState(sessionId, {
       meta: { battle_state: battleState },
     });
 
     return {
       battle_state: battleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      detected_combinations: diceRush ? [] : this.getV4DetectedCombinationsForResponse(turn),
       is_busted: false,
-      is_dice_rush: false,
+      is_dice_rush: diceRush,
     };
   }
 
@@ -1602,8 +1680,18 @@ export class EventService {
       battleState.player_party,
       turn,
     );
+    const playerAppliedBonuses = mergeBonuses(
+      turn.accumulated_dice_rush_bonuses ?? {},
+      playerApplied.applied_bonuses,
+    );
+    const playerDeployedIndices = [
+      ...new Set([
+        ...(turn.accumulated_assigned_party_indices ?? []),
+        ...playerApplied.deployed_indices,
+      ]),
+    ];
     battleState.player_party = playerApplied.updated_party;
-    battleState.player_bonuses_total = playerApplied.applied_bonuses;
+    battleState.player_bonuses_total = playerAppliedBonuses;
 
     const opponentAliveIndices = battleState.opponent_party
       .map((member, index) => ({ member, index }))
@@ -1653,7 +1741,7 @@ export class EventService {
         opponent_party: battleState.opponent_party,
       },
       {
-        player_deployed_indices: playerApplied.deployed_indices,
+        player_deployed_indices: playerDeployedIndices,
         opponent_deployed_indices: opponentApplied.deployed_indices,
       },
     );
@@ -1666,9 +1754,9 @@ export class EventService {
         round: battleState.current_turn,
         playerPartyBeforeCombat,
         opponentPartyBeforeCombat,
-        playerDeployedIndices: playerApplied.deployed_indices,
+        playerDeployedIndices,
         opponentDeployedIndices: opponentApplied.deployed_indices,
-        playerBonuses: playerApplied.applied_bonuses,
+        playerBonuses: playerAppliedBonuses,
         opponentBonuses: opponentApplied.applied_bonuses,
         playerDeploymentEffects: playerApplied.deployment_effects,
         opponentDeploymentEffects: opponentApplied.deployment_effects,
@@ -1678,7 +1766,7 @@ export class EventService {
         attackLog: combatResult.log,
       }),
     ];
-    battleState.last_player_deployment = playerApplied.deployed_indices;
+    battleState.last_player_deployment = playerDeployedIndices;
     battleState.last_opponent_deployment = opponentApplied.deployed_indices;
     battleState.opponent_turn_result = {
       dice: rolledOpponentDice as any,
@@ -3078,6 +3166,12 @@ export class EventService {
     validateDeployAllPossible(wildBattleState.player_party, turn);
     this.updateV4TurnPhase(turn);
 
+    const diceRush = this.isV4DiceRush(turn);
+    if (diceRush) {
+      const rushResult = this.consumeV4DiceRush(wildBattleState.player_party, turn);
+      wildBattleState.player_party = rushResult.updated_party;
+    }
+
     await this.saveWildFarkleState(sessionId, farkleState, {
       wild_battle_state: wildBattleState,
     });
@@ -3085,9 +3179,9 @@ export class EventService {
     return {
       farkle_state: farkleState,
       wild_battle_state: wildBattleState,
-      detected_combinations: this.getV4DetectedCombinationsForResponse(turn),
+      detected_combinations: diceRush ? [] : this.getV4DetectedCombinationsForResponse(turn),
       is_busted: false,
-      is_dice_rush: false,
+      is_dice_rush: diceRush,
       is_resolved: false,
     };
   }
@@ -3124,6 +3218,12 @@ export class EventService {
     }
 
     const playerApplied = applyV4CommitBonuses(wildBattleState.player_party, turn);
+    const playerDeployedIndices = [
+      ...new Set([
+        ...(turn.accumulated_assigned_party_indices ?? []),
+        ...playerApplied.deployed_indices,
+      ]),
+    ];
     wildBattleState.player_party = playerApplied.updated_party;
 
     const opponentAliveIndices = wildBattleState.enemy_party
@@ -3169,7 +3269,7 @@ export class EventService {
         opponent_party: wildBattleState.enemy_party,
       },
       {
-        player_deployed_indices: playerApplied.deployed_indices,
+        player_deployed_indices: playerDeployedIndices,
         opponent_deployed_indices: opponentApplied.deployed_indices,
       },
     );

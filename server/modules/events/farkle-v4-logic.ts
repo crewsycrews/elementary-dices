@@ -39,6 +39,8 @@ export interface FarkleV4TurnState {
   dice: FarkleV4Die[];
   has_used_reroll?: boolean;
   active_combinations: V4Combination[];
+  accumulated_dice_rush_bonuses?: Partial<Record<ElementType, number>>;
+  accumulated_assigned_party_indices?: number[];
   is_dice_rush: boolean;
   busted: boolean;
   assignment_required_party_indices: number[];
@@ -192,6 +194,8 @@ export function buildInitialV4TurnState(dice: FarkleV4Die[]): FarkleV4TurnState 
     dice,
     has_used_reroll: false,
     active_combinations: [],
+    accumulated_dice_rush_bonuses: {},
+    accumulated_assigned_party_indices: [],
     is_dice_rush: false,
     busted: false,
     assignment_required_party_indices: [],
