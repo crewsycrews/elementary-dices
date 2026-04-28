@@ -525,8 +525,8 @@ function createFaceMaterial(
   const palette = element
     ? ELEMENT_COLORS[element]
     : DICE_COLORS[props.diceType];
-  const color = new THREE.Color(palette.base);
   const dark = new THREE.Color(palette.dark);
+  const color = new THREE.Color(palette.base);
   color.lerp(dark, faceIndex % 2 === 0 ? 0.08 : 0.22);
 
   return new THREE.MeshStandardMaterial({

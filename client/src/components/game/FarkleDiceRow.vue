@@ -16,7 +16,7 @@
         :title="getDieTitle(entry.die)"
       >
         <div
-          class="rounded-xl border-2 transition-all duration-200"
+          class="rounded-xl transition-all duration-200"
           :class="getDieFaceClasses(entry.index, entry.die)"
         >
           <DiceRollVisualization
@@ -144,7 +144,7 @@ function getDieFaceClasses(index: number, die: FarkleDie): string {
   if (props.highlightIndices?.includes(index)) {
     return "border-cyan-400 bg-cyan-400/15";
   }
-  return "border-border bg-card hover:border-primary/50";
+  return "border-border hover:border-primary/50";
 }
 
 function getDieBadge(index: number, die: FarkleDie): string {

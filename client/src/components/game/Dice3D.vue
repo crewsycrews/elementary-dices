@@ -93,11 +93,21 @@ import { useI18n } from "@/i18n";
 import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
 
 const ELEMENT_FACE_STYLES: Record<string, string> = {
-  fire: "#E53935",
-  water: "#1E5BB8",
-  earth: "#8D6E63",
-  air: "#2FAF9B",
-  lightning: "#D4A800",
+  fire: `
+    linear-gradient(145deg, #ef5a4a 0%, #e53935 56%, #c62828 100%)
+  `,
+  water: `
+    linear-gradient(145deg, #3171d1 0%, #1e5bb8 56%, #194d99 100%)
+  `,
+  earth: `
+    linear-gradient(145deg, #9d7b6f 0%, #8d6e63 56%, #72564d 100%)
+  `,
+  air: `
+    linear-gradient(145deg, #44c0ad 0%, #2faf9b 56%, #278d7d 100%)
+  `,
+  lightning: `
+    linear-gradient(145deg, #e2bf20 0%, #d4a800 56%, #b08d00 100%)
+  `,
 };
 
 const ELEMENT_ICONS: Record<string, Component> = {
@@ -532,30 +542,36 @@ defineExpose({
   backface-visibility: visible;
   border: 2px solid rgba(0, 0, 0, 0.3);
   box-shadow:
-    inset 0 0 20px rgba(255, 255, 255, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -10px 14px rgba(15, 23, 42, 0.08),
     0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 /* Dice type-specific colors (matching existing game gradients) */
 .dice-face-d4 {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background:
+    linear-gradient(145deg, #f05a5a 0%, #ef4444 56%, #cb2f2f 100%);
 }
 
 .dice-face-d6 {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background:
+    linear-gradient(145deg, #20c88d 0%, #10b981 56%, #0b9a6b 100%);
   /* border-radius: 8px; */
 }
 
 .dice-face-d10 {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background:
+    linear-gradient(145deg, #4f91f7 0%, #3b82f6 56%, #2a66da 100%);
 }
 
 .dice-face-d12 {
-  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+  background:
+    linear-gradient(145deg, #9c76f8 0%, #8b5cf6 56%, #7541df 100%);
 }
 
 .dice-face-d20 {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  background:
+    linear-gradient(145deg, #f7ae19 0%, #f59e0b 56%, #d7820a 100%);
 }
 
 /* Lighting effect - darken even-numbered faces slightly for depth */
