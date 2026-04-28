@@ -45,5 +45,6 @@ COPY --from=builder /app/client/dist /usr/share/caddy
 COPY client/assets /usr/share/caddy/assets
 
 EXPOSE 80
+EXPOSE 443
 
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
