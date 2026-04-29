@@ -95,6 +95,23 @@
                 "clear": false
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Deploy Client",
+            "type": "shell",
+            "command": "ssh",
+            "args": [
+                "elementary-dice",
+                "cd elementary-dices && git pull && docker compose up -d --build client"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always",
+                "panel": "dedicated",
+                "showReuseMessage": true,
+                "clear": false
+            },
+            "problemMatcher": []
         }
     ]
 }
