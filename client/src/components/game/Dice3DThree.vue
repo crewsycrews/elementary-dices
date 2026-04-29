@@ -35,14 +35,9 @@
           <tbody>
             <tr v-for="row in probabilityRows" :key="row.element">
               <td class="probability-element">
-                <component
-                  v-if="getElementIcon(row.element)"
-                  :is="getElementIcon(row.element)"
-                  class="probability-element-icon"
-                  :stroke-width="2.4"
-                  aria-hidden="true"
-                />
-                <span v-else>.</span>
+                <span class="probability-element-emoji">
+                  {{ getElementEmoji(row.element) ?? "." }}
+                </span>
                 <span>{{ row.element }}</span>
               </td>
               <td>{{ row.count }}</td>
@@ -63,10 +58,8 @@ import {
   onMounted,
   ref,
   watch,
-  type Component,
 } from "vue";
 import * as THREE from "three";
-import { Droplets, Flame, Mountain, Wind, Zap } from "lucide-vue-next";
 import { useI18n } from "@/i18n";
 import {
   getGeometry,
@@ -105,20 +98,20 @@ const emit = defineEmits<{
   click: [];
 }>();
 
-const ELEMENT_ICONS: Record<string, Component> = {
-  air: Wind,
-  fire: Flame,
-  water: Droplets,
-  earth: Mountain,
-  lightning: Zap,
-};
-
 const ELEMENT_COLORS: Record<string, { base: string; dark: string }> = {
   fire: { base: "#f97316", dark: "#7f1d1d" },
   water: { base: "#38bdf8", dark: "#1e3a8a" },
   earth: { base: "#84cc16", dark: "#3f3f46" },
   air: { base: "#67e8f9", dark: "#0e7490" },
   lightning: { base: "#fde047", dark: "#7c3aed" },
+};
+
+const ELEMENT_EMOJI: Record<string, string> = {
+  air: "\uD83D\uDCA8",
+  earth: "\u26F0\uFE0F",
+  fire: "\uD83D\uDD25",
+  lightning: "\u26A1",
+  water: "\uD83C\uDF0A",
 };
 
 const DICE_COLORS: Record<DiceType, { base: string; dark: string }> = {
@@ -191,8 +184,8 @@ const showProbabilityTooltip = computed(
   () => isTooltipVisible.value && probabilityRows.value.length > 0,
 );
 
-function getElementIcon(element: string | undefined): Component | undefined {
-  return element ? ELEMENT_ICONS[element] : undefined;
+function getElementEmoji(element: string | undefined): string | undefined {
+  return element ? ELEMENT_EMOJI[element] : undefined;
 }
 
 function getFaceElement(faceValue: number): string | undefined {
@@ -579,7 +572,7 @@ function createFaceTexture(
   context.shadowOffsetY = 6;
 
   if (element) {
-    drawElementMark(context, element, size);
+    drawElementEmoji(context, element, size);
   } else {
     context.font = "bold 112px Arial, sans-serif";
     context.textAlign = "center";
@@ -593,83 +586,17 @@ function createFaceTexture(
   return texture;
 }
 
-function drawElementMark(
+function drawElementEmoji(
   context: CanvasRenderingContext2D,
   element: string,
   size: number,
 ): void {
-  const cx = size / 2;
-  const cy = size / 2;
-
-  context.lineWidth = 18;
-  context.lineCap = "round";
-  context.lineJoin = "round";
-
-  if (element === "fire") {
-    context.beginPath();
-    context.moveTo(cx, 48);
-    context.bezierCurveTo(72, 88, 78, 126, 96, 146);
-    context.bezierCurveTo(92, 112, 124, 74, 148, 52);
-    context.bezierCurveTo(136, 100, 186, 118, 178, 166);
-    context.bezierCurveTo(172, 208, 136, 224, cx, 226);
-    context.bezierCurveTo(88, 224, 64, 194, 72, 160);
-    context.bezierCurveTo(78, 128, 106, 104, cx, 48);
-    context.fill();
-    return;
-  }
-
-  if (element === "water") {
-    context.beginPath();
-    context.moveTo(cx, 42);
-    context.bezierCurveTo(86, 96, 64, 124, 64, 160);
-    context.bezierCurveTo(64, 202, 92, 228, cx, 228);
-    context.bezierCurveTo(164, 228, 192, 202, 192, 160);
-    context.bezierCurveTo(192, 124, 170, 96, cx, 42);
-    context.fill();
-    return;
-  }
-
-  if (element === "earth") {
-    context.beginPath();
-    context.moveTo(46, 196);
-    context.lineTo(104, 86);
-    context.lineTo(140, 148);
-    context.lineTo(164, 112);
-    context.lineTo(210, 196);
-    context.closePath();
-    context.fill();
-    return;
-  }
-
-  if (element === "air") {
-    context.strokeStyle = "rgba(255, 255, 255, 0.92)";
-    for (const y of [88, 128, 168]) {
-      context.beginPath();
-      context.moveTo(48, y);
-      context.bezierCurveTo(92, y - 22, 118, y + 22, 154, y);
-      context.bezierCurveTo(176, y - 12, 194, y - 8, 208, y + 2);
-      context.stroke();
-    }
-    return;
-  }
-
-  if (element === "lightning") {
-    context.beginPath();
-    context.moveTo(150, 34);
-    context.lineTo(76, 144);
-    context.lineTo(126, 144);
-    context.lineTo(104, 226);
-    context.lineTo(184, 112);
-    context.lineTo(134, 112);
-    context.closePath();
-    context.fill();
-    return;
-  }
-
-  context.font = "bold 112px Arial, sans-serif";
+  const emoji = getElementEmoji(element) ?? element.charAt(0).toUpperCase();
+  context.font =
+    "112px Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif";
   context.textAlign = "center";
   context.textBaseline = "middle";
-  context.fillText(element.charAt(0).toUpperCase(), cx, cy + 4);
+  context.fillText(emoji, size / 2, size / 2 + 4);
 }
 
 function toEuler(rotation: Rotation | undefined): THREE.Euler {
@@ -949,10 +876,10 @@ defineExpose({
   text-transform: capitalize;
 }
 
-.probability-element-icon {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: currentColor;
+.probability-element-emoji {
+  width: 1rem;
+  line-height: 1;
+  text-align: center;
   flex: 0 0 auto;
 }
 </style>

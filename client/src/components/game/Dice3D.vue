@@ -12,7 +12,11 @@
     <!-- Dice wrapper with optional base rotation -->
     <div class="dice-wrapper" :style="wrapperStyle">
       <!-- Spin wrapper: handles continuous X-axis spin independently of face rotation -->
-      <div class="spin-wrapper" :class="{ 'is-spinning': spinning }">
+      <div
+        class="spin-wrapper"
+        :class="{ 'is-spinning': spinning }"
+        :style="spinWrapperStyle"
+      >
         <!-- The 3D dice itself -->
         <div
           class="dice-3d"
@@ -32,14 +36,10 @@
             :class="`dice-face-${diceType}`"
             :style="faceStyles[face.value]"
           >
-            <!-- Elemental faces: show vector element icon -->
-            <component
-              v-if="getFaceIcon(face.value)"
-              :is="getFaceIcon(face.value)"
-              class="face-icon"
-              :stroke-width="2.7"
-              aria-hidden="true"
-            />
+            <!-- Elemental faces: show emoji -->
+            <span v-if="getFaceEmoji(face.value)" class="face-emoji">
+              {{ getFaceEmoji(face.value) }}
+            </span>
             <span v-else class="face-value">{{ face.value }}</span>
           </div>
         </div>
@@ -66,14 +66,9 @@
           <tbody>
             <tr v-for="row in probabilityRows" :key="row.element">
               <td class="probability-element">
-                <component
-                  v-if="getElementIcon(row.element)"
-                  :is="getElementIcon(row.element)"
-                  class="probability-element-icon"
-                  :stroke-width="2.4"
-                  aria-hidden="true"
-                />
-                <span v-else>•</span>
+                <span class="probability-element-emoji">
+                  {{ getElementEmoji(row.element) ?? "•" }}
+                </span>
                 <span>{{ row.element }}</span>
               </td>
               <td>{{ row.count }}</td>
@@ -87,8 +82,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, type Component } from "vue";
-import { Droplets, Flame, Mountain, Wind, Zap } from "lucide-vue-next";
+import { ref, computed, onMounted } from "vue";
 import { useI18n } from "@/i18n";
 import { getGeometry, type DiceType, createTransform } from "./dice-geometry";
 
@@ -110,12 +104,12 @@ const ELEMENT_FACE_STYLES: Record<string, string> = {
   `,
 };
 
-const ELEMENT_ICONS: Record<string, Component> = {
-  air: Wind,
-  fire: Flame,
-  water: Droplets,
-  earth: Mountain,
-  lightning: Zap,
+const ELEMENT_EMOJI: Record<string, string> = {
+  air: "\uD83D\uDCA8",
+  earth: "\u26F0\uFE0F",
+  fire: "\uD83D\uDD25",
+  lightning: "\u26A1",
+  water: "\uD83C\uDF0A",
 };
 
 interface Props {
@@ -146,6 +140,9 @@ interface Props {
 
   /** Continuously spin on X-axis (e.g. while an API call is in progress) */
   spinning?: boolean;
+
+  /** Duration of one full continuous spin in milliseconds */
+  spinDurationMs?: number;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -157,6 +154,7 @@ const props = withDefaults(defineProps<Props>(), {
   affinity: undefined,
   elementFaces: undefined,
   spinning: false,
+  spinDurationMs: 700,
 });
 
 const emit = defineEmits<{
@@ -190,6 +188,10 @@ const wrapperStyle = computed(() => {
     transform: createTransform(baseRotation),
   };
 });
+
+const spinWrapperStyle = computed(() => ({
+  animationDuration: `${props.spinDurationMs}ms`,
+}));
 
 // Dice style (includes size scaling)
 const diceStyle = computed(() => {
@@ -257,12 +259,12 @@ function getFaceElement(faceValue: number): string | undefined {
   return props.elementFaces?.[faceValue - 1];
 }
 
-function getElementIcon(element: string | undefined): Component | undefined {
-  return element ? ELEMENT_ICONS[element] : undefined;
+function getElementEmoji(element: string | undefined): string | undefined {
+  return element ? ELEMENT_EMOJI[element] : undefined;
 }
 
-function getFaceIcon(faceValue: number): Component | undefined {
-  return getElementIcon(getFaceElement(faceValue));
+function getFaceEmoji(faceValue: number): string | undefined {
+  return getElementEmoji(getFaceElement(faceValue));
 }
 
 /**
@@ -472,10 +474,10 @@ defineExpose({
   text-transform: capitalize;
 }
 
-.probability-element-icon {
-  width: 0.9rem;
-  height: 0.9rem;
-  color: currentColor;
+.probability-element-emoji {
+  width: 1rem;
+  line-height: 1;
+  text-align: center;
   flex: 0 0 auto;
 }
 
@@ -592,12 +594,11 @@ defineExpose({
   pointer-events: none;
 }
 
-.face-icon {
-  width: 40%;
-  height: 40%;
-  color: #F5F5F5;
-  filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.72))
-    drop-shadow(0 0 8px rgba(255, 255, 255, 0.35));
+.face-emoji {
+  font-size: 2rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(15, 23, 42, 0.68))
+    drop-shadow(0 0 7px rgba(255, 255, 255, 0.28));
   pointer-events: none;
   user-select: none;
 }
@@ -631,10 +632,9 @@ defineExpose({
   font-size: 1.4rem;
 }
 
-.dice-d12 .face-icon,
-.dice-d20 .face-icon {
-  width: 32%;
-  height: 32%;
+.dice-d12 .face-emoji,
+.dice-d20 .face-emoji {
+  font-size: 1.45rem;
 }
 
 /* Special styling for triangular faces (d4, d20) */
@@ -673,15 +673,13 @@ defineExpose({
     font-size: 1.1rem;
   }
 
-  .face-icon {
-    width: 34%;
-    height: 34%;
+  .face-emoji {
+    font-size: 1.55rem;
   }
 
-  .dice-d12 .face-icon,
-  .dice-d20 .face-icon {
-    width: 28%;
-    height: 28%;
+  .dice-d12 .face-emoji,
+  .dice-d20 .face-emoji {
+    font-size: 1.2rem;
   }
 }
 </style>

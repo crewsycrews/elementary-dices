@@ -1,23 +1,23 @@
 <template>
-  <div class="min-h-screen bg-slate-950 px-4 py-8 text-slate-100 sm:px-6 lg:px-8">
+  <div class="min-h-screen bg-slate-50 px-4 py-8 text-slate-900 sm:px-6 lg:px-8">
     <div class="mx-auto max-w-4xl">
-      <div class="rounded-[2rem] border border-white/10 bg-slate-900/80 p-6 shadow-2xl shadow-slate-950/30 backdrop-blur-sm sm:p-8">
-        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
+      <div class="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/70 sm:p-8">
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-6">
           <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-sky-300/80">
+            <p class="text-xs font-semibold uppercase tracking-[0.25em] text-sky-600">
               {{ content.eyebrow }}
             </p>
-            <h1 class="mt-2 text-3xl font-black uppercase tracking-[0.08em] text-white">
+            <h1 class="mt-2 text-3xl font-black uppercase tracking-[0.08em] text-slate-950">
               {{ content.title }}
             </h1>
-            <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
               {{ content.intro }}
             </p>
           </div>
 
           <RouterLink
             to="/"
-            class="inline-flex items-center rounded-2xl border border-white/15 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition-colors hover:bg-white/10"
+            class="inline-flex items-center rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:border-slate-300 hover:bg-slate-50"
           >
             {{ content.backLabel }}
           </RouterLink>
@@ -27,12 +27,12 @@
           <section
             v-for="section in content.sections"
             :key="section.heading"
-            class="rounded-3xl border border-white/10 bg-white/5 p-5"
+            class="rounded-3xl border border-slate-200 bg-slate-50/80 p-5"
           >
-            <h2 class="text-lg font-bold text-white">
+            <h2 class="text-lg font-bold text-slate-950">
               {{ section.heading }}
             </h2>
-            <div class="mt-3 space-y-3 text-sm leading-7 text-slate-300">
+            <div class="mt-3 space-y-3 text-sm leading-7 text-slate-600">
               <p v-for="paragraph in section.paragraphs" :key="paragraph">
                 {{ paragraph }}
               </p>

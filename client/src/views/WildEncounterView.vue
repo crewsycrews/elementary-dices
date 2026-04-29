@@ -97,8 +97,8 @@
           class="w-full max-w-6xl space-y-3"
         >
           <BattleArena
-            :player-party="wildBattleState.player_party"
-            :opponent-party="wildBattleState.enemy_party"
+            :player-party="wildBattleState?.player_party ?? []"
+            :opponent-party="wildBattleState?.enemy_party ?? []"
             :opponent-name="wildElemental?.name ?? t('wild.opponent_name')"
             :phase-label="wildArenaPhaseLabel"
             :status-label="wildArenaStatusLabel"
@@ -120,7 +120,7 @@
 
               <WildEncounterTurnPanel
                 v-if="!captureResult"
-                :round="wildBattleState.round"
+                :round="wildBattleState?.round ?? 1"
                 :rounds-resolved="roundsResolved"
                 :instruction="wildTurnInstruction"
                 :round-status-message="roundStatusMessage"
